@@ -1,0 +1,142 @@
+[
+  {
+    "key": "col_0",
+    "label": "Col 0"
+  },
+  {
+    "key": "col_1",
+    "label": "MỞ  (open)"
+  },
+  {
+    "key": "col_2",
+    "label": "CAO (high)"
+  },
+  {
+    "key": "col_3",
+    "label": "THẤP (low)"
+  },
+  {
+    "key": "col_4",
+    "label": "ĐÓNG (close)"
+  },
+  {
+    "key": "col_5",
+    "label": "THAY ĐỔI"
+  },
+  {
+    "key": "col_6",
+    "label": "DATE"
+  },
+  {
+    "key": "col_7",
+    "label": "MỞ  (open)"
+  },
+  {
+    "key": "col_8",
+    "label": "CAO (high)"
+  },
+  {
+    "key": "col_9",
+    "label": "THẤP (low)"
+  },
+  {
+    "key": "col_10",
+    "label": "ĐÓNG (close)"
+  },
+  {
+    "key": "col_11",
+    "label": "THAY ĐỔI"
+  },
+  {
+    "key": "col_12",
+    "label": "MẠNH HẢI MUA VÀO / CHỈ"
+  },
+  {
+    "key": "col_13",
+    "label": "MẠNH HẢI BÁN RA / CHỈ"
+  },
+  {
+    "key": "col_14",
+    "label": "MỞ  (open)"
+  },
+  {
+    "key": "col_15",
+    "label": "CAO (high)"
+  },
+  {
+    "key": "col_16",
+    "label": "THẤP (low)"
+  },
+  {
+    "key": "col_17",
+    "label": "ĐÓNG (close)"
+  },
+  {
+    "key": "col_18",
+    "label": "THAY ĐỔI"
+  },
+  {
+    "key": "col_19",
+    "label": "MỞ  (open)"
+  },
+  {
+    "key": "col_20",
+    "label": "CAO (high)"
+  },
+  {
+    "key": "col_21",
+    "label": "THẤP (low)"
+  },
+  {
+    "key": "col_22",
+    "label": "ĐÓNG (close)"
+  },
+  {
+    "key": "col_23",
+    "label": "THAY ĐỔI"
+  },
+  {
+    "key": "col_24",
+    "label": "MỞ  (open)"
+  },
+  {
+    "key": "col_25",
+    "label": "CAO (high)"
+  },
+  {
+    "key": "col_26",
+    "label": "THẤP (low)"
+  },
+  {
+    "key": "col_27",
+    "label": "ĐÓNG (close)"
+  },
+  {
+    "key": "col_28",
+    "label": "THAY ĐỔI"
+  },
+  {
+    "key": "col_29",
+    "label": "Tỷ Giá  VCB"
+  },
+  {
+    "key": "col_30",
+    "label": "chênh lệch  THẾ GIỚI / TRONG NƯỚC  / 01 chỉ"
+  },
+  {
+    "key": "col_31",
+    "label": "∑ bán ra"
+  },
+  {
+    "key": "col_32",
+    "label": "∑ lãi (kỳ vọng)"
+  },
+  {
+    "key": "col_33",
+    "label": "∑ chỉ vàng  mua vào"
+  },
+  {
+    "key": "col_34",
+    "label": "chênh lệch  chỉ vàng"
+  }
+]
