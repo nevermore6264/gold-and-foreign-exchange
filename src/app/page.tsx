@@ -21,7 +21,7 @@ const SECTION_HEADERS: { label: string; colspan: number }[] = [
 ];
 
 const YEARS = [2022, 2023, 2024, 2025, 2026] as const;
-type YearFilter = (typeof YEARS)[number] | "all";
+type YearFilter = (typeof YEARS)[number] | "all" | "recent";
 
 type FullTableRow = Record<string, string | number | null>;
 
@@ -137,7 +137,7 @@ function countDays(from: string, to: string): number {
 }
 
 export default function Home() {
-  const [yearFilter, setYearFilter] = useState<YearFilter>("all");
+  const [yearFilter, setYearFilter] = useState<YearFilter>("recent");
   const [rows, setRows] = useState<FullTableRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -153,8 +153,21 @@ export default function Home() {
       setError(null);
       setRows([]);
       const today = new Date().toISOString().slice(0, 10);
-      const from = yearFilter === "all" ? "2022-01-01" : `${yearFilter}-01-01`;
-      const to = yearFilter === "all" ? today : `${yearFilter}-12-31`;
+      let from: string;
+      let to: string;
+      if (yearFilter === "recent") {
+        const d = new Date();
+        d.setMonth(d.getMonth() - 1);
+        d.setDate(1);
+        from = d.toISOString().slice(0, 10);
+        to = today;
+      } else if (yearFilter === "all") {
+        from = "2022-01-01";
+        to = today;
+      } else {
+        from = `${yearFilter}-01-01`;
+        to = `${yearFilter}-12-31`;
+      }
       const toUse = to > today ? today : to;
       const totalEstimate = countDays(from, toUse);
       setLoadingProgress({ loaded: 0, total: totalEstimate });
@@ -175,7 +188,16 @@ export default function Home() {
           const data: FullTableResponse = await res.json();
           const newRows = data.rows ?? [];
           setRows((prev) => {
-            const merged = [...prev, ...newRows];
+            const byDate = new Map<string, FullTableRow>();
+            for (const r of prev) {
+              const d = r.col_6 != null ? String(r.col_6) : "";
+              if (d) byDate.set(d, r);
+            }
+            for (const r of newRows) {
+              const d = r.col_6 != null ? String(r.col_6) : "";
+              if (d) byDate.set(d, r);
+            }
+            const merged = Array.from(byDate.values());
             return merged.sort((a, b) => {
               const da = a.col_6;
               const db = b.col_6;
@@ -257,20 +279,20 @@ export default function Home() {
           style={{ animationDelay: "140ms", animationFillMode: "forwards" }}
         >
           <span className="text-sm font-semibold text-stone-600 dark:text-stone-400">
-            Lọc theo năm
+            Khoảng thời gian
           </span>
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={() => setYearFilter("all")}
+              onClick={() => setYearFilter("recent")}
               disabled={loading}
               className={`rounded-full px-4 py-2 text-sm font-medium transition-all duration-300 ease-out hover:scale-105 active:scale-100 disabled:opacity-60 ${
-                yearFilter === "all"
+                yearFilter === "recent"
                   ? "bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-md shadow-amber-500/30"
                   : "bg-stone-200/80 dark:bg-stone-700/80 text-stone-600 dark:text-stone-400 hover:bg-stone-300 dark:hover:bg-stone-600"
               }`}
             >
-              Tất cả
+              2 tháng gần nhất
             </button>
             {YEARS.map((y) => (
               <button
@@ -287,6 +309,18 @@ export default function Home() {
                 {y}
               </button>
             ))}
+            <button
+              type="button"
+              onClick={() => setYearFilter("all")}
+              disabled={loading}
+              className={`rounded-full px-4 py-2 text-sm font-medium transition-all duration-300 ease-out hover:scale-105 active:scale-100 disabled:opacity-60 ${
+                yearFilter === "all"
+                  ? "bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-md shadow-amber-500/30"
+                  : "bg-stone-200/80 dark:bg-stone-700/80 text-stone-600 dark:text-stone-400 hover:bg-stone-300 dark:hover:bg-stone-600"
+              }`}
+            >
+              Xem tất cả
+            </button>
           </div>
           <span className="inline-flex items-center rounded-full bg-amber-100 dark:bg-amber-900/40 px-3 py-1 text-sm font-medium text-amber-800 dark:text-amber-200">
             {loading && loadingProgress
@@ -362,9 +396,11 @@ export default function Home() {
           >
             <div className="border-b border-amber-200/50 dark:border-amber-900/30 px-5 py-3.5 text-sm text-stone-500 dark:text-stone-400 bg-amber-50/60 dark:bg-amber-950/20">
               <span className="font-medium text-stone-700 dark:text-stone-300">
-                {yearFilter === "all"
-                  ? "Tất cả năm (2022 → nay)"
-                  : `Năm ${yearFilter}`}
+                {yearFilter === "recent"
+                  ? "2 tháng gần nhất"
+                  : yearFilter === "all"
+                    ? "Tất cả năm (2022 → nay)"
+                    : `Năm ${yearFilter}`}
               </span>
               <span className="mx-2">·</span>
               <span>{sortedRows.length} dòng</span>
