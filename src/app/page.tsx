@@ -38,6 +38,14 @@ function formatDateDdMmYyyy(s: string): string {
   return `${m[3]}-${m[2]}-${m[1]}`;
 }
 
+const CHANGE_COL_KEYS = new Set([
+  "col_5",
+  "col_11",
+  "col_18",
+  "col_23",
+  "col_28",
+]);
+
 function cellDisplay(val: string | number | null, key: string): string {
   if (val == null || val === "") return "–";
   if (typeof val === "string" && val.startsWith("http")) return val;
@@ -45,14 +53,23 @@ function cellDisplay(val: string | number | null, key: string): string {
     return formatDateDdMmYyyy(val);
   if (typeof val === "number") {
     if (Number.isInteger(val) && val > 1000) return val.toLocaleString("vi");
-    if (typeof val === "number" && !Number.isInteger(val))
-      return val.toLocaleString("en-US", {
+    if (typeof val === "number" && !Number.isInteger(val)) {
+      const s = val.toLocaleString("en-US", {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
       });
+      if (CHANGE_COL_KEYS.has(key) && val > 0) return `+${s}%`;
+      return s;
+    }
+    if (CHANGE_COL_KEYS.has(key) && val > 0) return `+${val}%`;
     return String(val);
   }
-  return String(val);
+  const s = String(val).trim();
+  if (CHANGE_COL_KEYS.has(key)) {
+    const num = parseFloat(s.replace(/%/g, ""));
+    if (!Number.isNaN(num) && num > 0 && !s.startsWith("+")) return `+${s}`;
+  }
+  return s;
 }
 
 /** Trả về 1 (tăng/xanh), -1 (giảm/đỏ), 0 (trung tính) từ giá trị cột Thay đổi % */
@@ -67,13 +84,6 @@ function getChangeSign(val: string | number | null): 1 | -1 | 0 {
   return 0;
 }
 
-const CHANGE_COL_KEYS = new Set([
-  "col_5",
-  "col_11",
-  "col_18",
-  "col_23",
-  "col_28",
-]);
 const CLOSE_TO_CHANGE: Record<string, string> = {
   col_4: "col_5",
   col_10: "col_11",
@@ -98,41 +108,97 @@ function getCellColorClass(
   return "text-stone-700 dark:text-stone-300";
 }
 
+/** Chia khoảng [from, to] thành các chunk theo tháng (mỗi chunk tối đa 1 tháng) */
+function getMonthlyChunks(from: string, to: string): [string, string][] {
+  const chunks: [string, string][] = [];
+  const end = new Date(to);
+  const d = new Date(from);
+  d.setHours(0, 0, 0, 0);
+  while (d <= end) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const chunkFrom = `${y}-${m}-01`;
+    const lastDay = new Date(y, d.getMonth() + 1, 0);
+    const chunkTo = lastDay > end ? to : lastDay.toISOString().slice(0, 10);
+    chunks.push([chunkFrom, chunkTo]);
+    d.setMonth(d.getMonth() + 1);
+    d.setDate(1);
+  }
+  return chunks;
+}
+
+/** Số ngày trong khoảng [from, to] (ước tính tổng bản ghi) */
+function countDays(from: string, to: string): number {
+  const a = new Date(from);
+  const b = new Date(to);
+  a.setHours(0, 0, 0, 0);
+  b.setHours(0, 0, 0, 0);
+  return Math.max(0, Math.round((b.getTime() - a.getTime()) / 86400000) + 1);
+}
+
 export default function Home() {
   const [yearFilter, setYearFilter] = useState<YearFilter>("all");
   const [rows, setRows] = useState<FullTableRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Khi đang tải từng chunk: { loaded, total } để hiển thị "Đã X / Y bản ghi" */
+  const [loadingProgress, setLoadingProgress] = useState<{
+    loaded: number;
+    total: number;
+  } | null>(null);
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    const today = new Date().toISOString().slice(0, 10);
-    const from = yearFilter === "all" ? "2022-01-01" : `${yearFilter}-01-01`;
-    const to = yearFilter === "all" ? today : `${yearFilter}-12-31`;
-    if (yearFilter !== "all" && yearFilter >= 2025 && to > today) {
-      // Năm hiện tại: đến hôm nay
-      // (already handled by to when year is current)
-    }
-    const toUse = to > today ? today : to;
-    try {
-      const res = await fetch(
-        `/api/full-table?from=${encodeURIComponent(from)}&to=${encodeURIComponent(toUse)}`,
-      );
-      if (!res.ok) {
-        setError("Không tải được dữ liệu. Thử lại sau.");
-        setRows([]);
-        return;
-      }
-      const data: FullTableResponse = await res.json();
-      setRows(data.rows ?? []);
-    } catch {
-      setError("Lỗi kết nối. Thử lại sau.");
+  const loadData = useCallback(
+    async (forceRefresh = false) => {
+      setLoading(true);
+      setError(null);
       setRows([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [yearFilter]);
+      const today = new Date().toISOString().slice(0, 10);
+      const from = yearFilter === "all" ? "2022-01-01" : `${yearFilter}-01-01`;
+      const to = yearFilter === "all" ? today : `${yearFilter}-12-31`;
+      const toUse = to > today ? today : to;
+      const totalEstimate = countDays(from, toUse);
+      setLoadingProgress({ loaded: 0, total: totalEstimate });
+
+      const chunks = getMonthlyChunks(from, toUse);
+      const refreshParam = forceRefresh ? "&refresh=1" : "";
+      try {
+        for (const [chunkFrom, chunkTo] of chunks) {
+          const res = await fetch(
+            `/api/full-table?from=${encodeURIComponent(chunkFrom)}&to=${encodeURIComponent(chunkTo)}${refreshParam}`,
+          );
+          if (!res.ok) {
+            setError("Không tải được dữ liệu. Thử lại sau.");
+            setRows([]);
+            setLoadingProgress(null);
+            return;
+          }
+          const data: FullTableResponse = await res.json();
+          const newRows = data.rows ?? [];
+          setRows((prev) => {
+            const merged = [...prev, ...newRows];
+            return merged.sort((a, b) => {
+              const da = a.col_6;
+              const db = b.col_6;
+              if (da == null || db == null) return 0;
+              const dateA = parseDateForSort(String(da));
+              const dateB = parseDateForSort(String(db));
+              return dateB.getTime() - dateA.getTime();
+            });
+          });
+          setLoadingProgress((p) =>
+            p ? { ...p, loaded: p.loaded + newRows.length } : null,
+          );
+        }
+      } catch {
+        setError("Lỗi kết nối. Thử lại sau.");
+        setRows([]);
+      } finally {
+        setLoading(false);
+        setLoadingProgress(null);
+      }
+    },
+    [yearFilter],
+  );
 
   useEffect(() => {
     loadData();
@@ -223,9 +289,44 @@ export default function Home() {
             ))}
           </div>
           <span className="inline-flex items-center rounded-full bg-amber-100 dark:bg-amber-900/40 px-3 py-1 text-sm font-medium text-amber-800 dark:text-amber-200">
-            {loading ? "…" : sortedRows.length} dòng
+            {loading && loadingProgress
+              ? `Đã tải ${loadingProgress.loaded} / ${loadingProgress.total} bản ghi`
+              : `${sortedRows.length} dòng`}
           </span>
+          <button
+            type="button"
+            onClick={() => loadData(true)}
+            disabled={loading}
+            className="rounded-full px-3 py-2 text-xs font-medium text-amber-700 dark:text-amber-300 bg-amber-100/80 dark:bg-amber-900/40 hover:bg-amber-200/80 dark:hover:bg-amber-800/50 disabled:opacity-50"
+            title="Tải lại từ API và cập nhật cache"
+          >
+            Làm mới
+          </button>
         </div>
+
+        {loading && loadingProgress && (
+          <div
+            className="mb-6 rounded-xl border border-amber-200/50 dark:border-amber-800/50 bg-amber-50/60 dark:bg-amber-950/30 px-4 py-3 opacity-0 animate-fade-in-up"
+            style={{ animationDelay: "0ms", animationFillMode: "forwards" }}
+          >
+            <div className="flex items-center gap-3">
+              <div className="h-2 flex-1 rounded-full bg-stone-200 dark:bg-stone-700 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-amber-500 to-amber-600 transition-all duration-300"
+                  style={{
+                    width: `${loadingProgress.total ? Math.min(100, (loadingProgress.loaded / loadingProgress.total) * 100) : 0}%`,
+                  }}
+                />
+              </div>
+              <span className="text-sm font-medium text-amber-800 dark:text-amber-200 whitespace-nowrap">
+                {loadingProgress.loaded} / {loadingProgress.total}
+              </span>
+            </div>
+            <p className="mt-2 text-xs text-stone-500 dark:text-stone-400">
+              Đang tải từng tháng, bảng cập nhật dần…
+            </p>
+          </div>
+        )}
 
         {error && (
           <div className="mb-6 rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-4 flex items-center justify-between">
@@ -246,10 +347,15 @@ export default function Home() {
             <p className="mt-3 text-stone-500 dark:text-stone-400">
               Đang tải dữ liệu từ Investing, VCB, FreeGoldAPI…
             </p>
+            {loadingProgress && (
+              <p className="mt-2 text-sm font-medium text-amber-700 dark:text-amber-300">
+                Đã có {loadingProgress.loaded} / {loadingProgress.total} bản ghi
+              </p>
+            )}
           </div>
         )}
 
-        {!loading && rows.length > 0 && (
+        {rows.length > 0 && (
           <div
             className="rounded-2xl border border-amber-200/40 dark:border-amber-900/30 bg-white dark:bg-stone-900 shadow-xl shadow-amber-500/5 overflow-hidden opacity-0 animate-scale-in"
             style={{ animationDelay: "0ms", animationFillMode: "forwards" }}

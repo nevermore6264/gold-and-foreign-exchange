@@ -24,6 +24,9 @@
 .DS_Store
 *.pem
 
+# full-table cache (JSON)
+/cache
+
 # debug
 npm-debug.log*
 yarn-debug.log*
