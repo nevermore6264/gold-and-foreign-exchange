@@ -117,58 +117,78 @@ export async function getFullTableRange(
     const goldClose = goldByMonth.get(date.slice(0, 7)) ?? null;
     const vcb = vcbSells[i] ?? null;
 
-    const [c1, c2, c3, c4, c5] = ohlcToCols(oilRow);
-    const [c7, c8, c9, c10, c11] = ohlcToCols(dollarRow);
-    const [c14, c15, c16, c17, c18] = ohlcToCols(bondRow);
-    const [c24, c25, c26, c27, c28] = ohlcToCols(spRow);
+    const [oilOpen, oilHigh, oilLow, oilClose, oilChange] = ohlcToCols(oilRow);
+    const [dollarOpen, dollarHigh, dollarLow, dollarClose, dollarChange] =
+      ohlcToCols(dollarRow);
+    const [bondOpen, bondHigh, bondLow, bondClose, bondChange] =
+      ohlcToCols(bondRow);
+    const [spOpen, spHigh, spLow, spClose, spChange] = ohlcToCols(spRow);
 
-    let c19: number | null = xauRow?.open ?? null;
-    let c20: number | null = xauRow?.high ?? null;
-    let c21: number | null = xauRow?.low ?? null;
-    let c22: number | null = xauRow?.close ?? null;
-    let c23: string | null = xauRow?.changePercent ?? null;
-    if (c22 == null && goldClose != null) {
-      c19 = c20 = c21 = c22 = goldClose;
-      c23 = null;
+    let kitcoOpen: number | null = xauRow?.open ?? null;
+    let kitcoHigh: number | null = xauRow?.high ?? null;
+    let kitcoLow: number | null = xauRow?.low ?? null;
+    let kitcoClose: number | null = xauRow?.close ?? null;
+    let kitcoChange: string | null = xauRow?.changePercent ?? null;
+    if (kitcoClose == null && goldClose != null) {
+      kitcoOpen = kitcoHigh = kitcoLow = kitcoClose = goldClose;
+      kitcoChange = null;
     }
 
-    const year = date.slice(0, 4);
     const row: FullTableRow = {};
-    row.col_0 = null;
-    row.col_1 = c1;
-    row.col_2 = c2;
-    row.col_3 = c3;
-    row.col_4 = c4;
-    row.col_5 = c5;
-    row.col_6 = date;
-    row.col_7 = c7;
-    row.col_8 = c8;
-    row.col_9 = c9;
-    row.col_10 = c10;
-    row.col_11 = c11;
-    row.col_12 = null;
-    row.col_13 = parseInt(year, 10);
-    row.col_14 = c14;
-    row.col_15 = c15;
-    row.col_16 = c16;
-    row.col_17 = c17;
-    row.col_18 = c18;
-    row.col_19 = c19;
-    row.col_20 = c20;
-    row.col_21 = c21;
-    row.col_22 = c22;
-    row.col_23 = c23;
-    row.col_24 = c24;
-    row.col_25 = c25;
-    row.col_26 = c26;
-    row.col_27 = c27;
-    row.col_28 = c28;
-    row.col_29 = vcb;
-    row.col_30 = null;
-    row.col_31 = null;
-    row.col_32 = null;
-    row.col_33 = null;
-    row.col_34 = null;
+    for (let j = 0; j < 60; j++) row[`col_${j}`] = null;
+
+    row.col_12 = date;
+    row.col_13 = kitcoOpen;
+    row.col_14 = kitcoOpen;
+    row.col_15 = kitcoOpen;
+    row.col_16 = kitcoOpen;
+    row.col_17 = kitcoOpen;
+    row.col_18 = kitcoClose;
+    row.col_19 = kitcoHigh;
+    row.col_20 = kitcoLow;
+    row.col_21 = kitcoChange;
+
+    row.col_22 = oilOpen;
+    row.col_23 = oilOpen;
+    row.col_24 = oilOpen;
+    row.col_25 = oilOpen;
+    row.col_26 = oilOpen;
+    row.col_27 = oilClose;
+    row.col_28 = oilHigh;
+    row.col_29 = oilLow;
+    row.col_30 = oilChange;
+
+    row.col_31 = dollarOpen;
+    row.col_32 = dollarOpen;
+    row.col_33 = dollarOpen;
+    row.col_34 = dollarOpen;
+    row.col_35 = dollarOpen;
+    row.col_36 = dollarClose;
+    row.col_37 = dollarHigh;
+    row.col_38 = dollarLow;
+    row.col_39 = dollarChange;
+
+    row.col_40 = bondOpen;
+    row.col_41 = bondOpen;
+    row.col_42 = bondOpen;
+    row.col_43 = bondOpen;
+    row.col_44 = bondOpen;
+    row.col_45 = bondClose;
+    row.col_46 = bondHigh;
+    row.col_47 = bondLow;
+    row.col_48 = bondChange;
+
+    row.col_49 = spOpen;
+    row.col_50 = spOpen;
+    row.col_51 = spOpen;
+    row.col_52 = spOpen;
+    row.col_53 = spOpen;
+    row.col_54 = spClose;
+    row.col_55 = spHigh;
+    row.col_56 = spLow;
+    row.col_57 = spChange;
+
+    row.col_59 = vcb;
     return row;
   });
 

@@ -1,22 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import excelColumns from "@/data/excel-columns.json";
-
-const TABLE_COLUMNS = (excelColumns as { key: string; label: string }[]).filter(
-  (col) => col.key !== "col_0",
-);
-
-/** Dòng header nhóm cột (row 1 trong Excel) – các nhóm dữ liệu chính (không gồm MẠNH HẢI / THỨ / DATE) */
-const SECTION_HEADERS: { label: string; colspan: number }[] = [
-  { label: "KITCO - GIÁ VÀNG THẾ GIỚI", colspan: 5 },
-  { label: "GIÁ DẦU", colspan: 5 },
-  { label: "DOLLAR INDEX", colspan: 5 },
-  { label: "TRÁI PHIẾU US - 10 NĂM", colspan: 5 },
-  { label: "S&P 500", colspan: 5 },
-  { label: "Tỷ Giá VCB", colspan: 1 },
-  { label: "", colspan: 5 },
-];
+import {
+  HEADER_ROW0,
+  HEADER_ROW1,
+  HEADER_ROW2,
+  TOTAL_COLUMNS,
+} from "@/data/table-headers-60";
 
 const YEARS = [2022, 2023, 2024, 2025, 2026] as const;
 type YearFilter = (typeof YEARS)[number] | "all" | "recent";
@@ -29,13 +19,13 @@ interface FullTableResponse {
   toDate: string;
 }
 
-/** Lấy tên thứ (hai, ba, tư, năm, sáu, bảy, CN) từ yyyy-mm-dd */
+/** Lấy tên thứ (Hai, Ba, Tư, Năm, Sáu, Bảy, CN) từ yyyy-mm-dd – chữ hoa đầu cho đẹp */
 function getWeekdayVi(dateStr: string | number | null): string {
   if (!dateStr) return "";
   const s = String(dateStr);
   const d = new Date(s);
   if (Number.isNaN(d.getTime())) return "";
-  const wd = d.getDay(); // 0 = CN, 1 = hai, ...
+  const wd = d.getDay();
   switch (wd) {
     case 0:
       return "Chủ Nhật";
@@ -63,18 +53,19 @@ function formatDateDdMmYyyy(s: string): string {
   return `${m[3]}-${m[2]}-${m[1]}`;
 }
 
+/** Cột % thay đổi (màu xanh/đỏ) – layout 60 cột Temp.csv */
 const CHANGE_COL_KEYS = new Set([
-  "col_5",
-  "col_11",
-  "col_18",
-  "col_23",
-  "col_28",
+  "col_21",
+  "col_30",
+  "col_39",
+  "col_48",
+  "col_57",
 ]);
 
 function cellDisplay(val: string | number | null, key: string): string {
   if (val == null || val === "") return "–";
   if (typeof val === "string" && val.startsWith("http")) return val;
-  if (key === "col_6" && typeof val === "string")
+  if ((key === "col_6" || key === "col_12") && typeof val === "string")
     return formatDateDdMmYyyy(val);
   if (typeof val === "number") {
     if (Number.isInteger(val) && val > 1000) return val.toLocaleString("vi");
@@ -110,11 +101,11 @@ function getChangeSign(val: string | number | null): 1 | -1 | 0 {
 }
 
 const CLOSE_TO_CHANGE: Record<string, string> = {
-  col_4: "col_5",
-  col_10: "col_11",
-  col_17: "col_18",
-  col_22: "col_23",
-  col_27: "col_28",
+  col_18: "col_21",
+  col_27: "col_30",
+  col_36: "col_39",
+  col_45: "col_48",
+  col_54: "col_57",
 };
 
 function getCellColorClass(
@@ -214,18 +205,24 @@ export default function Home() {
           const newRows = data.rows ?? [];
           setRows((prev) => {
             const byDate = new Map<string, FullTableRow>();
+            const dateKey = (r: FullTableRow) =>
+              r.col_12 != null
+                ? String(r.col_12)
+                : r.col_6 != null
+                  ? String(r.col_6)
+                  : "";
             for (const r of prev) {
-              const d = r.col_6 != null ? String(r.col_6) : "";
+              const d = dateKey(r);
               if (d) byDate.set(d, r);
             }
             for (const r of newRows) {
-              const d = r.col_6 != null ? String(r.col_6) : "";
+              const d = dateKey(r);
               if (d) byDate.set(d, r);
             }
             const merged = Array.from(byDate.values());
             return merged.sort((a, b) => {
-              const da = a.col_6;
-              const db = b.col_6;
+              const da = a.col_12 ?? a.col_6;
+              const db = b.col_12 ?? b.col_6;
               if (da == null || db == null) return 0;
               const dateA = parseDateForSort(String(da));
               const dateB = parseDateForSort(String(db));
@@ -253,11 +250,11 @@ export default function Home() {
 
   const sortedRows = useMemo(() => {
     return [...rows].sort((a, b) => {
-      const da = a.col_6;
-      const db = b.col_6;
+      const da = a.col_12 ?? a.col_6;
+      const db = b.col_12 ?? b.col_6;
       if (da == null || db == null) return 0;
-      const dateA = parseDateForSort(da);
-      const dateB = parseDateForSort(db);
+      const dateA = parseDateForSort(String(da));
+      const dateB = parseDateForSort(String(db));
       return dateB.getTime() - dateA.getTime();
     });
   }, [rows]);
@@ -414,10 +411,19 @@ export default function Home() {
           </div>
         )}
 
+        {!loading && rows.length === 0 && !error && (
+          <div className="rounded-2xl border border-dashed border-amber-200 dark:border-amber-800 bg-amber-50/40 dark:bg-amber-950/20 p-8 text-center">
+            <p className="text-stone-600 dark:text-stone-400 text-sm">
+              Chưa có dữ liệu. Chọn khoảng thời gian ở trên rồi đợi tải, hoặc
+              bấm <strong>Làm mới</strong>.
+            </p>
+          </div>
+        )}
+
         {rows.length > 0 && (
           <div
-            className="rounded-2xl border border-amber-200/40 dark:border-amber-900/30 bg-white dark:bg-stone-900 shadow-xl shadow-amber-500/5 overflow-hidden opacity-0 animate-scale-in"
-            style={{ animationDelay: "0ms", animationFillMode: "forwards" }}
+            className="rounded-2xl border border-amber-200/40 dark:border-amber-900/30 bg-white dark:bg-stone-900 shadow-xl shadow-amber-500/5 overflow-hidden animate-scale-in"
+            style={{ animationDuration: "0.3s", animationFillMode: "forwards" }}
           >
             <div className="border-b border-amber-200/50 dark:border-amber-900/30 px-5 py-3.5 text-sm text-stone-500 dark:text-stone-400 bg-amber-50/60 dark:bg-amber-950/20">
               <span className="font-medium text-stone-700 dark:text-stone-300">
@@ -435,96 +441,94 @@ export default function Home() {
                 <thead className="sticky top-0 z-10 bg-amber-100/90 dark:bg-amber-900/30 backdrop-blur-sm">
                   <tr>
                     <th
-                      rowSpan={2}
-                      className="w-12 border-b border-r border-amber-200/60 dark:border-amber-800/40 px-3 py-3 text-xs font-bold uppercase tracking-wider text-amber-900/80 dark:text-amber-200/90 align-bottom"
+                      rowSpan={3}
+                      className="w-12 border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-2 text-xs font-bold uppercase tracking-wider text-amber-900/80 dark:text-amber-200/90 align-bottom bg-amber-100/70 dark:bg-amber-900/40"
                     >
                       STT
                     </th>
-                    <th
-                      rowSpan={2}
-                      className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-3 py-3 text-xs font-bold uppercase tracking-wider text-amber-900/80 dark:text-amber-200/90 align-bottom whitespace-nowrap"
-                    >
-                      THỨ
-                    </th>
-                    <th
-                      rowSpan={2}
-                      className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-3 py-3 text-xs font-bold uppercase tracking-wider text-amber-900/80 dark:text-amber-200/90 align-bottom whitespace-nowrap"
-                    >
-                      DATE
-                    </th>
-                    {SECTION_HEADERS.map((sec, i) => (
+                    {HEADER_ROW0.slice(1).map((label, j) => (
                       <th
-                        key={i}
-                        colSpan={sec.colspan}
+                        key={j}
                         className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-2 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap bg-amber-100/70 dark:bg-amber-900/40"
                       >
-                        {sec.label}
+                        {label || "\u00A0"}
                       </th>
                     ))}
                   </tr>
                   <tr>
-                    {TABLE_COLUMNS.filter((col) => col.key !== "col_6").map(
-                      (col) => (
-                        <th
-                          key={col.key}
-                          className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-3 py-2 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap max-w-[140px]"
-                          title={col.label}
-                        >
-                          {col.label}
-                        </th>
-                      ),
-                    )}
+                    {HEADER_ROW1.slice(1).map((label, j) => (
+                      <th
+                        key={j}
+                        className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30"
+                      >
+                        {String(label || "").replace(/\n/g, " ") || "\u00A0"}
+                      </th>
+                    ))}
+                  </tr>
+                  <tr>
+                    {HEADER_ROW2.slice(1).map((label, j) => (
+                      <th
+                        key={j}
+                        className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap"
+                      >
+                        {String(label || "").replace(/\n/g, " ") || "\u00A0"}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
                   {sortedRows.map((row, i) => (
                     <tr
-                      key={`${row.col_6}-${i}`}
+                      key={`${row.col_12 ?? row.col_6 ?? i}-${i}`}
                       className="border-b border-stone-100 dark:border-stone-800 transition-colors duration-200 hover:bg-amber-50/50 dark:hover:bg-amber-950/20"
                     >
-                      <td className="tabular-nums border-r border-stone-100 dark:border-stone-800 px-3 py-2.5 text-xs text-stone-600 dark:text-stone-400 font-medium">
-                        {i + 1}
-                      </td>
-                      <td className="border-r border-stone-100 dark:border-stone-800 px-3 py-2.5 text-xs text-stone-700 dark:text-stone-300 whitespace-nowrap">
-                        {getWeekdayVi(row.col_6 ?? null)}
-                      </td>
-                      <td className="border-r border-stone-100 dark:border-stone-800 px-3 py-2.5 text-xs text-stone-700 dark:text-stone-300 whitespace-nowrap">
-                        {cellDisplay(row.col_6 ?? null, "col_6")}
-                      </td>
-                      {TABLE_COLUMNS.filter((col) => col.key !== "col_6").map(
-                        (col) => {
-                          const val = row[col.key];
+                      {Array.from({ length: TOTAL_COLUMNS }, (_, j) => {
+                        const key = `col_${j}`;
+                        let content: React.ReactNode;
+                        const dateVal = row.col_12 ?? row.col_6 ?? null;
+                        if (j === 0) {
+                          content = i + 1;
+                        } else if (j === 11) {
+                          content = getWeekdayVi(dateVal);
+                        } else if (j === 12) {
+                          content = cellDisplay(dateVal, "col_12");
+                        } else {
+                          const val = row[key];
                           const isLink =
                             typeof val === "string" && val.startsWith("http");
-                          const colorClass = getCellColorClass(
-                            col.key,
-                            val,
-                            row,
-                          );
-                          return (
-                            <td
-                              key={col.key}
-                              className={`border-r border-stone-100 dark:border-stone-800 px-3 py-2.5 text-xs max-w-[140px] truncate tabular-nums ${colorClass}`}
-                              title={
-                                isLink ? "Link" : cellDisplay(val, col.key)
-                              }
+                          content = isLink ? (
+                            <a
+                              href={val}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-amber-600 dark:text-amber-400 font-medium hover:underline underline-offset-2 truncate block"
                             >
-                              {isLink ? (
-                                <a
-                                  href={val}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-amber-600 dark:text-amber-400 font-medium hover:underline underline-offset-2 truncate block"
-                                >
-                                  Link
-                                </a>
-                              ) : (
-                                cellDisplay(val, col.key)
-                              )}
-                            </td>
+                              Link
+                            </a>
+                          ) : (
+                            cellDisplay(val, key)
                           );
-                        },
-                      )}
+                        }
+                        const colorClass =
+                          j === 0 || j === 11
+                            ? "text-stone-600 dark:text-stone-400 font-medium"
+                            : getCellColorClass(key, row[key], row);
+                        return (
+                          <td
+                            key={j}
+                            className={`border-r border-stone-100 dark:border-stone-800 px-2 py-2 text-xs max-w-[120px] truncate tabular-nums ${colorClass}`}
+                            title={
+                              typeof content === "string"
+                                ? content
+                                : j === 0
+                                  ? String(i + 1)
+                                  : undefined
+                            }
+                          >
+                            {content}
+                          </td>
+                        );
+                      })}
                     </tr>
                   ))}
                 </tbody>
@@ -542,8 +546,7 @@ export default function Home() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 text-sm text-stone-500 dark:text-stone-400">
             <p>© {new Date().getFullYear()} · Giá vàng & Tỷ giá</p>
             <p className="text-xs sm:text-sm">
-              Nguồn: Investing.com, Vietcombank, FreeGoldAPI · Cafef (col 12)
-              chưa tích hợp
+              Make by Trần Trung Hiếu - 0862478150
             </p>
           </div>
         </div>
