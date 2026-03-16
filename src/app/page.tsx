@@ -53,6 +53,13 @@ function formatDateDdMmYyyy(s: string): string {
   return `${m[3]}-${m[2]}-${m[1]}`;
 }
 
+/** Xóa data Mua/Bán Mạnh Hải (col_1..col_10) – xử lý sau, không hiển thị data cũ/sai */
+function clearMạnhHảiData(row: FullTableRow): FullTableRow {
+  const r = { ...row };
+  for (let j = 1; j <= 10; j++) r[`col_${j}`] = null;
+  return r;
+}
+
 /** Cột % thay đổi (màu xanh/đỏ) – layout 60 cột Temp.csv */
 const CHANGE_COL_KEYS = new Set([
   "col_21",
@@ -202,7 +209,7 @@ export default function Home() {
             return;
           }
           const data: FullTableResponse = await res.json();
-          const newRows = data.rows ?? [];
+          const newRows = (data.rows ?? []).map(clearMạnhHảiData);
           setRows((prev) => {
             const byDate = new Map<string, FullTableRow>();
             const dateKey = (r: FullTableRow) =>
@@ -213,13 +220,13 @@ export default function Home() {
                   : "";
             for (const r of prev) {
               const d = dateKey(r);
-              if (d) byDate.set(d, r);
+              if (d) byDate.set(d, clearMạnhHảiData(r));
             }
             for (const r of newRows) {
               const d = dateKey(r);
               if (d) byDate.set(d, r);
             }
-            const merged = Array.from(byDate.values());
+            const merged = Array.from(byDate.values()).map(clearMạnhHảiData);
             return merged.sort((a, b) => {
               const da = a.col_12 ?? a.col_6;
               const db = b.col_12 ?? b.col_6;
@@ -275,7 +282,7 @@ export default function Home() {
                 Giá vàng & Tỷ giá
               </h1>
               <p className="text-xs text-amber-700/80 dark:text-amber-400/80 font-medium">
-                THEO DÕI · Investing, VCB, FreeGoldAPI
+                Giá dầu & Dollar index từ Investing.com · VCB, FreeGoldAPI
               </p>
             </div>
           </div>
@@ -291,8 +298,8 @@ export default function Home() {
             Bảng dữ liệu
           </h2>
           <p className="text-sm text-stone-500 dark:text-stone-400 mt-1">
-            Dầu, Dollar index, Trái phiếu US 10Y, Vàng XAU/USD, S&P 500, Tỷ giá
-            VCB · Fill đúng cột
+            Giá dầu (Investing), Dollar index (Investing), Trái phiếu 10Y, Vàng
+            XAU/USD, S&P 500, Tỷ giá VCB
           </p>
         </section>
 

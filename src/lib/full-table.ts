@@ -1,16 +1,13 @@
 /**
- * Bảng đủ 35 cột (col_0 .. col_34) theo mapping từ file Excel / ảnh.
- * Nguồn:
- * - col_1-5: Giá dầu → investing.com crude oil
- * - col_6: DATE
- * - col_7-11: Dollar index → Yahoo (DX-Y.NYB) hoặc investing.com
- * - col_12: MẠNH HẢI MUA VÀO → cafef (chưa tích hợp, để trống)
- * - col_13: MẠNH HẢI BÁN RA → năm (vd 2025)
- * - col_14-18: Trái phiếu US 10Y → investing.com
- * - col_19-23: Giá vàng XAU/USD → FreeGoldAPI (hoặc investing)
- * - col_24-28: S&P 500 → investing.com
- * - col_29: Tỷ giá VCB → Vietcombank API
- * - col_30-34: Công thức/ghi chú (để trống)
+ * Bảng 60 cột (col_0 .. col_59). Nguồn:
+ * - col_1-10: Mua/Bán Mạnh Hải – bỏ tạm, xử lý sau (để null)
+ * - col_12: DATE
+ * - col_13-21: KITCO (XAU/USD) → investing / FreeGoldAPI
+ * - col_22-30: Giá dầu → Investing.com crude-oil-historical-data (fallback Yahoo CL=F)
+ * - col_31-39: Dollar index → Investing.com usdollar-historical-data (fallback Yahoo DX-Y.NYB)
+ * - col_40-48: Trái phiếu US 10Y → investing.com
+ * - col_49-57: S&P 500 → investing.com
+ * - col_59: Tỷ giá VCB
  */
 
 import { fetchGoldFromFreeGoldAPI } from "./gold";
@@ -90,8 +87,9 @@ export async function getFullTableRange(
     fetchInvestingHistorical(PAIR_IDS.sp500, from, to),
   ]);
 
-  const oil = oilYahoo.length > 0 ? oilYahoo : oilInvesting;
-  const dollar = dollarYahoo.length > 0 ? dollarYahoo : dollarInvesting;
+  // Ưu tiên Investing.com (crude-oil-historical-data, usdollar-historical-data), fallback Yahoo
+  const oil = oilInvesting.length > 0 ? oilInvesting : oilYahoo;
+  const dollar = dollarInvesting.length > 0 ? dollarInvesting : dollarYahoo;
 
   const goldByMonth = new Map<string, number>();
   for (const { date, price } of goldList) {
@@ -136,6 +134,7 @@ export async function getFullTableRange(
 
     const row: FullTableRow = {};
     for (let j = 0; j < 60; j++) row[`col_${j}`] = null;
+    // col_1..col_10 Mua/Bán Mạnh Hải – không fill data, xử lý sau
 
     row.col_12 = date;
     row.col_13 = kitcoOpen;
