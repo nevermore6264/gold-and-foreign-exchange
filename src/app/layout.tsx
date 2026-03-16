@@ -15,6 +15,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Giá vàng & Tỷ giá | Kitco, Vietcombank",
   description: "Xem giá vàng từ 2022 đến nay và tỷ giá Vietcombank.",
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({

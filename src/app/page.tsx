@@ -7,14 +7,12 @@ const TABLE_COLUMNS = (excelColumns as { key: string; label: string }[]).filter(
   (col) => col.key !== "col_0",
 );
 
-/** Dòng header nhóm cột (row 1 trong Excel) – giống file cần xử lý.xlsx */
+/** Dòng header nhóm cột (row 1 trong Excel) – các nhóm dữ liệu chính (không gồm MẠNH HẢI / THỨ / DATE) */
 const SECTION_HEADERS: { label: string; colspan: number }[] = [
+  { label: "KITCO - GIÁ VÀNG THẾ GIỚI", colspan: 5 },
   { label: "GIÁ DẦU", colspan: 5 },
-  { label: "DATE", colspan: 1 },
   { label: "DOLLAR INDEX", colspan: 5 },
-  { label: "", colspan: 2 },
   { label: "TRÁI PHIẾU US - 10 NĂM", colspan: 5 },
-  { label: "GIÁ VÀNG THẾ GIỚI / OUNCE", colspan: 5 },
   { label: "S&P 500", colspan: 5 },
   { label: "Tỷ Giá VCB", colspan: 1 },
   { label: "", colspan: 5 },
@@ -29,6 +27,33 @@ interface FullTableResponse {
   rows: FullTableRow[];
   fromDate: string;
   toDate: string;
+}
+
+/** Lấy tên thứ (hai, ba, tư, năm, sáu, bảy, CN) từ yyyy-mm-dd */
+function getWeekdayVi(dateStr: string | number | null): string {
+  if (!dateStr) return "";
+  const s = String(dateStr);
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return "";
+  const wd = d.getDay(); // 0 = CN, 1 = hai, ...
+  switch (wd) {
+    case 0:
+      return "Chủ Nhật";
+    case 1:
+      return "Hai";
+    case 2:
+      return "Ba";
+    case 3:
+      return "Tư";
+    case 4:
+      return "Năm";
+    case 5:
+      return "Sáu";
+    case 6:
+      return "Bảy";
+    default:
+      return "";
+  }
 }
 
 /** Chuỗi yyyy-mm-dd → dd-mm-yyyy */
@@ -367,7 +392,7 @@ export default function Home() {
             <p className="text-red-600 dark:text-red-400 text-sm">{error}</p>
             <button
               type="button"
-              onClick={loadData}
+              onClick={() => loadData()}
               className="rounded-lg bg-amber-600 px-3 py-1.5 text-white text-sm font-medium hover:bg-amber-700"
             >
               Thử lại
@@ -415,6 +440,18 @@ export default function Home() {
                     >
                       STT
                     </th>
+                    <th
+                      rowSpan={2}
+                      className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-3 py-3 text-xs font-bold uppercase tracking-wider text-amber-900/80 dark:text-amber-200/90 align-bottom whitespace-nowrap"
+                    >
+                      THỨ
+                    </th>
+                    <th
+                      rowSpan={2}
+                      className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-3 py-3 text-xs font-bold uppercase tracking-wider text-amber-900/80 dark:text-amber-200/90 align-bottom whitespace-nowrap"
+                    >
+                      DATE
+                    </th>
                     {SECTION_HEADERS.map((sec, i) => (
                       <th
                         key={i}
@@ -426,15 +463,17 @@ export default function Home() {
                     ))}
                   </tr>
                   <tr>
-                    {TABLE_COLUMNS.map((col) => (
-                      <th
-                        key={col.key}
-                        className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-3 py-2 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap max-w-[140px]"
-                        title={col.label}
-                      >
-                        {col.label}
-                      </th>
-                    ))}
+                    {TABLE_COLUMNS.filter((col) => col.key !== "col_6").map(
+                      (col) => (
+                        <th
+                          key={col.key}
+                          className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-3 py-2 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap max-w-[140px]"
+                          title={col.label}
+                        >
+                          {col.label}
+                        </th>
+                      ),
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -446,32 +485,46 @@ export default function Home() {
                       <td className="tabular-nums border-r border-stone-100 dark:border-stone-800 px-3 py-2.5 text-xs text-stone-600 dark:text-stone-400 font-medium">
                         {i + 1}
                       </td>
-                      {TABLE_COLUMNS.map((col) => {
-                        const val = row[col.key];
-                        const isLink =
-                          typeof val === "string" && val.startsWith("http");
-                        const colorClass = getCellColorClass(col.key, val, row);
-                        return (
-                          <td
-                            key={col.key}
-                            className={`border-r border-stone-100 dark:border-stone-800 px-3 py-2.5 text-xs max-w-[140px] truncate tabular-nums ${colorClass}`}
-                            title={isLink ? "Link" : cellDisplay(val, col.key)}
-                          >
-                            {isLink ? (
-                              <a
-                                href={val}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-amber-600 dark:text-amber-400 font-medium hover:underline underline-offset-2 truncate block"
-                              >
-                                Link
-                              </a>
-                            ) : (
-                              cellDisplay(val, col.key)
-                            )}
-                          </td>
-                        );
-                      })}
+                      <td className="border-r border-stone-100 dark:border-stone-800 px-3 py-2.5 text-xs text-stone-700 dark:text-stone-300 whitespace-nowrap">
+                        {getWeekdayVi(row.col_6 ?? null)}
+                      </td>
+                      <td className="border-r border-stone-100 dark:border-stone-800 px-3 py-2.5 text-xs text-stone-700 dark:text-stone-300 whitespace-nowrap">
+                        {cellDisplay(row.col_6 ?? null, "col_6")}
+                      </td>
+                      {TABLE_COLUMNS.filter((col) => col.key !== "col_6").map(
+                        (col) => {
+                          const val = row[col.key];
+                          const isLink =
+                            typeof val === "string" && val.startsWith("http");
+                          const colorClass = getCellColorClass(
+                            col.key,
+                            val,
+                            row,
+                          );
+                          return (
+                            <td
+                              key={col.key}
+                              className={`border-r border-stone-100 dark:border-stone-800 px-3 py-2.5 text-xs max-w-[140px] truncate tabular-nums ${colorClass}`}
+                              title={
+                                isLink ? "Link" : cellDisplay(val, col.key)
+                              }
+                            >
+                              {isLink ? (
+                                <a
+                                  href={val}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-amber-600 dark:text-amber-400 font-medium hover:underline underline-offset-2 truncate block"
+                                >
+                                  Link
+                                </a>
+                              ) : (
+                                cellDisplay(val, col.key)
+                              )}
+                            </td>
+                          );
+                        },
+                      )}
                     </tr>
                   ))}
                 </tbody>

@@ -3,7 +3,7 @@
  * Nguồn:
  * - col_1-5: Giá dầu → investing.com crude oil
  * - col_6: DATE
- * - col_7-11: Dollar index → investing.com
+ * - col_7-11: Dollar index → Yahoo (DX-Y.NYB) hoặc investing.com
  * - col_12: MẠNH HẢI MUA VÀO → cafef (chưa tích hợp, để trống)
  * - col_13: MẠNH HẢI BÁN RA → năm (vd 2025)
  * - col_14-18: Trái phiếu US 10Y → investing.com
@@ -17,6 +17,7 @@ import { fetchGoldFromFreeGoldAPI } from "./gold";
 import { fetchVietcombankUsdSellByDate } from "./vietcombank";
 import { fetchInvestingHistorical, PAIR_IDS, type OHLCRow } from "./investing";
 import { fetchOilHistoricalYahoo } from "./oil";
+import { fetchDollarIndexHistoricalYahoo } from "./dollar";
 
 const CONCURRENCY = 8;
 export const START_DATE = "2022-01-01";
@@ -72,7 +73,8 @@ export async function getFullTableRange(
     vcbSells,
     oilYahoo,
     oilInvesting,
-    dollar,
+    dollarYahoo,
+    dollarInvesting,
     bond,
     xauUsd,
     sp500,
@@ -81,6 +83,7 @@ export async function getFullTableRange(
     runInBatches(dates, (d) => fetchVietcombankUsdSellByDate(d)),
     fetchOilHistoricalYahoo(from, to),
     fetchInvestingHistorical(PAIR_IDS.crudeOil, from, to),
+    fetchDollarIndexHistoricalYahoo(from, to),
     fetchInvestingHistorical(PAIR_IDS.dollarIndex, from, to),
     fetchInvestingHistorical(PAIR_IDS.us10yBond, from, to),
     fetchInvestingHistorical(PAIR_IDS.xauUsd, from, to),
@@ -88,6 +91,7 @@ export async function getFullTableRange(
   ]);
 
   const oil = oilYahoo.length > 0 ? oilYahoo : oilInvesting;
+  const dollar = dollarYahoo.length > 0 ? dollarYahoo : dollarInvesting;
 
   const goldByMonth = new Map<string, number>();
   for (const { date, price } of goldList) {

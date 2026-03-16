@@ -17,10 +17,11 @@ const DEFAULT_HEADERS: HeadersInit = {
 /**
  * Pair IDs từ trang investing.com (tham số cid trong URL).
  * Crude Oil WTI: https://www.investing.com/commodities/crude-oil-historical-data?cid=1178037 (CLc1 CME)
+ * US Dollar Index: https://www.investing.com/indices/usdollar-historical-data (DXY, cid=1224074)
  */
 export const PAIR_IDS = {
   crudeOil: 1178037,
-  dollarIndex: 8827,
+  dollarIndex: 1224074,
   us10yBond: 23705,
   xauUsd: 8830,
   sp500: 166,
