@@ -14,8 +14,8 @@ export interface OHLCRow {
   changePercent: string | null;
 }
 
-// XAU/USD spot (Yahoo)
-const XAUUSD_SYMBOL = "XAUUSD=X";
+// Gold futures (Yahoo) - có historical tốt hơn XAUUSD=X ở nhiều giai đoạn
+const XAUUSD_SYMBOL = "GC=F";
 
 export async function fetchXauUsdHistoricalYahoo(
   fromDate: string,
