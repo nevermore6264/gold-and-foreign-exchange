@@ -40,6 +40,7 @@ export async function readFullTableCache(
       rows: data.rows,
       fromDate: data.fromDate ?? from,
       toDate: data.toDate ?? to,
+      cachedAt: data.cachedAt ?? new Date().toISOString(),
     };
   } catch {
     return null;

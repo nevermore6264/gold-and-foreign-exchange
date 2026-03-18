@@ -19,6 +19,11 @@ type GoldApiResponse = {
   };
 };
 
+type MarketLiveResponse = {
+  oil?: { price?: number; changePercent?: number; updatedAt: string };
+  dollarIndex?: { price?: number; changePercent?: number; updatedAt: string };
+};
+
 function toIsoDateLocal(d: Date): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -88,6 +93,7 @@ export default function Home() {
     Record<string, FullTableRow>
   >({});
   const [kitcoLive, setKitcoLive] = useState<GoldApiResponse["live"]>();
+  const [marketLive, setMarketLive] = useState<MarketLiveResponse>();
 
   useEffect(() => {
     let cancelled = false;
@@ -144,6 +150,28 @@ export default function Home() {
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadMarketLive() {
+      try {
+        const res = await fetch("/api/market-live", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = (await res.json()) as MarketLiveResponse;
+        if (!cancelled) setMarketLive(data);
+      } catch {
+        // ignore
+      }
+    }
+
+    loadMarketLive();
+    const t = setInterval(loadMarketLive, 60_000);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, []);
+
   const kitcoLiveMid = useMemo(() => {
     if (!kitcoLive) return undefined;
     const bid = kitcoLive.bid;
@@ -177,6 +205,46 @@ export default function Home() {
     if (colIndex === 21) {
       const cp = kitcoLive?.changePercent;
       if (typeof cp === "number" && Number.isFinite(cp)) return `${cp.toFixed(2)}%`;
+      return formatCellValue(baseVal);
+    }
+
+    return formatCellValue(baseVal);
+  }
+
+  function marketTimedCellValue(
+    isoDate: string,
+    colIndex: number,
+    kind: "oil" | "dollarIndex",
+  ): string {
+    const base = fullRowsByDate[isoDate];
+    const baseVal = base ? base[`col_${colIndex}`] : null;
+
+    const vnNow = getVietnamNowParts();
+    if (isoDate !== vnNow.isoDate) return formatCellValue(baseVal);
+
+    const live =
+      kind === "oil" ? marketLive?.oil : marketLive?.dollarIndex;
+    const livePrice = live?.price;
+    const liveChangePercent = live?.changePercent;
+
+    const slotMinutes = [0, 9 * 60, 11 * 60, 14 * 60 + 30, 17 * 60 + 30];
+    const currentSlot = slotMinutes.filter((m) => vnNow.minutes >= m).length - 1;
+
+    const start = kind === "oil" ? 22 : 31; // open slots start
+    const changeCol = kind === "oil" ? 30 : 39;
+
+    // open slots are start..start+4 (0h,9h,11h,14h30,17h30)
+    if (colIndex >= start && colIndex <= start + 4) {
+      const slot = colIndex - start;
+      if (typeof livePrice !== "number") return formatCellValue(baseVal);
+      if (currentSlot >= slot) return formatCellValue(livePrice);
+      return "–";
+    }
+
+    // change% is the last col of the group
+    if (colIndex === changeCol) {
+      if (typeof liveChangePercent === "number" && Number.isFinite(liveChangePercent))
+        return `${liveChangePercent.toFixed(2)}%`;
       return formatCellValue(baseVal);
     }
 
@@ -611,6 +679,14 @@ export default function Home() {
                               ? row.dateLabel
                               : j >= 13 && j <= 21
                                 ? kitcoCellValue(row.isoDate, j)
+                                : j >= 22 && j <= 30
+                                  ? marketTimedCellValue(row.isoDate, j, "oil")
+                                  : j >= 31 && j <= 39
+                                    ? marketTimedCellValue(
+                                        row.isoDate,
+                                        j,
+                                        "dollarIndex",
+                                      )
                               : "–"}
                       </td>
                     ))}
