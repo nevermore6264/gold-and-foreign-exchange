@@ -15,6 +15,7 @@ import { fetchVietcombankUsdSellByDate } from "./vietcombank";
 import { fetchInvestingHistorical, PAIR_IDS, type OHLCRow } from "./investing";
 import { fetchOilHistoricalYahoo } from "./oil";
 import { fetchDollarIndexHistoricalYahoo } from "./dollar";
+import { fetchXauUsdHistoricalYahoo } from "./xau";
 
 const CONCURRENCY = 8;
 export const START_DATE = "2022-01-01";
@@ -27,7 +28,11 @@ export function generateAllDates(start: string, end?: string): string[] {
   const e = new Date(endDate);
   e.setHours(0, 0, 0, 0);
   while (d <= e) {
-    dates.push(d.toISOString().slice(0, 10));
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    // Use local calendar day to avoid timezone shift with toISOString()
+    dates.push(`${yyyy}-${mm}-${dd}`);
     d.setDate(d.getDate() + 1);
   }
   return dates;
@@ -74,6 +79,7 @@ export async function getFullTableRange(
     dollarInvesting,
     bond,
     xauUsd,
+    xauUsdYahoo,
     sp500,
   ] = await Promise.all([
     fetchGoldFromFreeGoldAPI(),
@@ -84,6 +90,7 @@ export async function getFullTableRange(
     fetchInvestingHistorical(PAIR_IDS.dollarIndex, from, to),
     fetchInvestingHistorical(PAIR_IDS.us10yBond, from, to),
     fetchInvestingHistorical(PAIR_IDS.xauUsd, from, to),
+    fetchXauUsdHistoricalYahoo(from, to),
     fetchInvestingHistorical(PAIR_IDS.sp500, from, to),
   ]);
 
@@ -104,13 +111,15 @@ export async function getFullTableRange(
   const dollarMap = byDate(dollar);
   const bondMap = byDate(bond);
   const xauMap = byDate(xauUsd);
+  const xauYahooMap = byDate(xauUsdYahoo as unknown as OHLCRow[]);
   const spMap = byDate(sp500);
 
   const rows: FullTableRow[] = dates.map((date, i) => {
     const oilRow = oilMap.get(date) ?? null;
     const dollarRow = dollarMap.get(date) ?? null;
     const bondRow = bondMap.get(date) ?? null;
-    const xauRow = xauMap.get(date) ?? null;
+    // Prefer investing data if available; fallback to Yahoo for missing ranges.
+    const xauRow = xauMap.get(date) ?? xauYahooMap.get(date) ?? null;
     const spRow = spMap.get(date) ?? null;
     const goldClose = goldByMonth.get(date.slice(0, 7)) ?? null;
     const vcb = vcbSells[i] ?? null;

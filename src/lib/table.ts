@@ -21,7 +21,11 @@ export function generateAllDates(start: string, end?: string): string[] {
   const e = new Date(endDate);
   e.setHours(0, 0, 0, 0);
   while (d <= e) {
-    dates.push(d.toISOString().slice(0, 10));
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    // Use local calendar day to avoid timezone shift with toISOString()
+    dates.push(`${yyyy}-${mm}-${dd}`);
     d.setDate(d.getDate() + 1);
   }
   return dates;

@@ -60,7 +60,7 @@ export async function fetchDollarIndexHistoricalYahoo(
       const d = sorted[i];
       const dateStr =
         d.date instanceof Date
-          ? d.date.toISOString().slice(0, 10)
+          ? `${d.date.getFullYear()}-${String(d.date.getMonth() + 1).padStart(2, "0")}-${String(d.date.getDate()).padStart(2, "0")}`
           : String(d.date).slice(0, 10);
       if (dateStr < fromDate || dateStr > toDate) continue;
 

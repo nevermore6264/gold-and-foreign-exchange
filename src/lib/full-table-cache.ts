@@ -8,6 +8,8 @@ import path from "path";
 import type { FullTableRow } from "./full-table";
 
 const CACHE_DIR = path.join(process.cwd(), "cache", "full-table");
+// Bump cache version when date-key logic changes (timezone, formats, etc.)
+const CACHE_VERSION = "v2";
 /** Cache coi như hết hạn sau 24 giờ (ms). Set 0 = không bao giờ hết hạn. */
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -20,7 +22,7 @@ export interface CachedFullTable {
 
 function cacheFilePath(from: string, to: string): string {
   const safe = (s: string) => s.replace(/[^0-9-]/g, "");
-  return path.join(CACHE_DIR, `${safe(from)}_${safe(to)}.json`);
+  return path.join(CACHE_DIR, CACHE_VERSION, `${safe(from)}_${safe(to)}.json`);
 }
 
 export async function readFullTableCache(

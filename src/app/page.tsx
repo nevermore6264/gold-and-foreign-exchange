@@ -58,40 +58,103 @@ function getVietnamNowParts(): { isoDate: string; minutes: number } {
   return { isoDate: `${y}-${m}-${d}`, minutes: h * 60 + min };
 }
 
-export default function Home() {
-  const startDate = new Date(2022, 0, 1); // 01/01/2022 (local time)
+type RangeMode = "month" | "quarter" | "year";
 
-  const today = new Date();
-  const endDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+function clampIsoToTodayInVietnam(isoDate: string): string {
+  const vnToday = getVietnamNowParts().isoDate;
+  return isoDate > vnToday ? vnToday : isoDate;
+}
 
-  const dateRows: {
-    date: Date;
-    isoDate: string;
-    weekdayLabel: string;
-    dateLabel: string;
-  }[] = [];
-  for (
-    let d = new Date(endDate.getTime());
-    d >= startDate;
-    d = new Date(d.getFullYear(), d.getMonth(), d.getDate() - 1)
-  ) {
-    const day = d.getDay(); // 0..6 (Sun..Sat)
-    const weekdayLabel =
-      day === 0
-        ? "Chủ nhật"
-        : day === 6
-          ? "Thứ 7"
-          : `Thứ ${day + 1}`; // Mon=2..Sat=7
+function daysInMonth(year: number, month1to12: number): number {
+  return new Date(year, month1to12, 0).getDate();
+}
 
-    const dateLabel = d.toLocaleDateString("vi-VN"); // dd/mm/yyyy
-    const isoDate = toIsoDateLocal(d);
-
-    dateRows.push({ date: d, isoDate, weekdayLabel, dateLabel });
+function computeRange(mode: RangeMode, year: number, month?: number, quarter?: number): {
+  from: string;
+  to: string;
+} {
+  if (mode === "year") {
+    const from = `${year}-01-01`;
+    const to = clampIsoToTodayInVietnam(`${year}-12-31`);
+    return { from, to };
   }
+
+  if (mode === "quarter") {
+    const q = Math.min(4, Math.max(1, quarter ?? 1));
+    const startMonth = (q - 1) * 3 + 1; // 1,4,7,10
+    const endMonth = startMonth + 2;
+    const from = `${year}-${String(startMonth).padStart(2, "0")}-01`;
+    const lastDay = daysInMonth(year, endMonth);
+    const to = clampIsoToTodayInVietnam(
+      `${year}-${String(endMonth).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`,
+    );
+    return { from, to };
+  }
+
+  const m = Math.min(12, Math.max(1, month ?? 1));
+  const from = `${year}-${String(m).padStart(2, "0")}-01`;
+  const lastDay = daysInMonth(year, m);
+  const to = clampIsoToTodayInVietnam(
+    `${year}-${String(m).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`,
+  );
+  return { from, to };
+}
+
+function parseIso(iso: string): Date {
+  // YYYY-MM-DD -> local Date at 00:00
+  const [y, m, d] = iso.split("-").map((x) => parseInt(x, 10));
+  return new Date(y, (m ?? 1) - 1, d ?? 1);
+}
+
+export default function Home() {
+  const vnTodayIso = getVietnamNowParts().isoDate;
+  const currentYear = parseInt(vnTodayIso.slice(0, 4), 10);
+  const currentMonth = parseInt(vnTodayIso.slice(5, 7), 10);
+  const currentQuarter = Math.floor((currentMonth - 1) / 3) + 1;
+
+  const [rangeMode, setRangeMode] = useState<RangeMode>("month");
+  const [selectedYear, setSelectedYear] = useState<number>(currentYear);
+  const [selectedMonth, setSelectedMonth] = useState<number>(currentMonth);
+  const [selectedQuarter, setSelectedQuarter] = useState<number>(currentQuarter);
+
+  const { from, to } = useMemo(() => {
+    return computeRange(rangeMode, selectedYear, selectedMonth, selectedQuarter);
+  }, [rangeMode, selectedYear, selectedMonth, selectedQuarter]);
+
+  const dateRows = useMemo(() => {
+    const startDate = parseIso(from);
+    const endDate = parseIso(to);
+    const rows: {
+      date: Date;
+      isoDate: string;
+      weekdayLabel: string;
+      dateLabel: string;
+    }[] = [];
+    for (
+      let d = new Date(endDate.getTime());
+      d >= startDate;
+      d = new Date(d.getFullYear(), d.getMonth(), d.getDate() - 1)
+    ) {
+      const day = d.getDay(); // 0..6 (Sun..Sat)
+      const weekdayLabel =
+        day === 0
+          ? "Chủ nhật"
+          : day === 6
+            ? "Thứ 7"
+            : `Thứ ${day + 1}`; // Mon=2..Sat=7
+
+      const dateLabel = d.toLocaleDateString("vi-VN"); // dd/mm/yyyy
+      const isoDate = toIsoDateLocal(d);
+
+      rows.push({ date: d, isoDate, weekdayLabel, dateLabel });
+    }
+    return rows;
+  }, [from, to]);
 
   const [fullRowsByDate, setFullRowsByDate] = useState<
     Record<string, FullTableRow>
   >({});
+  const [isLoadingTable, setIsLoadingTable] = useState<boolean>(false);
   const [kitcoLive, setKitcoLive] = useState<GoldApiResponse["live"]>();
   const [marketLive, setMarketLive] = useState<MarketLiveResponse>();
 
@@ -101,8 +164,9 @@ export default function Home() {
 
     async function loadFullTable() {
       try {
-        const from = "2022-01-01";
-        const to = toIsoDateLocal(new Date());
+        // Clear old data immediately when switching range
+        setFullRowsByDate({});
+        setIsLoadingTable(true);
         const res = await fetch(`/api/full-table?from=${from}&to=${to}`, {
           signal: controller.signal,
         });
@@ -118,6 +182,8 @@ export default function Home() {
         if (!cancelled) setFullRowsByDate(map);
       } catch {
         // ignore
+      } finally {
+        if (!cancelled) setIsLoadingTable(false);
       }
     }
 
@@ -126,7 +192,7 @@ export default function Home() {
       cancelled = true;
       controller.abort();
     };
-  }, []);
+  }, [from, to]);
 
   useEffect(() => {
     let cancelled = false;
@@ -285,23 +351,106 @@ export default function Home() {
           className="mb-6 opacity-0 animate-fade-in-up"
           style={{ animationDelay: "80ms", animationFillMode: "forwards" }}
         >
-          <h2 className="text-xl font-semibold text-stone-800 dark:text-stone-200">
-            Bảng dữ liệu
-          </h2>
-          <p className="text-sm text-stone-500 dark:text-stone-400 mt-1">
-            Khung bảng 60 cột (Mua/Bán Mạnh Hải, Kitco, Giá dầu, Dollar index,
-            Trái phiếu US 10Y, S&P 500, Tỷ giá VCB). Phần dữ liệu sẽ làm sau.
-          </p>
+          <div className="mt-4 flex flex-col sm:flex-row sm:items-end gap-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-stone-600 dark:text-stone-400">
+                Lọc theo
+              </span>
+              <select
+                value={rangeMode}
+                onChange={(e) => setRangeMode(e.target.value as RangeMode)}
+                className="h-9 rounded-xl border border-amber-200/60 dark:border-amber-800/40 bg-white dark:bg-stone-900 px-3 text-sm"
+              >
+                <option value="month">Tháng</option>
+                <option value="quarter">Quý</option>
+                <option value="year">Năm</option>
+              </select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-stone-600 dark:text-stone-400">
+                Năm
+              </span>
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(parseInt(e.target.value, 10))}
+                className="h-9 rounded-xl border border-amber-200/60 dark:border-amber-800/40 bg-white dark:bg-stone-900 px-3 text-sm"
+              >
+                {Array.from({ length: currentYear - 2022 + 1 }, (_, i) => 2022 + i)
+                  .reverse()
+                  .map((y) => (
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
+                  ))}
+              </select>
+            </div>
+
+            {rangeMode === "month" && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-stone-600 dark:text-stone-400">
+                  Tháng
+                </span>
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(parseInt(e.target.value, 10))}
+                  className="h-9 rounded-xl border border-amber-200/60 dark:border-amber-800/40 bg-white dark:bg-stone-900 px-3 text-sm"
+                >
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {rangeMode === "quarter" && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-stone-600 dark:text-stone-400">
+                  Quý
+                </span>
+                <select
+                  value={selectedQuarter}
+                  onChange={(e) => setSelectedQuarter(parseInt(e.target.value, 10))}
+                  className="h-9 rounded-xl border border-amber-200/60 dark:border-amber-800/40 bg-white dark:bg-stone-900 px-3 text-sm"
+                >
+                  {[1, 2, 3, 4].map((q) => (
+                    <option key={q} value={q}>
+                      {q}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div className="text-xs text-stone-500 dark:text-stone-400 sm:ml-auto">
+              Đang xem: <span className="font-semibold">{from}</span> →{" "}
+              <span className="font-semibold">{to}</span>
+              {isLoadingTable && (
+                <span className="ml-2 inline-flex items-center gap-1 text-amber-600 dark:text-amber-400">
+                  <span className="inline-block h-2 w-2 rounded-full bg-amber-500 animate-ping" />
+                  Đang tải dữ liệu...
+                </span>
+              )}
+            </div>
+          </div>
         </section>
 
         <div
-          className="rounded-2xl border border-amber-200/40 dark:border-amber-900/30 bg-white dark:bg-stone-900 shadow-xl shadow-amber-500/5 overflow-hidden opacity-0 animate-scale-in"
+          className="relative rounded-2xl border border-amber-200/40 dark:border-amber-900/30 bg-white dark:bg-stone-900 shadow-xl shadow-amber-500/5 overflow-hidden opacity-0 animate-scale-in"
           style={{ animationDelay: "140ms", animationFillMode: "forwards" }}
         >
-          <div className="border-b border-amber-200/50 dark:border-amber-900/30 px-5 py-3.5 text-sm text-stone-500 dark:text-stone-400 bg-amber-50/60 dark:bg-amber-950/20 backdrop-blur">
+          <div className="border-b border-amber-200/50 dark:border-amber-900/30 px-5 py-3.5 text-sm text-stone-500 dark:text-stone-400 bg-gradient-to-r from-amber-50/70 to-white/60 dark:from-amber-950/20 dark:to-stone-900/10 backdrop-blur flex items-center justify-between gap-3">
             <span className="font-medium text-stone-700 dark:text-stone-300">
-              Khung bảng – chưa nối dữ liệu
+              Bảng dữ liệu tổng hợp 60 cột
             </span>
+            {isLoadingTable && (
+              <span className="inline-flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300">
+                <span className="inline-block h-3 w-3 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
+                Đang tải...
+              </span>
+            )}
           </div>
           <div className="overflow-auto">
             <table className="w-full text-left border-collapse min-w-max">
@@ -663,7 +812,7 @@ export default function Home() {
               <tbody>
                 {dateRows.map((row, i) => (
                   <tr
-                    key={row.date.toISOString()}
+                    key={row.isoDate}
                     className="border-b border-stone-100 dark:border-stone-800 transition-colors duration-200 hover:bg-amber-50/60 dark:hover:bg-amber-950/30"
                   >
                     {Array.from({ length: TOTAL_COLUMNS }, (_, j) => (
@@ -671,23 +820,23 @@ export default function Home() {
                         key={j}
                         className="border-r border-stone-100 dark:border-stone-800 px-2 py-2 text-xs max-w-[120px] truncate tabular-nums text-stone-400 dark:text-stone-500"
                       >
-                        {j === 0
-                          ? i + 1
-                          : j === 11
-                            ? row.weekdayLabel
-                            : j === 12
-                              ? row.dateLabel
-                              : j >= 13 && j <= 21
-                                ? kitcoCellValue(row.isoDate, j)
-                                : j >= 22 && j <= 30
-                                  ? marketTimedCellValue(row.isoDate, j, "oil")
-                                  : j >= 31 && j <= 39
-                                    ? marketTimedCellValue(
-                                        row.isoDate,
-                                        j,
-                                        "dollarIndex",
-                                      )
-                              : "–"}
+                        {isLoadingTable && j !== 0 && j !== 11 && j !== 12 ? (
+                          <div className="h-4 w-14 rounded bg-stone-200/70 dark:bg-stone-800/70 animate-pulse" />
+                        ) : j === 0 ? (
+                          i + 1
+                        ) : j === 11 ? (
+                          row.weekdayLabel
+                        ) : j === 12 ? (
+                          row.dateLabel
+                        ) : j >= 13 && j <= 21 ? (
+                          kitcoCellValue(row.isoDate, j)
+                        ) : j >= 22 && j <= 30 ? (
+                          marketTimedCellValue(row.isoDate, j, "oil")
+                        ) : j >= 31 && j <= 39 ? (
+                          marketTimedCellValue(row.isoDate, j, "dollarIndex")
+                        ) : (
+                          "–"
+                        )}
                       </td>
                     ))}
                   </tr>
@@ -695,7 +844,7 @@ export default function Home() {
               </tbody>
             </table>
           </div>
-        </div>
+          </div>
       </main>
 
       <footer

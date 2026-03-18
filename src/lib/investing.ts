@@ -69,7 +69,11 @@ export async function fetchInvestingHistorical(
       const ts = p.date;
       if (ts == null) continue;
       const d = new Date(ts * 1000);
-      const dateStr = d.toISOString().slice(0, 10);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
+      // Use local calendar day for stable YYYY-MM-DD keys
+      const dateStr = `${yyyy}-${mm}-${dd}`;
       if (dateStr < fromDate || dateStr > toDate) continue;
       const open = p.price_open ?? p.price_close ?? 0;
       const high = p.price_high ?? p.price_close ?? open;
