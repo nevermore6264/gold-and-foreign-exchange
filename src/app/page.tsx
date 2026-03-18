@@ -62,6 +62,30 @@ function getVietnamNowParts(): { isoDate: string; minutes: number } {
 
 type RangeMode = "month" | "quarter" | "year";
 
+function getChangeToneClass(value: string): string {
+  // value examples: "1.23%", "-0.45%", "–"
+  const trimmed = value.trim();
+  if (trimmed === "–" || trimmed === "") {
+    return "text-stone-500 dark:text-stone-300 font-semibold";
+  }
+  const num = parseFloat(trimmed.replace("%", "").replace(",", "."));
+  if (!Number.isFinite(num)) {
+    return "text-stone-500 dark:text-stone-300 font-semibold";
+  }
+  if (num > 0) return "text-green-600 dark:text-green-400 font-semibold";
+  if (num < 0) return "text-red-600 dark:text-red-400 font-semibold";
+  return "text-stone-500 dark:text-stone-300 font-semibold";
+}
+
+function formatChangeWithPlus(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed === "–" || trimmed === "") return "–";
+  const num = parseFloat(trimmed.replace("%", "").replace(",", "."));
+  if (!Number.isFinite(num)) return trimmed;
+  if (num > 0 && !trimmed.startsWith("+")) return `+${trimmed}`;
+  return trimmed;
+}
+
 function clampIsoToTodayInVietnam(isoDate: string): string {
   const vnToday = getVietnamNowParts().isoDate;
   return isoDate > vnToday ? vnToday : isoDate;
@@ -838,6 +862,50 @@ export default function Home() {
                           row.weekdayLabel
                         ) : j === 12 ? (
                           row.dateLabel
+                        ) : j === 21 ? (
+                          (() => {
+                            const v = kitcoCellValue(row.isoDate, j);
+                            const text = formatChangeWithPlus(v);
+                            return (
+                              <span className={getChangeToneClass(v)}>{text}</span>
+                            );
+                          })()
+                        ) : j === 30 ? (
+                          (() => {
+                            const v = marketTimedCellValue(row.isoDate, j, "oil");
+                            const text = formatChangeWithPlus(v);
+                            return (
+                              <span className={getChangeToneClass(v)}>{text}</span>
+                            );
+                          })()
+                        ) : j === 39 ? (
+                          (() => {
+                            const v = marketTimedCellValue(
+                              row.isoDate,
+                              j,
+                              "dollarIndex",
+                            );
+                            const text = formatChangeWithPlus(v);
+                            return (
+                              <span className={getChangeToneClass(v)}>{text}</span>
+                            );
+                          })()
+                        ) : j === 48 ? (
+                          (() => {
+                            const v = marketTimedCellValue(row.isoDate, j, "bond10y");
+                            const text = formatChangeWithPlus(v);
+                            return (
+                              <span className={getChangeToneClass(v)}>{text}</span>
+                            );
+                          })()
+                        ) : j === 57 ? (
+                          (() => {
+                            const v = marketTimedCellValue(row.isoDate, j, "sp500");
+                            const text = formatChangeWithPlus(v);
+                            return (
+                              <span className={getChangeToneClass(v)}>{text}</span>
+                            );
+                          })()
                         ) : j >= 13 && j <= 21 ? (
                           kitcoCellValue(row.isoDate, j)
                         ) : j >= 22 && j <= 30 ? (
