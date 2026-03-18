@@ -1,11 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import {
-  HEADER_ROW1,
-  HEADER_ROW2,
-  TOTAL_COLUMNS,
-} from "@/data/table-headers-60";
+import { TOTAL_COLUMNS } from "@/data/table-headers-60";
 
 /**
  * Khung UI trước – chỉ header + bảng trống.
@@ -13,6 +9,30 @@ import {
  */
 
 export default function Home() {
+  const startDate = new Date(2022, 0, 1); // 01/01/2022 (local time)
+
+  const today = new Date();
+  const endDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+  const dateRows: { date: Date; weekdayLabel: string; dateLabel: string }[] = [];
+  for (
+    let d = new Date(endDate.getTime());
+    d >= startDate;
+    d = new Date(d.getFullYear(), d.getMonth(), d.getDate() - 1)
+  ) {
+    const day = d.getDay(); // 0..6 (Sun..Sat)
+    const weekdayLabel =
+      day === 0
+        ? "Chủ nhật"
+        : day === 6
+          ? "Thứ 7"
+          : `Thứ ${day + 1}`; // Mon=2..Sat=7
+
+    const dateLabel = d.toLocaleDateString("vi-VN"); // dd/mm/yyyy
+
+    dateRows.push({ date: d, weekdayLabel, dateLabel });
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100">
       <header
@@ -131,7 +151,7 @@ export default function Home() {
                     S&P 500
                   </th>
                   <th
-                    colSpan={2}
+                    colSpan={3}
                     className="border-b border-amber-200/60 dark:border-amber-800/40 px-2 py-2 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap bg-amber-100/70 dark:bg-amber-900/40"
                   >
                     Tỷ Giá VCB
@@ -264,12 +284,15 @@ export default function Home() {
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
                     THAY ĐỔI
                   </th>
-                  {/* Tỷ giá VCB (2 cột) */}
+                  {/* Tỷ giá VCB (3 cột) */}
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
-                    MỞ
+                    Mua tiền mặt
+                  </th>
+                  <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
+                    Mua chuyển khoản
                   </th>
                   <th className="border-b border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
-                    ĐÓNG
+                    Bán
                   </th>
                 </tr>
                 {/* Dòng 3: các mốc giờ chi tiết */}
@@ -413,19 +436,16 @@ export default function Home() {
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
-                  {/* Tỷ giá VCB (2 cột) */}
-                  <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
-                    9h (Việt Nam)
-                  </th>
-                  <th className="border-b border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
-                    11h (Việt Nam)
-                  </th>
+                  {/* Tỷ giá VCB (3 cột) */}
+                  <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
+                  <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
+                  <th className="border-b border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
                 </tr>
               </thead>
               <tbody>
-                {Array.from({ length: 3 }).map((_, i) => (
+                {dateRows.map((row, i) => (
                   <tr
-                    key={i}
+                    key={row.date.toISOString()}
                     className="border-b border-stone-100 dark:border-stone-800 transition-colors duration-200 hover:bg-amber-50/60 dark:hover:bg-amber-950/30"
                   >
                     {Array.from({ length: TOTAL_COLUMNS }, (_, j) => (
@@ -433,7 +453,13 @@ export default function Home() {
                         key={j}
                         className="border-r border-stone-100 dark:border-stone-800 px-2 py-2 text-xs max-w-[120px] truncate tabular-nums text-stone-400 dark:text-stone-500"
                       >
-                        {j === 0 ? i + 1 : "–"}
+                        {j === 0
+                          ? i + 1
+                          : j === 11
+                            ? row.weekdayLabel
+                            : j === 12
+                              ? row.dateLabel
+                              : "–"}
                       </td>
                     ))}
                   </tr>

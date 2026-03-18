@@ -61,6 +61,7 @@ export const TABLE_HEADER_ROW0: string[] = [
   "",
   "Tỷ Giá VCB",
   "",
+  "",
 ];
 
 export const TABLE_HEADER_ROW1: string[] = [
@@ -125,8 +126,9 @@ export const TABLE_HEADER_ROW1: string[] = [
   "CAO (High)",
   "THẤP (Low)",
   "THAY ĐỔI",
-  "MỞ",
-  "ĐÓNG",
+  "Mua tiền mặt",
+  "Mua chuyển khoản",
+  "Bán",
 ];
 
 export const TABLE_HEADER_ROW2: string[] = [
@@ -192,11 +194,12 @@ export const TABLE_HEADER_ROW2: string[] = [
   "",
   "",
   "",
-  "9h (Việt Nam)",
-  "11h (Việt Nam)",
+  "",
+  "",
+  "",
 ];
 
-const LEN = 60;
+const LEN = 61;
 function toLen<T>(arr: T[], len: number, fill: T): T[] {
   if (arr.length >= len) return arr.slice(0, len);
   return [...arr, ...Array(len - arr.length).fill(fill)];
