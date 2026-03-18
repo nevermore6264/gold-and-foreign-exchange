@@ -351,6 +351,12 @@ export default function Home() {
     return formatCellValue(baseVal);
   }
 
+  function vcbCellValue(isoDate: string, colIndex: number): string {
+    const base = fullRowsByDate[isoDate];
+    const baseVal = base ? base[`col_${colIndex}`] : null;
+    return formatCellValue(baseVal);
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100">
       <header
@@ -916,6 +922,8 @@ export default function Home() {
                           marketTimedCellValue(row.isoDate, j, "bond10y")
                         ) : j >= 49 && j <= 57 ? (
                           marketTimedCellValue(row.isoDate, j, "sp500")
+                        ) : j >= 58 && j <= 60 ? (
+                          vcbCellValue(row.isoDate, j)
                         ) : (
                           "–"
                         )}

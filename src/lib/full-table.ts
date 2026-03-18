@@ -7,11 +7,14 @@
  * - col_31-39: Dollar index → Investing.com usdollar-historical-data (fallback Yahoo DX-Y.NYB)
  * - col_40-48: Trái phiếu US 10Y → investing.com
  * - col_49-57: S&P 500 → investing.com
- * - col_59: Tỷ giá VCB
+ * - col_58..col_60: Tỷ giá VCB (Mua tiền mặt / Mua chuyển khoản / Bán)
  */
 
 import { fetchGoldFromFreeGoldAPI } from "./gold";
-import { fetchVietcombankUsdSellByDate } from "./vietcombank";
+import {
+  fetchVietcombankUsdRatesByDate,
+  type VietcombankUsdRates,
+} from "./vietcombank";
 import { fetchInvestingHistorical, PAIR_IDS, type OHLCRow } from "./investing";
 import { fetchOilHistoricalYahoo } from "./oil";
 import { fetchDollarIndexHistoricalYahoo } from "./dollar";
@@ -74,7 +77,7 @@ export async function getFullTableRange(
 
   const [
     goldList,
-    vcbSells,
+    vcbRates,
     oilYahoo,
     oilInvesting,
     dollarYahoo,
@@ -87,7 +90,7 @@ export async function getFullTableRange(
     sp500Yahoo,
   ] = await Promise.all([
     fetchGoldFromFreeGoldAPI(),
-    runInBatches(dates, (d) => fetchVietcombankUsdSellByDate(d)),
+    runInBatches(dates, (d) => fetchVietcombankUsdRatesByDate(d)),
     fetchOilHistoricalYahoo(from, to),
     fetchInvestingHistorical(PAIR_IDS.crudeOil, from, to),
     fetchDollarIndexHistoricalYahoo(from, to),
@@ -130,7 +133,7 @@ export async function getFullTableRange(
     const xauRow = xauMap.get(date) ?? xauYahooMap.get(date) ?? null;
     const spRow = spMap.get(date) ?? null;
     const goldClose = goldByMonth.get(date.slice(0, 7)) ?? null;
-    const vcb = vcbSells[i] ?? null;
+    const vcb: VietcombankUsdRates | null = vcbRates[i] ?? null;
 
     const [oilOpen, oilHigh, oilLow, oilClose, oilChange] = ohlcToCols(oilRow);
     const [dollarOpen, dollarHigh, dollarLow, dollarClose, dollarChange] =
@@ -150,7 +153,7 @@ export async function getFullTableRange(
     }
 
     const row: FullTableRow = {};
-    for (let j = 0; j < 60; j++) row[`col_${j}`] = null;
+    for (let j = 0; j < 61; j++) row[`col_${j}`] = null;
     // col_1..col_10 Mua/Bán Mạnh Hải – không fill data, xử lý sau
 
     row.col_12 = date;
@@ -204,7 +207,9 @@ export async function getFullTableRange(
     row.col_56 = spLow;
     row.col_57 = spChange;
 
-    row.col_59 = vcb;
+    row.col_58 = vcb?.buyCash ?? null;
+    row.col_59 = vcb?.buyTransfer ?? null;
+    row.col_60 = vcb?.sell ?? null;
     return row;
   });
 

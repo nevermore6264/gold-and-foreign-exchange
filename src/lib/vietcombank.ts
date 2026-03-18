@@ -141,3 +141,51 @@ export async function fetchVietcombankUsdSellByDate(
     return null;
   }
 }
+
+export interface VietcombankUsdRates {
+  buyCash: number | null; // cash
+  buyTransfer: number | null; // transfer
+  sell: number | null;
+}
+
+/**
+ * Lấy tỷ giá USD theo ngày từ Vietcombank JSON API.
+ * https://www.vietcombank.com.vn/api/exchangerates?date=YYYY-MM-DD
+ */
+export async function fetchVietcombankUsdRatesByDate(
+  date: string,
+): Promise<VietcombankUsdRates> {
+  try {
+    const url = `${VCB_JSON_API}?date=${date}`;
+    const res = await fetch(url, {
+      next: { revalidate: 86400 },
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        Accept: "application/json",
+      },
+    });
+    if (!res.ok) {
+      return { buyCash: null, buyTransfer: null, sell: null };
+    }
+
+    const data = (await res.json()) as VcbJsonResponse;
+    const usd = data.Data?.find(
+      (c) => c.currencyCode?.toUpperCase() === "USD",
+    );
+
+    const parseMaybe = (s?: string): number | null => {
+      if (!s) return null;
+      const n = parseFloat(s.replace(/,/g, "."));
+      return Number.isFinite(n) ? n : null;
+    };
+
+    return {
+      buyCash: parseMaybe((usd as any)?.cash),
+      buyTransfer: parseMaybe((usd as any)?.transfer),
+      sell: parseMaybe((usd as any)?.sell),
+    };
+  } catch {
+    return { buyCash: null, buyTransfer: null, sell: null };
+  }
+}
