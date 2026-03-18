@@ -1,7 +1,11 @@
 "use client";
 
 import Image from "next/image";
-import { TOTAL_COLUMNS } from "@/data/table-headers-60";
+import {
+  HEADER_ROW1,
+  HEADER_ROW2,
+  TOTAL_COLUMNS,
+} from "@/data/table-headers-60";
 
 /**
  * Khung UI trước – chỉ header + bảng trống.
@@ -17,7 +21,7 @@ export default function Home() {
       >
         <div className="w-full px-4 sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-amber-700 text-white text-lg font-bold shadow-lg shadow-amber-500/25 transition-transform duration-300 hover:scale-105 overflow-hidden">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl overflow-hidden">
               <Image
                 src="/favicon.svg"
                 alt="Logo"
@@ -164,6 +168,7 @@ export default function Home() {
                   <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
                     MỞ (Open)
                   </th>
+                  <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30" />
                   <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30" />
                   <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30" />
                   <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30" />
@@ -446,7 +451,7 @@ export default function Home() {
         <div className="w-full px-4 sm:px-6 py-5">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 text-sm text-stone-500 dark:text-stone-400">
             <div className="flex items-center gap-2">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500 to-amber-700 shadow-md shadow-amber-500/25 overflow-hidden">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg overflow-hidden">
                 <Image src="/favicon.svg" alt="Logo" width={20} height={20} />
               </span>
               <p>© {new Date().getFullYear()} · Giá vàng & Tỷ giá</p>
