@@ -2,11 +2,56 @@
 
 import Image from "next/image";
 import { TOTAL_COLUMNS } from "@/data/table-headers-60";
+import { useEffect, useMemo, useState } from "react";
 
 /**
  * Khung UI trước – chỉ header + bảng trống.
  * Phần render / load dữ liệu sẽ làm sau.
  */
+
+type FullTableRow = Record<string, string | number | null>;
+type GoldApiResponse = {
+  live?: {
+    bid?: number;
+    ask?: number;
+    change?: number;
+    changePercent?: number;
+  };
+};
+
+function toIsoDateLocal(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function formatCellValue(v: string | number | null | undefined): string {
+  if (v === null || v === undefined) return "–";
+  if (typeof v === "number") return Number.isFinite(v) ? v.toFixed(2) : "–";
+  return v;
+}
+
+function getVietnamNowParts(): { isoDate: string; minutes: number } {
+  // Use VN timezone regardless of user's system timezone
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date());
+
+  const get = (type: string) => parts.find((p) => p.type === type)?.value;
+  const y = get("year") ?? "1970";
+  const m = get("month") ?? "01";
+  const d = get("day") ?? "01";
+  const h = parseInt(get("hour") ?? "0", 10);
+  const min = parseInt(get("minute") ?? "0", 10);
+  return { isoDate: `${y}-${m}-${d}`, minutes: h * 60 + min };
+}
 
 export default function Home() {
   const startDate = new Date(2022, 0, 1); // 01/01/2022 (local time)
@@ -14,7 +59,12 @@ export default function Home() {
   const today = new Date();
   const endDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 
-  const dateRows: { date: Date; weekdayLabel: string; dateLabel: string }[] = [];
+  const dateRows: {
+    date: Date;
+    isoDate: string;
+    weekdayLabel: string;
+    dateLabel: string;
+  }[] = [];
   for (
     let d = new Date(endDate.getTime());
     d >= startDate;
@@ -29,8 +79,108 @@ export default function Home() {
           : `Thứ ${day + 1}`; // Mon=2..Sat=7
 
     const dateLabel = d.toLocaleDateString("vi-VN"); // dd/mm/yyyy
+    const isoDate = toIsoDateLocal(d);
 
-    dateRows.push({ date: d, weekdayLabel, dateLabel });
+    dateRows.push({ date: d, isoDate, weekdayLabel, dateLabel });
+  }
+
+  const [fullRowsByDate, setFullRowsByDate] = useState<
+    Record<string, FullTableRow>
+  >({});
+  const [kitcoLive, setKitcoLive] = useState<GoldApiResponse["live"]>();
+
+  useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+
+    async function loadFullTable() {
+      try {
+        const from = "2022-01-01";
+        const to = toIsoDateLocal(new Date());
+        const res = await fetch(`/api/full-table?from=${from}&to=${to}`, {
+          signal: controller.signal,
+        });
+        if (!res.ok) return;
+        const data = (await res.json()) as { rows?: FullTableRow[] };
+        if (!data.rows || cancelled) return;
+
+        const map: Record<string, FullTableRow> = {};
+        for (const r of data.rows) {
+          const date = r.col_12;
+          if (typeof date === "string") map[date] = r;
+        }
+        if (!cancelled) setFullRowsByDate(map);
+      } catch {
+        // ignore
+      }
+    }
+
+    loadFullTable();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadKitcoLive() {
+      try {
+        const res = await fetch("/api/gold", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = (await res.json()) as GoldApiResponse;
+        if (!cancelled) setKitcoLive(data.live);
+      } catch {
+        // ignore
+      }
+    }
+
+    loadKitcoLive();
+    const t = setInterval(loadKitcoLive, 60_000);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, []);
+
+  const kitcoLiveMid = useMemo(() => {
+    if (!kitcoLive) return undefined;
+    const bid = kitcoLive.bid;
+    const ask = kitcoLive.ask;
+    if (typeof bid === "number" && typeof ask === "number") return (bid + ask) / 2;
+    if (typeof bid === "number") return bid;
+    if (typeof ask === "number") return ask;
+    return undefined;
+  }, [kitcoLive]);
+
+  function kitcoCellValue(isoDate: string, colIndex: number): string {
+    const base = fullRowsByDate[isoDate];
+    const baseVal = base ? base[`col_${colIndex}`] : null;
+
+    // Only overlay realtime for "today in Vietnam"
+    const vnNow = getVietnamNowParts();
+    if (isoDate !== vnNow.isoDate) return formatCellValue(baseVal);
+
+    const slotMinutes = [0, 9 * 60, 11 * 60, 14 * 60 + 30, 17 * 60 + 30];
+    const currentSlot = slotMinutes.filter((m) => vnNow.minutes >= m).length - 1;
+
+    // KITCO open slots are col_13..col_17 (0h,9h,11h,14h30,17h30)
+    if (colIndex >= 13 && colIndex <= 17) {
+      const slot = colIndex - 13;
+      if (kitcoLiveMid == null) return formatCellValue(baseVal);
+      if (currentSlot >= slot) return formatCellValue(kitcoLiveMid);
+      return "–";
+    }
+
+    // KITCO change% is col_21
+    if (colIndex === 21) {
+      const cp = kitcoLive?.changePercent;
+      if (typeof cp === "number" && Number.isFinite(cp)) return `${cp.toFixed(2)}%`;
+      return formatCellValue(baseVal);
+    }
+
+    return formatCellValue(baseVal);
   }
 
   return (
@@ -459,6 +609,8 @@ export default function Home() {
                             ? row.weekdayLabel
                             : j === 12
                               ? row.dateLabel
+                              : j >= 13 && j <= 21
+                                ? kitcoCellValue(row.isoDate, j)
                               : "–"}
                       </td>
                     ))}
