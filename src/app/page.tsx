@@ -22,6 +22,8 @@ type GoldApiResponse = {
 type MarketLiveResponse = {
   oil?: { price?: number; changePercent?: number; updatedAt: string };
   dollarIndex?: { price?: number; changePercent?: number; updatedAt: string };
+  bond10y?: { price?: number; changePercent?: number; updatedAt: string };
+  sp500?: { price?: number; changePercent?: number; updatedAt: string };
 };
 
 function toIsoDateLocal(d: Date): string {
@@ -280,7 +282,7 @@ export default function Home() {
   function marketTimedCellValue(
     isoDate: string,
     colIndex: number,
-    kind: "oil" | "dollarIndex",
+    kind: "oil" | "dollarIndex" | "bond10y" | "sp500",
   ): string {
     const base = fullRowsByDate[isoDate];
     const baseVal = base ? base[`col_${colIndex}`] : null;
@@ -289,15 +291,23 @@ export default function Home() {
     if (isoDate !== vnNow.isoDate) return formatCellValue(baseVal);
 
     const live =
-      kind === "oil" ? marketLive?.oil : marketLive?.dollarIndex;
+      kind === "oil"
+        ? marketLive?.oil
+        : kind === "dollarIndex"
+          ? marketLive?.dollarIndex
+          : kind === "bond10y"
+            ? marketLive?.bond10y
+            : marketLive?.sp500;
     const livePrice = live?.price;
     const liveChangePercent = live?.changePercent;
 
     const slotMinutes = [0, 9 * 60, 11 * 60, 14 * 60 + 30, 17 * 60 + 30];
     const currentSlot = slotMinutes.filter((m) => vnNow.minutes >= m).length - 1;
 
-    const start = kind === "oil" ? 22 : 31; // open slots start
-    const changeCol = kind === "oil" ? 30 : 39;
+    const start =
+      kind === "oil" ? 22 : kind === "dollarIndex" ? 31 : kind === "bond10y" ? 40 : 49; // open slots start
+    const changeCol =
+      kind === "oil" ? 30 : kind === "dollarIndex" ? 39 : kind === "bond10y" ? 48 : 57;
 
     // open slots are start..start+4 (0h,9h,11h,14h30,17h30)
     if (colIndex >= start && colIndex <= start + 4) {
@@ -834,6 +844,10 @@ export default function Home() {
                           marketTimedCellValue(row.isoDate, j, "oil")
                         ) : j >= 31 && j <= 39 ? (
                           marketTimedCellValue(row.isoDate, j, "dollarIndex")
+                        ) : j >= 40 && j <= 48 ? (
+                          marketTimedCellValue(row.isoDate, j, "bond10y")
+                        ) : j >= 49 && j <= 57 ? (
+                          marketTimedCellValue(row.isoDate, j, "sp500")
                         ) : (
                           "–"
                         )}

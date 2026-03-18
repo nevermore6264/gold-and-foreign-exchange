@@ -16,6 +16,8 @@ import { fetchInvestingHistorical, PAIR_IDS, type OHLCRow } from "./investing";
 import { fetchOilHistoricalYahoo } from "./oil";
 import { fetchDollarIndexHistoricalYahoo } from "./dollar";
 import { fetchXauUsdHistoricalYahoo } from "./xau";
+import { fetchBond10yHistoricalYahoo } from "./bond-10y";
+import { fetchSp500HistoricalYahoo } from "./sp500";
 
 const CONCURRENCY = 8;
 export const START_DATE = "2022-01-01";
@@ -78,9 +80,11 @@ export async function getFullTableRange(
     dollarYahoo,
     dollarInvesting,
     bond,
+    bondYahoo,
     xauUsd,
     xauUsdYahoo,
     sp500,
+    sp500Yahoo,
   ] = await Promise.all([
     fetchGoldFromFreeGoldAPI(),
     runInBatches(dates, (d) => fetchVietcombankUsdSellByDate(d)),
@@ -89,14 +93,18 @@ export async function getFullTableRange(
     fetchDollarIndexHistoricalYahoo(from, to),
     fetchInvestingHistorical(PAIR_IDS.dollarIndex, from, to),
     fetchInvestingHistorical(PAIR_IDS.us10yBond, from, to),
+    fetchBond10yHistoricalYahoo(from, to),
     fetchInvestingHistorical(PAIR_IDS.xauUsd, from, to),
     fetchXauUsdHistoricalYahoo(from, to),
     fetchInvestingHistorical(PAIR_IDS.sp500, from, to),
+    fetchSp500HistoricalYahoo(from, to),
   ]);
 
   // Ưu tiên Investing.com (crude-oil-historical-data, usdollar-historical-data), fallback Yahoo
   const oil = oilInvesting.length > 0 ? oilInvesting : oilYahoo;
   const dollar = dollarInvesting.length > 0 ? dollarInvesting : dollarYahoo;
+  const bondData = bond.length > 0 ? bond : bondYahoo;
+  const spData = sp500.length > 0 ? sp500 : sp500Yahoo;
 
   const goldByMonth = new Map<string, number>();
   for (const { date, price } of goldList) {
@@ -109,10 +117,10 @@ export async function getFullTableRange(
 
   const oilMap = byDate(oil);
   const dollarMap = byDate(dollar);
-  const bondMap = byDate(bond);
+  const bondMap = byDate(bondData);
   const xauMap = byDate(xauUsd);
   const xauYahooMap = byDate(xauUsdYahoo as unknown as OHLCRow[]);
-  const spMap = byDate(sp500);
+  const spMap = byDate(spData);
 
   const rows: FullTableRow[] = dates.map((date, i) => {
     const oilRow = oilMap.get(date) ?? null;

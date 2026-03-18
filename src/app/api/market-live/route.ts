@@ -43,9 +43,41 @@ export async function GET() {
       updatedAt: new Date().toISOString(),
     };
 
+    const [tnx, sp] = await Promise.all([
+      yahooFinance.quote("^TNX"),
+      yahooFinance.quote("^GSPC"),
+    ]);
+
+    // ^TNX is in percent*10 (e.g. 4.30% -> ~43). Scale về % để khớp historal.
+    const tnxLive: LiveQuote = {
+      price:
+        typeof tnx?.regularMarketPrice === "number"
+          ? tnx.regularMarketPrice / 10
+          : undefined,
+      changePercent:
+        typeof tnx?.regularMarketChangePercent === "number"
+          ? tnx.regularMarketChangePercent
+          : undefined,
+      updatedAt: new Date().toISOString(),
+    };
+
+    const spLive: LiveQuote = {
+      price:
+        typeof sp?.regularMarketPrice === "number"
+          ? sp.regularMarketPrice
+          : undefined,
+      changePercent:
+        typeof sp?.regularMarketChangePercent === "number"
+          ? sp.regularMarketChangePercent
+          : undefined,
+      updatedAt: new Date().toISOString(),
+    };
+
     return NextResponse.json({
       oil: oilLive,
       dollarIndex: dxyLive,
+      bond10y: tnxLive,
+      sp500: spLive,
     });
   } catch (e) {
     console.error("Market live API error:", e);
