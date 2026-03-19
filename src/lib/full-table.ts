@@ -24,6 +24,17 @@ import { fetchSp500HistoricalYahoo } from "./sp500";
 
 const CONCURRENCY = 8;
 export const START_DATE = "2022-01-01";
+const LOOKBACK_DAYS_FOR_CHANGE = 10;
+
+function addDaysIso(iso: string, deltaDays: number): string {
+  const [y, m, d] = iso.split("-").map((x) => parseInt(x, 10));
+  const dt = new Date(y, (m ?? 1) - 1, d ?? 1);
+  dt.setDate(dt.getDate() + deltaDays);
+  const yyyy = dt.getFullYear();
+  const mm = String(dt.getMonth() + 1).padStart(2, "0");
+  const dd = String(dt.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
 
 export function generateAllDates(start: string, end?: string): string[] {
   const endDate = end ? new Date(end) : new Date();
@@ -75,6 +86,15 @@ export async function getFullTableRange(
     return { rows: [], fromDate: from, toDate: to };
   }
 
+  // Fetch thêm vài ngày trước "from" để tính % thay đổi cho ngày đầu kỳ.
+  const fetchFrom =
+    from <= START_DATE
+      ? START_DATE
+      : addDaysIso(from, -LOOKBACK_DAYS_FOR_CHANGE) < START_DATE
+        ? START_DATE
+        : addDaysIso(from, -LOOKBACK_DAYS_FOR_CHANGE);
+  const allDates = generateAllDates(fetchFrom, to);
+
   const [
     goldList,
     vcbRates,
@@ -90,17 +110,19 @@ export async function getFullTableRange(
     sp500Yahoo,
   ] = await Promise.all([
     fetchGoldFromFreeGoldAPI(),
+    // VCB theo ngày trong range (đủ cho 3 cột cuối)
     runInBatches(dates, (d) => fetchVietcombankUsdRatesByDate(d)),
-    fetchOilHistoricalYahoo(from, to),
-    fetchInvestingHistorical(PAIR_IDS.crudeOil, from, to),
-    fetchDollarIndexHistoricalYahoo(from, to),
-    fetchInvestingHistorical(PAIR_IDS.dollarIndex, from, to),
-    fetchInvestingHistorical(PAIR_IDS.us10yBond, from, to),
-    fetchBond10yHistoricalYahoo(from, to),
-    fetchInvestingHistorical(PAIR_IDS.xauUsd, from, to),
-    fetchXauUsdHistoricalYahoo(from, to),
-    fetchInvestingHistorical(PAIR_IDS.sp500, from, to),
-    fetchSp500HistoricalYahoo(from, to),
+    // Market series: fetch theo window mở rộng để có prevClose cho ngày đầu kỳ
+    fetchOilHistoricalYahoo(fetchFrom, to),
+    fetchInvestingHistorical(PAIR_IDS.crudeOil, fetchFrom, to),
+    fetchDollarIndexHistoricalYahoo(fetchFrom, to),
+    fetchInvestingHistorical(PAIR_IDS.dollarIndex, fetchFrom, to),
+    fetchInvestingHistorical(PAIR_IDS.us10yBond, fetchFrom, to),
+    fetchBond10yHistoricalYahoo(fetchFrom, to),
+    fetchInvestingHistorical(PAIR_IDS.xauUsd, fetchFrom, to),
+    fetchXauUsdHistoricalYahoo(fetchFrom, to),
+    fetchInvestingHistorical(PAIR_IDS.sp500, fetchFrom, to),
+    fetchSp500HistoricalYahoo(fetchFrom, to),
   ]);
 
   // Ưu tiên Investing.com (crude-oil-historical-data, usdollar-historical-data), fallback Yahoo
@@ -132,23 +154,31 @@ export async function getFullTableRange(
   let lastXau: OHLCRow | null = null;
   let lastSp: OHLCRow | null = null;
 
-  const rows: FullTableRow[] = dates.map((date, i) => {
+  const vcbByDate = new Map<string, VietcombankUsdRates>();
+  for (let i = 0; i < dates.length; i++) vcbByDate.set(dates[i], vcbRates[i]);
+
+  const requestedSet = new Set(dates);
+  const rows: FullTableRow[] = [];
+
+  for (const date of allDates) {
     const oilRow = oilMap.get(date) ?? lastOil;
     const dollarRow = dollarMap.get(date) ?? lastDollar;
     const bondRow = bondMap.get(date) ?? lastBond;
-    // Prefer investing data if available; fallback to Yahoo for missing ranges.
     const xauRow = xauMap.get(date) ?? xauYahooMap.get(date) ?? lastXau;
     const spRow = spMap.get(date) ?? lastSp;
 
     if (oilMap.has(date)) lastOil = oilMap.get(date) ?? lastOil;
     if (dollarMap.has(date)) lastDollar = dollarMap.get(date) ?? lastDollar;
     if (bondMap.has(date)) lastBond = bondMap.get(date) ?? lastBond;
-    if (xauMap.has(date) || xauYahooMap.has(date))
+    if (xauMap.has(date) || xauYahooMap.has(date)) {
       lastXau = (xauMap.get(date) ?? xauYahooMap.get(date) ?? lastXau) ?? lastXau;
+    }
     if (spMap.has(date)) lastSp = spMap.get(date) ?? lastSp;
 
+    if (!requestedSet.has(date)) continue;
+
     const goldClose = goldByMonth.get(date.slice(0, 7)) ?? null;
-    const vcb: VietcombankUsdRates | null = vcbRates[i] ?? null;
+    const vcb: VietcombankUsdRates | null = vcbByDate.get(date) ?? null;
 
     const [oilOpen, oilHigh, oilLow, oilClose, oilChange] = ohlcToCols(oilRow);
     const [dollarOpen, dollarHigh, dollarLow, dollarClose, dollarChange] =
@@ -225,8 +255,8 @@ export async function getFullTableRange(
     row.col_58 = vcb?.buyCash ?? null;
     row.col_59 = vcb?.buyTransfer ?? null;
     row.col_60 = vcb?.sell ?? null;
-    return row;
-  });
+    rows.push(row);
+  }
 
   return {
     rows,

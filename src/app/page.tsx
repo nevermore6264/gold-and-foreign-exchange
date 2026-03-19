@@ -95,7 +95,12 @@ function daysInMonth(year: number, month1to12: number): number {
   return new Date(year, month1to12, 0).getDate();
 }
 
-function computeRange(mode: RangeMode, year: number, month?: number, quarter?: number): {
+function computeRange(
+  mode: RangeMode,
+  year: number,
+  month?: number,
+  quarter?: number,
+): {
   from: string;
   to: string;
 } {
@@ -161,7 +166,8 @@ export default function Home() {
   const [rangeMode, setRangeMode] = useState<RangeMode>("month");
   const [selectedYear, setSelectedYear] = useState<number>(currentYear);
   const [selectedMonth, setSelectedMonth] = useState<number>(currentMonth);
-  const [selectedQuarter, setSelectedQuarter] = useState<number>(currentQuarter);
+  const [selectedQuarter, setSelectedQuarter] =
+    useState<number>(currentQuarter);
 
   const maxMonth = selectedYear === currentYear ? currentMonth : 12;
   const maxQuarter = selectedYear === currentYear ? currentQuarter : 4;
@@ -177,7 +183,12 @@ export default function Home() {
   }, [rangeMode, selectedMonth, maxMonth, selectedQuarter, maxQuarter]);
 
   const { from, to } = useMemo(() => {
-    return computeRange(rangeMode, selectedYear, selectedMonth, selectedQuarter);
+    return computeRange(
+      rangeMode,
+      selectedYear,
+      selectedMonth,
+      selectedQuarter,
+    );
   }, [rangeMode, selectedYear, selectedMonth, selectedQuarter]);
 
   const dateRows = useMemo(() => {
@@ -196,11 +207,7 @@ export default function Home() {
     ) {
       const day = d.getDay(); // 0..6 (Sun..Sat)
       const weekdayLabel =
-        day === 0
-          ? "Chủ nhật"
-          : day === 6
-            ? "Thứ 7"
-            : `Thứ ${day + 1}`; // Mon=2..Sat=7
+        day === 0 ? "Chủ nhật" : day === 6 ? "Thứ 7" : `Thứ ${day + 1}`; // Mon=2..Sat=7
 
       const dateLabel = d.toLocaleDateString("vi-VN"); // dd/mm/yyyy
       const isoDate = toIsoDateLocal(d);
@@ -301,7 +308,8 @@ export default function Home() {
     if (!kitcoLive) return undefined;
     const bid = kitcoLive.bid;
     const ask = kitcoLive.ask;
-    if (typeof bid === "number" && typeof ask === "number") return (bid + ask) / 2;
+    if (typeof bid === "number" && typeof ask === "number")
+      return (bid + ask) / 2;
     if (typeof bid === "number") return bid;
     if (typeof ask === "number") return ask;
     return undefined;
@@ -316,7 +324,8 @@ export default function Home() {
     if (isoDate !== vnNow.isoDate) return formatCellValue(baseVal);
 
     const slotMinutes = [0, 9 * 60, 11 * 60, 14 * 60 + 30, 17 * 60 + 30];
-    const currentSlot = slotMinutes.filter((m) => vnNow.minutes >= m).length - 1;
+    const currentSlot =
+      slotMinutes.filter((m) => vnNow.minutes >= m).length - 1;
 
     // KITCO open slots are col_13..col_17 (0h,9h,11h,14h30,17h30)
     if (colIndex >= 13 && colIndex <= 17) {
@@ -329,7 +338,8 @@ export default function Home() {
     // KITCO change% is col_21
     if (colIndex === 21) {
       const cp = kitcoLive?.changePercent;
-      if (typeof cp === "number" && Number.isFinite(cp)) return `${cp.toFixed(2)}%`;
+      if (typeof cp === "number" && Number.isFinite(cp))
+        return `${cp.toFixed(2)}%`;
       return formatCellValue(baseVal);
     }
 
@@ -359,12 +369,25 @@ export default function Home() {
     const liveChangePercent = live?.changePercent;
 
     const slotMinutes = [0, 9 * 60, 11 * 60, 14 * 60 + 30, 17 * 60 + 30];
-    const currentSlot = slotMinutes.filter((m) => vnNow.minutes >= m).length - 1;
+    const currentSlot =
+      slotMinutes.filter((m) => vnNow.minutes >= m).length - 1;
 
     const start =
-      kind === "oil" ? 22 : kind === "dollarIndex" ? 31 : kind === "bond10y" ? 40 : 49; // open slots start
+      kind === "oil"
+        ? 22
+        : kind === "dollarIndex"
+          ? 31
+          : kind === "bond10y"
+            ? 40
+            : 49; // open slots start
     const changeCol =
-      kind === "oil" ? 30 : kind === "dollarIndex" ? 39 : kind === "bond10y" ? 48 : 57;
+      kind === "oil"
+        ? 30
+        : kind === "dollarIndex"
+          ? 39
+          : kind === "bond10y"
+            ? 48
+            : 57;
 
     // open slots are start..start+4 (0h,9h,11h,14h30,17h30)
     if (colIndex >= start && colIndex <= start + 4) {
@@ -376,7 +399,10 @@ export default function Home() {
 
     // change% is the last col of the group
     if (colIndex === changeCol) {
-      if (typeof liveChangePercent === "number" && Number.isFinite(liveChangePercent))
+      if (
+        typeof liveChangePercent === "number" &&
+        Number.isFinite(liveChangePercent)
+      )
         return `${liveChangePercent.toFixed(2)}%`;
       return formatCellValue(baseVal);
     }
@@ -408,11 +434,23 @@ export default function Home() {
               />
             </span>
             <div>
-              <h1 className="text-lg font-bold tracking-tight text-stone-800 dark:text-stone-100">
-                Giá vàng & Tỷ giá
-              </h1>
-              <p className="text-xs text-amber-700/80 dark:text-amber-400/80 font-medium">
-                Giá dầu & Dollar index từ Investing.com · VCB, FreeGoldAPI
+              <div className="flex items-center gap-2">
+                <h1 className="text-[15px] sm:text-lg font-extrabold tracking-tight">
+                  <span className="bg-gradient-to-r from-amber-700 via-amber-600 to-orange-600 dark:from-amber-300 dark:via-amber-200 dark:to-orange-200 bg-clip-text text-transparent">
+                    Giá vàng
+                  </span>{" "}
+                  <span className="text-stone-800 dark:text-stone-100">&</span>{" "}
+                  <span className="text-stone-800 dark:text-stone-100">
+                    Tỷ giá
+                  </span>
+                </h1>
+                <span className="hidden sm:inline-flex items-center gap-1 rounded-full border border-amber-200/70 dark:border-amber-800/40 bg-amber-50/70 dark:bg-amber-950/30 px-2 py-0.5 text-[11px] font-semibold text-amber-800 dark:text-amber-200">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                  Live
+                </span>
+              </div>
+              <p className="text-[11px] sm:text-xs text-stone-500 dark:text-stone-400">
+                Tổng hợp vàng, tỷ giá &amp; chỉ số thị trường
               </p>
             </div>
           </div>
@@ -475,7 +513,10 @@ export default function Home() {
                 onChange={(e) => setSelectedYear(parseInt(e.target.value, 10))}
                 className="h-9 rounded-xl border border-amber-200/60 dark:border-amber-800/40 bg-white dark:bg-stone-900 px-3 text-sm"
               >
-                {Array.from({ length: currentYear - 2022 + 1 }, (_, i) => 2022 + i)
+                {Array.from(
+                  { length: currentYear - 2022 + 1 },
+                  (_, i) => 2022 + i,
+                )
                   .reverse()
                   .map((y) => (
                     <option key={y} value={y}>
@@ -492,14 +533,18 @@ export default function Home() {
                 </span>
                 <select
                   value={selectedMonth}
-                  onChange={(e) => setSelectedMonth(parseInt(e.target.value, 10))}
+                  onChange={(e) =>
+                    setSelectedMonth(parseInt(e.target.value, 10))
+                  }
                   className="h-9 rounded-xl border border-amber-200/60 dark:border-amber-800/40 bg-white dark:bg-stone-900 px-3 text-sm"
                 >
-                  {Array.from({ length: maxMonth }, (_, i) => i + 1).map((m) => (
-                    <option key={m} value={m}>
-                      {m}
-                    </option>
-                  ))}
+                  {Array.from({ length: maxMonth }, (_, i) => i + 1).map(
+                    (m) => (
+                      <option key={m} value={m}>
+                        {m}
+                      </option>
+                    ),
+                  )}
                 </select>
               </div>
             )}
@@ -542,7 +587,8 @@ export default function Home() {
                 </span>
                 {!isLoadingTable && (
                   <span className="hidden sm:inline">
-                    • <span className="font-semibold">{dateRows.length}</span> ngày
+                    • <span className="font-semibold">{dateRows.length}</span>{" "}
+                    ngày
                   </span>
                 )}
               </div>
@@ -1009,15 +1055,23 @@ export default function Home() {
                             const v = kitcoCellValue(row.isoDate, j);
                             const text = formatChangeWithPlus(v);
                             return (
-                              <span className={getChangeToneClass(v)}>{text}</span>
+                              <span className={getChangeToneClass(v)}>
+                                {text}
+                              </span>
                             );
                           })()
                         ) : j === 30 ? (
                           (() => {
-                            const v = marketTimedCellValue(row.isoDate, j, "oil");
+                            const v = marketTimedCellValue(
+                              row.isoDate,
+                              j,
+                              "oil",
+                            );
                             const text = formatChangeWithPlus(v);
                             return (
-                              <span className={getChangeToneClass(v)}>{text}</span>
+                              <span className={getChangeToneClass(v)}>
+                                {text}
+                              </span>
                             );
                           })()
                         ) : j === 39 ? (
@@ -1029,23 +1083,37 @@ export default function Home() {
                             );
                             const text = formatChangeWithPlus(v);
                             return (
-                              <span className={getChangeToneClass(v)}>{text}</span>
+                              <span className={getChangeToneClass(v)}>
+                                {text}
+                              </span>
                             );
                           })()
                         ) : j === 48 ? (
                           (() => {
-                            const v = marketTimedCellValue(row.isoDate, j, "bond10y");
+                            const v = marketTimedCellValue(
+                              row.isoDate,
+                              j,
+                              "bond10y",
+                            );
                             const text = formatChangeWithPlus(v);
                             return (
-                              <span className={getChangeToneClass(v)}>{text}</span>
+                              <span className={getChangeToneClass(v)}>
+                                {text}
+                              </span>
                             );
                           })()
                         ) : j === 57 ? (
                           (() => {
-                            const v = marketTimedCellValue(row.isoDate, j, "sp500");
+                            const v = marketTimedCellValue(
+                              row.isoDate,
+                              j,
+                              "sp500",
+                            );
                             const text = formatChangeWithPlus(v);
                             return (
-                              <span className={getChangeToneClass(v)}>{text}</span>
+                              <span className={getChangeToneClass(v)}>
+                                {text}
+                              </span>
                             );
                           })()
                         ) : j >= 13 && j <= 21 ? (
@@ -1070,7 +1138,7 @@ export default function Home() {
               </tbody>
             </table>
           </div>
-          </div>
+        </div>
       </main>
 
       <footer
