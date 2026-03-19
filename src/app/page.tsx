@@ -138,10 +138,43 @@ export default function Home() {
   const currentMonth = parseInt(vnTodayIso.slice(5, 7), 10);
   const currentQuarter = Math.floor((currentMonth - 1) / 3) + 1;
 
+  const prevMonthInfo = (() => {
+    let y = currentYear;
+    let m = currentMonth - 1;
+    if (m <= 0) {
+      y -= 1;
+      m = 12;
+    }
+    return { y, m };
+  })();
+
+  const prevQuarterInfo = (() => {
+    let y = currentYear;
+    let q = currentQuarter - 1;
+    if (q <= 0) {
+      y -= 1;
+      q = 4;
+    }
+    return { y, q };
+  })();
+
   const [rangeMode, setRangeMode] = useState<RangeMode>("month");
   const [selectedYear, setSelectedYear] = useState<number>(currentYear);
   const [selectedMonth, setSelectedMonth] = useState<number>(currentMonth);
   const [selectedQuarter, setSelectedQuarter] = useState<number>(currentQuarter);
+
+  const maxMonth = selectedYear === currentYear ? currentMonth : 12;
+  const maxQuarter = selectedYear === currentYear ? currentQuarter : 4;
+
+  useEffect(() => {
+    // Prevent selecting future months/quarters in the current year.
+    if (rangeMode === "month" && selectedMonth > maxMonth) {
+      setSelectedMonth(maxMonth);
+    }
+    if (rangeMode === "quarter" && selectedQuarter > maxQuarter) {
+      setSelectedQuarter(maxQuarter);
+    }
+  }, [rangeMode, selectedMonth, maxMonth, selectedQuarter, maxQuarter]);
 
   const { from, to } = useMemo(() => {
     return computeRange(rangeMode, selectedYear, selectedMonth, selectedQuarter);
@@ -396,15 +429,41 @@ export default function Home() {
               <span className="text-xs font-semibold text-stone-600 dark:text-stone-400">
                 Lọc theo
               </span>
-              <select
-                value={rangeMode}
-                onChange={(e) => setRangeMode(e.target.value as RangeMode)}
-                className="h-9 rounded-xl border border-amber-200/60 dark:border-amber-800/40 bg-white dark:bg-stone-900 px-3 text-sm"
-              >
-                <option value="month">Tháng</option>
-                <option value="quarter">Quý</option>
-                <option value="year">Năm</option>
-              </select>
+              <div className="inline-flex rounded-xl border border-amber-200/60 dark:border-amber-800/40 bg-white dark:bg-stone-900 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setRangeMode("month")}
+                  className={`px-3 py-2 text-sm font-medium transition-colors ${
+                    rangeMode === "month"
+                      ? "bg-amber-100/80 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200"
+                      : "text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800"
+                  }`}
+                >
+                  Tháng
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRangeMode("quarter")}
+                  className={`px-3 py-2 text-sm font-medium transition-colors ${
+                    rangeMode === "quarter"
+                      ? "bg-amber-100/80 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200"
+                      : "text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800"
+                  }`}
+                >
+                  Quý
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRangeMode("year")}
+                  className={`px-3 py-2 text-sm font-medium transition-colors ${
+                    rangeMode === "year"
+                      ? "bg-amber-100/80 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200"
+                      : "text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800"
+                  }`}
+                >
+                  Năm
+                </button>
+              </div>
             </div>
 
             <div className="flex items-center gap-2">
@@ -436,7 +495,7 @@ export default function Home() {
                   onChange={(e) => setSelectedMonth(parseInt(e.target.value, 10))}
                   className="h-9 rounded-xl border border-amber-200/60 dark:border-amber-800/40 bg-white dark:bg-stone-900 px-3 text-sm"
                 >
-                  {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                  {Array.from({ length: maxMonth }, (_, i) => i + 1).map((m) => (
                     <option key={m} value={m}>
                       {m}
                     </option>
@@ -450,30 +509,107 @@ export default function Home() {
                 <span className="text-xs font-semibold text-stone-600 dark:text-stone-400">
                   Quý
                 </span>
-                <select
-                  value={selectedQuarter}
-                  onChange={(e) => setSelectedQuarter(parseInt(e.target.value, 10))}
-                  className="h-9 rounded-xl border border-amber-200/60 dark:border-amber-800/40 bg-white dark:bg-stone-900 px-3 text-sm"
-                >
-                  {[1, 2, 3, 4].map((q) => (
-                    <option key={q} value={q}>
-                      {q}
-                    </option>
-                  ))}
-                </select>
+                <div className="inline-flex rounded-xl overflow-hidden border border-amber-200/60 dark:border-amber-800/40 bg-white dark:bg-stone-900">
+                  {[1, 2, 3, 4].map((q) => {
+                    const disabled = q > maxQuarter;
+                    return (
+                      <button
+                        key={q}
+                        type="button"
+                        disabled={disabled}
+                        onClick={() => setSelectedQuarter(q)}
+                        className={`px-3 py-2 text-sm font-medium transition-colors ${
+                          selectedQuarter === q
+                            ? "bg-amber-100/80 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200"
+                            : disabled
+                              ? "bg-stone-50 dark:bg-stone-800 text-stone-400 dark:text-stone-500 cursor-not-allowed"
+                              : "text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800"
+                        }`}
+                      >
+                        Q{q}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             )}
 
             <div className="text-xs text-stone-500 dark:text-stone-400 sm:ml-auto">
-              Đang xem: <span className="font-semibold">{from}</span> →{" "}
-              <span className="font-semibold">{to}</span>
+              <div className="flex items-center gap-2 justify-end">
+                <span>
+                  Đang xem: <span className="font-semibold">{from}</span> →{" "}
+                  <span className="font-semibold">{to}</span>
+                </span>
+                {!isLoadingTable && (
+                  <span className="hidden sm:inline">
+                    • <span className="font-semibold">{dateRows.length}</span> ngày
+                  </span>
+                )}
+              </div>
               {isLoadingTable && (
-                <span className="ml-2 inline-flex items-center gap-1 text-amber-600 dark:text-amber-400">
+                <span className="mt-1 ml-1 inline-flex items-center gap-1 text-amber-600 dark:text-amber-400">
                   <span className="inline-block h-2 w-2 rounded-full bg-amber-500 animate-ping" />
                   Đang tải dữ liệu...
                 </span>
               )}
             </div>
+          </div>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setRangeMode("month");
+                setSelectedYear(currentYear);
+                setSelectedMonth(currentMonth);
+              }}
+              className="h-8 px-3 rounded-xl border border-amber-200/60 dark:border-amber-800/40 bg-white dark:bg-stone-900 text-xs text-amber-900 dark:text-amber-200 hover:bg-amber-50/70 dark:hover:bg-amber-950/30"
+            >
+              Tháng này
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setRangeMode("month");
+                setSelectedYear(prevMonthInfo.y);
+                setSelectedMonth(prevMonthInfo.m);
+              }}
+              className="h-8 px-3 rounded-xl border border-amber-200/60 dark:border-amber-800/40 bg-white dark:bg-stone-900 text-xs text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800"
+            >
+              Tháng trước
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setRangeMode("quarter");
+                setSelectedYear(currentYear);
+                setSelectedQuarter(currentQuarter);
+              }}
+              className="h-8 px-3 rounded-xl border border-amber-200/60 dark:border-amber-800/40 bg-white dark:bg-stone-900 text-xs text-amber-900 dark:text-amber-200 hover:bg-amber-50/70 dark:hover:bg-amber-950/30"
+            >
+              Quý này
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setRangeMode("quarter");
+                setSelectedYear(prevQuarterInfo.y);
+                setSelectedQuarter(prevQuarterInfo.q);
+              }}
+              className="h-8 px-3 rounded-xl border border-amber-200/60 dark:border-amber-800/40 bg-white dark:bg-stone-900 text-xs text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800"
+            >
+              Quý trước
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setRangeMode("year");
+                setSelectedYear(currentYear);
+              }}
+              className="h-8 px-3 rounded-xl border border-amber-200/60 dark:border-amber-800/40 bg-white dark:bg-stone-900 text-xs text-amber-900 dark:text-amber-200 hover:bg-amber-50/70 dark:hover:bg-amber-950/30"
+            >
+              Năm nay
+            </button>
           </div>
         </section>
 

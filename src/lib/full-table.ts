@@ -125,13 +125,28 @@ export async function getFullTableRange(
   const xauYahooMap = byDate(xauUsdYahoo as unknown as OHLCRow[]);
   const spMap = byDate(spData);
 
+  // Forward-fill missing market days (weekends/holidays) using last known value.
+  let lastOil: OHLCRow | null = null;
+  let lastDollar: OHLCRow | null = null;
+  let lastBond: OHLCRow | null = null;
+  let lastXau: OHLCRow | null = null;
+  let lastSp: OHLCRow | null = null;
+
   const rows: FullTableRow[] = dates.map((date, i) => {
-    const oilRow = oilMap.get(date) ?? null;
-    const dollarRow = dollarMap.get(date) ?? null;
-    const bondRow = bondMap.get(date) ?? null;
+    const oilRow = oilMap.get(date) ?? lastOil;
+    const dollarRow = dollarMap.get(date) ?? lastDollar;
+    const bondRow = bondMap.get(date) ?? lastBond;
     // Prefer investing data if available; fallback to Yahoo for missing ranges.
-    const xauRow = xauMap.get(date) ?? xauYahooMap.get(date) ?? null;
-    const spRow = spMap.get(date) ?? null;
+    const xauRow = xauMap.get(date) ?? xauYahooMap.get(date) ?? lastXau;
+    const spRow = spMap.get(date) ?? lastSp;
+
+    if (oilMap.has(date)) lastOil = oilMap.get(date) ?? lastOil;
+    if (dollarMap.has(date)) lastDollar = dollarMap.get(date) ?? lastDollar;
+    if (bondMap.has(date)) lastBond = bondMap.get(date) ?? lastBond;
+    if (xauMap.has(date) || xauYahooMap.has(date))
+      lastXau = (xauMap.get(date) ?? xauYahooMap.get(date) ?? lastXau) ?? lastXau;
+    if (spMap.has(date)) lastSp = spMap.get(date) ?? lastSp;
+
     const goldClose = goldByMonth.get(date.slice(0, 7)) ?? null;
     const vcb: VietcombankUsdRates | null = vcbRates[i] ?? null;
 
