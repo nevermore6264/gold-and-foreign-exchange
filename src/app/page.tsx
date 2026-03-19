@@ -665,7 +665,7 @@ export default function Home() {
         >
           <div className="border-b border-amber-200/50 dark:border-amber-900/30 px-5 py-3.5 text-sm text-stone-500 dark:text-stone-400 bg-gradient-to-r from-amber-50/70 to-white/60 dark:from-amber-950/20 dark:to-stone-900/10 backdrop-blur flex items-center justify-between gap-3">
             <span className="font-medium text-stone-700 dark:text-stone-300">
-              Bảng dữ liệu tổng hợp 60 cột
+              Tổng hợp vàng, tỷ giá & chỉ số thị trường
             </span>
             {isLoadingTable && (
               <span className="inline-flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300">
