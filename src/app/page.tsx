@@ -643,7 +643,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-3 flex flex-wrap gap-2 hidden">
             <button
               type="button"
               onClick={() => {
@@ -1071,12 +1071,12 @@ export default function Home() {
                 {dateRows.map((row, i) => (
                   <tr
                     key={row.isoDate}
-                    className="border-b border-stone-300 dark:border-stone-700 transition-colors duration-200 hover:bg-amber-50/60 dark:hover:bg-amber-950/30"
+                    className="transition-colors duration-200 hover:bg-amber-50/60 dark:hover:bg-amber-950/30"
                   >
                     {Array.from({ length: TOTAL_COLUMNS }, (_, j) => (j === 58 || j === 59 ? null : (
                       <td
                         key={j}
-                        className="border-r border-stone-300 dark:border-stone-700 px-2 py-2 text-xs font-bold max-w-[120px] truncate tabular-nums text-stone-400 dark:text-stone-500"
+                        className="border-r border-b border-stone-300 dark:border-stone-700 px-2 py-2 text-xs font-bold max-w-[120px] truncate tabular-nums text-stone-400 dark:text-stone-500"
                       >
                         {isLoadingTable && j !== 0 && j !== 11 && j !== 12 ? (
                           <div className="h-4 w-14 rounded bg-stone-200/70 dark:bg-stone-800/70 animate-pulse" />
