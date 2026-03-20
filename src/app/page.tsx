@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import { TOTAL_COLUMNS } from "@/data/table-headers-60";
 import { useEffect, useMemo, useState } from "react";
 
 /**
@@ -78,22 +77,6 @@ function getVietnamNowParts(): { isoDate: string; minutes: number } {
 }
 
 type RangeMode = "month" | "quarter" | "year";
-
-function getChangeToneClass(value: string): string {
-  // value examples: "1.23%", "-0.45%", "–"
-  const trimmed = value.trim();
-  if (trimmed === "–" || trimmed === "") {
-    return "text-stone-500 dark:text-stone-300 font-bold";
-  }
-  const num = parseFloat(trimmed.replace("%", "").replace(",", "."));
-  if (!Number.isFinite(num)) {
-    return "text-stone-500 dark:text-stone-300 font-bold";
-  }
-  if (num < 0) return "text-red-600 dark:text-red-400 font-bold";
-  // Dương/0%: đồng nhất về đen/xám
-  if (num > 0) return "text-stone-700 dark:text-stone-200 font-bold";
-  return "text-stone-500 dark:text-stone-300 font-bold";
-}
 
 function getMarketChangeToneClass(value: string): string {
   // Match web: dương xanh, âm đỏ (cho Change% của Oil / Dollar / Bond / S&P)
@@ -738,9 +721,15 @@ export default function Home() {
                 <tr>
                   <th
                     rowSpan={3}
-                    className="w-12 border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-2 text-xs font-bold uppercase tracking-wider text-amber-900/80 dark:text-amber-200/90 align-bottom bg-amber-100/70 dark:bg-amber-900/40"
+                    className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-2 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap bg-amber-100/70 dark:bg-amber-900/40"
                   >
-                    STT
+                    Thứ
+                  </th>
+                  <th
+                    rowSpan={3}
+                    className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-2 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap bg-amber-100/70 dark:bg-amber-900/40"
+                  >
+                    Ngày
                   </th>
                   <th
                     colSpan={5}
@@ -753,18 +742,6 @@ export default function Home() {
                     className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-2 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap bg-amber-100/70 dark:bg-amber-900/40"
                   >
                     BÁN - Mạnh Hải
-                  </th>
-                  <th
-                    rowSpan={3}
-                    className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-2 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap bg-amber-100/70 dark:bg-amber-900/40"
-                  >
-                    Thứ
-                  </th>
-                  <th
-                    rowSpan={3}
-                    className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-2 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap bg-amber-100/70 dark:bg-amber-900/40"
-                  >
-                    Ngày
                   </th>
                   <th
                     colSpan={9}
@@ -1080,20 +1057,24 @@ export default function Home() {
                 </tr>
               </thead>
               <tbody>
-                {dateRows.map((row, i) => (
+                {dateRows.map((row) => (
                   <tr
                     key={row.isoDate}
                     className="transition-colors duration-200 hover:bg-amber-50/60 dark:hover:bg-amber-950/30"
                   >
-                    {Array.from({ length: TOTAL_COLUMNS }, (_, j) => (j === 58 || j === 59 ? null : (
+                    {[0, 11, 12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 60].map((j) => (j === 0 || j === 58 || j === 59 ? null : (
                       <td
                         key={j}
-                        className="border-r border-b border-stone-300 dark:border-stone-700 px-2 py-2 text-xs font-bold max-w-[120px] truncate tabular-nums text-stone-400 dark:text-stone-500"
+                        className={
+                          j === 0
+                            ? "border-0 px-0 py-0 w-0 max-w-0 overflow-hidden"
+                            : "border-r border-b border-stone-300 dark:border-stone-700 px-2 py-2 text-xs font-bold max-w-[120px] truncate tabular-nums text-stone-400 dark:text-stone-500"
+                        }
                       >
                         {isLoadingTable && j !== 0 && j !== 11 && j !== 12 ? (
                           <div className="h-4 w-14 rounded bg-stone-200/70 dark:bg-stone-800/70 animate-pulse" />
                         ) : j === 0 ? (
-                          i + 1
+                          ""
                         ) : j === 11 ? (
                           row.weekdayLabel
                         ) : j === 12 ? (
@@ -1112,7 +1093,7 @@ export default function Home() {
                             const v = kitcoCellValue(row.isoDate, j);
                             const text = formatChangeWithPlus(v);
                             return (
-                              <span className={getChangeToneClass(v)}>
+                              <span className={getMarketChangeToneClass(v)}>
                                 {text}
                               </span>
                             );
@@ -1173,16 +1154,79 @@ export default function Home() {
                               </span>
                             );
                           })()
-                        ) : j >= 13 && j <= 21 ? (
+                        ) : j >= 13 && j <= 17 ? (
+                          (() => {
+                            const v = kitcoCellValue(row.isoDate, j);
+                            const ch = kitcoCellValue(row.isoDate, 21);
+                            const tone = getMarketChangeToneClass(ch);
+                            return v === "–" ? v : <span className={tone}>{v}</span>;
+                          })()
+                        ) : j >= 18 && j <= 20 ? (
                           kitcoCellValue(row.isoDate, j)
-                        ) : j >= 22 && j <= 30 ? (
-                          marketTimedCellValue(row.isoDate, j, "oil")
-                        ) : j >= 31 && j <= 39 ? (
-                          marketTimedCellValue(row.isoDate, j, "dollarIndex")
-                        ) : j >= 40 && j <= 48 ? (
-                          marketTimedCellValue(row.isoDate, j, "bond10y")
-                        ) : j >= 49 && j <= 57 ? (
-                          marketTimedCellValue(row.isoDate, j, "sp500")
+                        ) : j >= 22 && j <= 29 ? (
+                          (() => {
+                            const v = marketTimedCellValue(row.isoDate, j, "oil");
+                            const ch = marketTimedCellValue(
+                              row.isoDate,
+                              30,
+                              "oil",
+                            );
+                            const tone = getMarketChangeToneClass(
+                              formatChangeWithPlus(ch),
+                            );
+                            return v === "–" ? v : <span className={tone}>{v}</span>;
+                          })()
+                        ) : j >= 31 && j <= 38 ? (
+                          (() => {
+                            const v = marketTimedCellValue(
+                              row.isoDate,
+                              j,
+                              "dollarIndex",
+                            );
+                            const ch = marketTimedCellValue(
+                              row.isoDate,
+                              39,
+                              "dollarIndex",
+                            );
+                            const tone = getMarketChangeToneClass(
+                              formatChangeWithPlus(ch),
+                            );
+                            return v === "–" ? v : <span className={tone}>{v}</span>;
+                          })()
+                        ) : j >= 40 && j <= 47 ? (
+                          (() => {
+                            const v = marketTimedCellValue(
+                              row.isoDate,
+                              j,
+                              "bond10y",
+                            );
+                            const ch = marketTimedCellValue(
+                              row.isoDate,
+                              48,
+                              "bond10y",
+                            );
+                            const tone = getMarketChangeToneClass(
+                              formatChangeWithPlus(ch),
+                            );
+                            return v === "–" ? v : <span className={tone}>{v}</span>;
+                          })()
+                        ) : j >= 49 && j <= 56 ? (
+                          (() => {
+                            const v = marketTimedCellValue(
+                              row.isoDate,
+                              j,
+                              "sp500",
+                            );
+                            const ch = marketTimedCellValue(
+                              row.isoDate,
+                              57,
+                              "sp500",
+                            );
+                            const tone = getMarketChangeToneClass(
+                              formatChangeWithPlus(ch),
+                            );
+                            return v === "–" ? v : <span className={tone}>{v}</span>;
+                          })()
                         ) : j >= 58 && j <= 60 ? (
                           vcbCellValue(row.isoDate, j)
                         ) : (
