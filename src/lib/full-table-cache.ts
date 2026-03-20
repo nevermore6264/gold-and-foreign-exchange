@@ -9,7 +9,7 @@ import type { FullTableRow } from "./full-table";
 
 const CACHE_DIR = path.join(process.cwd(), "cache", "full-table");
 // Bump cache version when date-key logic changes (timezone, formats, etc.)
-const CACHE_VERSION = "v8";
+const CACHE_VERSION = "v9";
 /** Cache coi như hết hạn sau 24 giờ (ms). Set 0 = không bao giờ hết hạn. */
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 

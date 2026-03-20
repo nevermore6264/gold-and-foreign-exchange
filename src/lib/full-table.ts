@@ -21,6 +21,7 @@ import { fetchDollarIndexHistoricalYahoo } from "./dollar";
 import { fetchXauUsdHistoricalYahoo } from "./xau";
 import { fetchBond10yHistoricalYahoo } from "./bond-10y";
 import { fetchSp500HistoricalYahoo } from "./sp500";
+import { readManhHaiSnapshot, type ManhHaiSlot } from "./manh-hai";
 
 const CONCURRENCY = 8;
 export const START_DATE = "2022-01-01";
@@ -98,6 +99,7 @@ export async function getFullTableRange(
   const [
     goldList,
     vcbRates,
+    manhHaiSnapshots,
     oilYahoo,
     oilInvesting,
     dollarYahoo,
@@ -112,6 +114,7 @@ export async function getFullTableRange(
     fetchGoldFromFreeGoldAPI(),
     // VCB theo ngày trong range (đủ cho 3 cột cuối)
     runInBatches(dates, (d) => fetchVietcombankUsdRatesByDate(d)),
+    Promise.all(dates.map((d) => readManhHaiSnapshot(d))),
     // Market series: fetch theo window mở rộng để có prevClose cho ngày đầu kỳ
     fetchOilHistoricalYahoo(fetchFrom, to),
     fetchInvestingHistorical(PAIR_IDS.crudeOil, fetchFrom, to),
@@ -157,6 +160,12 @@ export async function getFullTableRange(
   const vcbByDate = new Map<string, VietcombankUsdRates>();
   for (let i = 0; i < dates.length; i++) vcbByDate.set(dates[i], vcbRates[i]);
 
+  const manhHaiByDate = new Map<string, ReturnType<typeof readManhHaiSnapshot> extends Promise<infer T> ? T : never>();
+  for (let i = 0; i < dates.length; i++) {
+    const snap = manhHaiSnapshots[i] ?? null;
+    if (snap?.date) manhHaiByDate.set(snap.date, snap);
+  }
+
   const requestedSet = new Set(dates);
   const rows: FullTableRow[] = [];
 
@@ -179,6 +188,21 @@ export async function getFullTableRange(
 
     const goldClose = goldByMonth.get(date.slice(0, 7)) ?? null;
     const vcb: VietcombankUsdRates | null = vcbByDate.get(date) ?? null;
+    const manhHaiSnap = manhHaiByDate.get(date) ?? null;
+
+    const slot = (s: ManhHaiSlot) => manhHaiSnap?.slots?.[s] ?? null;
+    const buy09 = slot("09:00")?.buy ?? null;
+    const buy11 = slot("11:00")?.buy ?? null;
+    const buy1430 = slot("14:30")?.buy ?? null;
+    const buy1730 = slot("17:30")?.buy ?? null;
+    const sell09 = slot("09:00")?.sell ?? null;
+    const sell11 = slot("11:00")?.sell ?? null;
+    const sell1430 = slot("14:30")?.sell ?? null;
+    const sell1730 = slot("17:30")?.sell ?? null;
+    const buyDiff =
+      buy09 != null && buy1730 != null ? buy1730 - buy09 : null;
+    const sellDiff =
+      sell09 != null && sell1730 != null ? sell1730 - sell09 : null;
 
     const [oilOpen, oilHigh, oilLow, oilClose, oilChange] = ohlcToCols(oilRow);
     const [dollarOpen, dollarHigh, dollarLow, dollarClose, dollarChange] =
@@ -200,6 +224,17 @@ export async function getFullTableRange(
     const row: FullTableRow = {};
     for (let j = 0; j < 61; j++) row[`col_${j}`] = null;
     // col_1..col_10 Mua/Bán Mạnh Hải – không fill data, xử lý sau
+
+    row.col_1 = buy09;
+    row.col_2 = buy11;
+    row.col_3 = buy1430;
+    row.col_4 = buy1730;
+    row.col_5 = buyDiff;
+    row.col_6 = sell09;
+    row.col_7 = sell11;
+    row.col_8 = sell1430;
+    row.col_9 = sell1730;
+    row.col_10 = sellDiff;
 
     row.col_12 = date;
     row.col_13 = kitcoOpen;

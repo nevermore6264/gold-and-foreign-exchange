@@ -39,6 +39,23 @@ function formatCellValue(v: string | number | null | undefined): string {
   return v;
 }
 
+function formatVnd(v: string | number | null | undefined): string {
+  if (v === null || v === undefined) return "–";
+  const n = typeof v === "number" ? v : parseFloat(String(v));
+  if (!Number.isFinite(n)) return "–";
+  return new Intl.NumberFormat("vi-VN", {
+    maximumFractionDigits: 0,
+  }).format(n);
+}
+
+function getNumberToneClass(n: number | null): string {
+  if (n == null || !Number.isFinite(n))
+    return "text-stone-500 dark:text-stone-300 font-bold";
+  if (n > 0) return "text-green-600 dark:text-green-400 font-bold";
+  if (n < 0) return "text-red-600 dark:text-red-400 font-bold";
+  return "text-stone-500 dark:text-stone-300 font-bold";
+}
+
 function getVietnamNowParts(): { isoDate: string; minutes: number } {
   // Use VN timezone regardless of user's system timezone
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -66,15 +83,15 @@ function getChangeToneClass(value: string): string {
   // value examples: "1.23%", "-0.45%", "–"
   const trimmed = value.trim();
   if (trimmed === "–" || trimmed === "") {
-    return "text-stone-500 dark:text-stone-300 font-semibold";
+    return "text-stone-500 dark:text-stone-300 font-bold";
   }
   const num = parseFloat(trimmed.replace("%", "").replace(",", "."));
   if (!Number.isFinite(num)) {
-    return "text-stone-500 dark:text-stone-300 font-semibold";
+    return "text-stone-500 dark:text-stone-300 font-bold";
   }
-  if (num > 0) return "text-green-600 dark:text-green-400 font-semibold";
-  if (num < 0) return "text-red-600 dark:text-red-400 font-semibold";
-  return "text-stone-500 dark:text-stone-300 font-semibold";
+  if (num > 0) return "text-green-600 dark:text-green-400 font-bold";
+  if (num < 0) return "text-red-600 dark:text-red-400 font-bold";
+  return "text-stone-500 dark:text-stone-300 font-bold";
 }
 
 function formatChangeWithPlus(value: string): string {
@@ -209,7 +226,11 @@ export default function Home() {
       const weekdayLabel =
         day === 0 ? "Chủ nhật" : day === 6 ? "Thứ 7" : `Thứ ${day + 1}`; // Mon=2..Sat=7
 
-      const dateLabel = d.toLocaleDateString("vi-VN"); // dd/mm/yyyy
+      // Force dd/mm/yyyy (e.g. 07/10/2026)
+      const dd = String(d.getDate()).padStart(2, "0");
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const yyyy = String(d.getFullYear());
+      const dateLabel = `${dd}/${mm}/${yyyy}`;
       const isoDate = toIsoDateLocal(d);
 
       rows.push({ date: d, isoDate, weekdayLabel, dateLabel });
@@ -413,7 +434,25 @@ export default function Home() {
   function vcbCellValue(isoDate: string, colIndex: number): string {
     const base = fullRowsByDate[isoDate];
     const baseVal = base ? base[`col_${colIndex}`] : null;
-    return formatCellValue(baseVal);
+    return formatVnd(baseVal);
+  }
+
+  function manhHaiCellValue(
+    isoDate: string,
+    colIndex: number,
+  ): { text: string; toneClass?: string } {
+    const base = fullRowsByDate[isoDate];
+    const raw = base ? base[`col_${colIndex}`] : null;
+    if (raw == null) return { text: "–" };
+    const n = typeof raw === "number" ? raw : Number(raw);
+    if (colIndex === 5 || colIndex === 10) {
+      const text = formatVnd(raw);
+      return {
+        text,
+        toneClass: getNumberToneClass(Number.isFinite(n) ? n : null),
+      };
+    }
+    return { text: formatVnd(raw) };
   }
 
   return (
@@ -676,7 +715,7 @@ export default function Home() {
           </div>
           <div className="overflow-auto">
             <table className="w-full text-left border-collapse min-w-max">
-              <thead className="sticky top-0 z-10 bg-amber-100/90 dark:bg-amber-900/30 backdrop-blur-sm">
+              <thead className="sticky top-0 z-10 bg-amber-100/90 dark:bg-amber-900/30 backdrop-blur-sm text-center [&_th]:font-bold">
                 {/* Dòng 1: nhóm lớn + STT + Thứ/Ngày (rowSpan) */}
                 <tr>
                   <th
@@ -749,11 +788,12 @@ export default function Home() {
                 {/* Dòng 2: Mở/Đóng/Chênh lệch, v.v. */}
                 <tr>
                   {/* Mua - Mạnh Hải (5 cột) */}
-                  <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
+                  <th
+                    colSpan={3}
+                    className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30"
+                  >
                     MỞ
                   </th>
-                  <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30" />
-                  <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30" />
                   <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
                     ĐÓNG
                   </th>
@@ -761,11 +801,12 @@ export default function Home() {
                     CHÊNH LỆCH
                   </th>
                   {/* Bán - Mạnh Hải (5 cột) */}
-                  <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
+                  <th
+                    colSpan={3}
+                    className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30"
+                  >
                     MỞ
                   </th>
-                  <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30" />
-                  <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30" />
                   <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
                     ĐÓNG
                   </th>
@@ -775,17 +816,17 @@ export default function Home() {
                   {/* Thứ, Ngày đã rowSpan=3 ở dòng 1 nên bỏ qua ở dòng 2 */}
                   {/* KITCO (9 cột) */}
                   <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
-                    MỞ (Open)
+                    MỞ
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30" />
                   <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30" />
                   <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30" />
                   <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30" />
                   <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
-                    ĐÓNG (Price)
+                    ĐÓNG
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
-                    CAO (High)
+                    CAO
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
                     THẤP (Low)
@@ -795,23 +836,23 @@ export default function Home() {
                   </th>
                   {/* Giá dầu (9 cột) */}
                   <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
-                    MỞ (Open)
+                    MỞ
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30" />
                   <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30" />
                   <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30" />
                   <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30" />
                   <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
-                    ĐÓNG (Price)
+                    ĐÓNG
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
-                    CAO (High)
+                    CAO
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
-                    THẤP (Low)
+                    THẤP
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
-                    THAY ĐỔI (Change)
+                    THAY ĐỔI
                   </th>
                   {/* Dollar index (9 cột) */}
                   <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
@@ -825,10 +866,10 @@ export default function Home() {
                     ĐÓNG
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
-                    CAO (High)
+                    CAO
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
-                    THẤP (Low)
+                    THẤP
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
                     THAY ĐỔI
@@ -845,10 +886,10 @@ export default function Home() {
                     ĐÓNG
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
-                    CAO (High)
+                    CAO
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
-                    THẤP (Low)
+                    THẤP
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
                     THAY ĐỔI
@@ -865,10 +906,10 @@ export default function Home() {
                     ĐÓNG
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
-                    CAO (High)
+                    CAO
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
-                    THẤP (Low)
+                    THẤP
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
                     THAY ĐỔI
@@ -1040,7 +1081,7 @@ export default function Home() {
                     {Array.from({ length: TOTAL_COLUMNS }, (_, j) => (
                       <td
                         key={j}
-                        className="border-r border-stone-100 dark:border-stone-800 px-2 py-2 text-xs max-w-[120px] truncate tabular-nums text-stone-400 dark:text-stone-500"
+                        className="border-r border-stone-100 dark:border-stone-800 px-2 py-2 text-xs font-bold max-w-[120px] truncate tabular-nums text-stone-400 dark:text-stone-500"
                       >
                         {isLoadingTable && j !== 0 && j !== 11 && j !== 12 ? (
                           <div className="h-4 w-14 rounded bg-stone-200/70 dark:bg-stone-800/70 animate-pulse" />
@@ -1050,6 +1091,15 @@ export default function Home() {
                           row.weekdayLabel
                         ) : j === 12 ? (
                           row.dateLabel
+                        ) : j >= 1 && j <= 10 ? (
+                          (() => {
+                            const v = manhHaiCellValue(row.isoDate, j);
+                            return v.toneClass ? (
+                              <span className={v.toneClass}>{v.text}</span>
+                            ) : (
+                              v.text
+                            );
+                          })()
                         ) : j === 21 ? (
                           (() => {
                             const v = kitcoCellValue(row.isoDate, j);

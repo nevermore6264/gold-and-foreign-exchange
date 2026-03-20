@@ -1,8 +1,13 @@
-import { getFullTable, getFullTableRange } from "@/lib/full-table";
+import { getFullTable, getFullTableRange, generateAllDates } from "@/lib/full-table";
 import {
   readFullTableCache,
   writeFullTableCache,
 } from "@/lib/full-table-cache";
+import {
+  hasAllDatesInMaster,
+  mergeRowsIntoFullTableMaster,
+  readFullTableMaster,
+} from "@/lib/full-table-master-json";
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -21,6 +26,18 @@ export async function GET(request: NextRequest) {
     }
 
     if (!refresh) {
+      // Fast path: nếu master JSON đã có đủ tất cả ngày trong khoảng
+      const dates = generateAllDates(from, to);
+      const master = await readFullTableMaster();
+      if (hasAllDatesInMaster(master, dates)) {
+        return NextResponse.json({
+          rows: dates.map((d) => master.byDate[d]!),
+          fromDate: from,
+          toDate: to,
+        });
+      }
+
+      // Fallback: cache theo từng khoảng from-to (cũ)
       const cached = await readFullTableCache(from, to);
       if (cached) {
         return NextResponse.json({
@@ -33,6 +50,8 @@ export async function GET(request: NextRequest) {
 
     const data = await getFullTableRange(from, to);
     await writeFullTableCache(from, to, data);
+    // Merge vào master để lần sau có thể đọc thẳng không cần fetch API ngoài
+    await mergeRowsIntoFullTableMaster(data.rows);
     return NextResponse.json(data);
   } catch (e) {
     console.error("Full table API error:", e);
