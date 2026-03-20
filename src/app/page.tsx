@@ -51,9 +51,9 @@ function formatVnd(v: string | number | null | undefined): string {
 function getNumberToneClass(n: number | null): string {
   if (n == null || !Number.isFinite(n))
     return "text-stone-500 dark:text-stone-300 font-bold";
-  if (n > 0) return "text-green-600 dark:text-green-400 font-bold";
   if (n < 0) return "text-red-600 dark:text-red-400 font-bold";
-  return "text-stone-500 dark:text-stone-300 font-bold";
+  // Dương/trung tính: dùng đen/xám để đồng nhất màu
+  return "text-stone-700 dark:text-stone-200 font-bold";
 }
 
 function getVietnamNowParts(): { isoDate: string; minutes: number } {
@@ -89,8 +89,9 @@ function getChangeToneClass(value: string): string {
   if (!Number.isFinite(num)) {
     return "text-stone-500 dark:text-stone-300 font-bold";
   }
-  if (num > 0) return "text-green-600 dark:text-green-400 font-bold";
   if (num < 0) return "text-red-600 dark:text-red-400 font-bold";
+  // Dương/0%: đồng nhất về đen/xám
+  if (num > 0) return "text-stone-700 dark:text-stone-200 font-bold";
   return "text-stone-500 dark:text-stone-300 font-bold";
 }
 
@@ -432,8 +433,10 @@ export default function Home() {
   }
 
   function vcbCellValue(isoDate: string, colIndex: number): string {
+    // Chỉ lấy duy nhất dữ liệu cột "Bán" (col_60) để tránh nhầm
+    if (colIndex !== 60) return "–";
     const base = fullRowsByDate[isoDate];
-    const baseVal = base ? base[`col_${colIndex}`] : null;
+    const baseVal = base ? base[`col_60`] : null;
     return formatVnd(baseVal);
   }
 
@@ -714,8 +717,8 @@ export default function Home() {
             )}
           </div>
           <div className="overflow-auto">
-            <table className="w-full text-left border-collapse min-w-max">
-              <thead className="sticky top-0 z-10 bg-amber-100/90 dark:bg-amber-900/30 backdrop-blur-sm text-center [&_th]:font-bold">
+            <table className="w-full text-left border-separate border-spacing-0 min-w-max">
+              <thead className="sticky top-0 z-10 bg-amber-100/90 dark:bg-amber-900/30 backdrop-blur-sm text-center [&_th]:font-bold [&_th]:!border-stone-300 [&_th]:dark:!border-stone-700">
                 {/* Dòng 1: nhóm lớn + STT + Thứ/Ngày (rowSpan) */}
                 <tr>
                   <th
@@ -779,7 +782,7 @@ export default function Home() {
                     S&P 500
                   </th>
                   <th
-                    colSpan={3}
+                    colSpan={1}
                     className="border-b border-amber-200/60 dark:border-amber-800/40 px-2 py-2 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap bg-amber-100/70 dark:bg-amber-900/40"
                   >
                     Tỷ Giá VCB
@@ -914,13 +917,7 @@ export default function Home() {
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
                     THAY ĐỔI
                   </th>
-                  {/* Tỷ giá VCB (3 cột) */}
-                  <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
-                    Mua tiền mặt
-                  </th>
-                  <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
-                    Mua chuyển khoản
-                  </th>
+                  {/* Tỷ giá VCB (1 cột - chỉ lấy Bán) */}
                   <th className="border-b border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
                     Bán
                   </th>
@@ -1066,22 +1063,20 @@ export default function Home() {
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
-                  {/* Tỷ giá VCB (3 cột) */}
+                  {/* Tỷ giá VCB (1 cột - chỉ lấy Bán) */}
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
-                  <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
-                  <th className="border-b border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
                 </tr>
               </thead>
               <tbody>
                 {dateRows.map((row, i) => (
                   <tr
                     key={row.isoDate}
-                    className="border-b border-stone-100 dark:border-stone-800 transition-colors duration-200 hover:bg-amber-50/60 dark:hover:bg-amber-950/30"
+                    className="border-b border-stone-300 dark:border-stone-700 transition-colors duration-200 hover:bg-amber-50/60 dark:hover:bg-amber-950/30"
                   >
-                    {Array.from({ length: TOTAL_COLUMNS }, (_, j) => (
+                    {Array.from({ length: TOTAL_COLUMNS }, (_, j) => (j === 58 || j === 59 ? null : (
                       <td
                         key={j}
-                        className="border-r border-stone-100 dark:border-stone-800 px-2 py-2 text-xs font-bold max-w-[120px] truncate tabular-nums text-stone-400 dark:text-stone-500"
+                        className="border-r border-stone-300 dark:border-stone-700 px-2 py-2 text-xs font-bold max-w-[120px] truncate tabular-nums text-stone-400 dark:text-stone-500"
                       >
                         {isLoadingTable && j !== 0 && j !== 11 && j !== 12 ? (
                           <div className="h-4 w-14 rounded bg-stone-200/70 dark:bg-stone-800/70 animate-pulse" />
@@ -1182,7 +1177,7 @@ export default function Home() {
                           "–"
                         )}
                       </td>
-                    ))}
+                    )))} 
                   </tr>
                 ))}
               </tbody>
