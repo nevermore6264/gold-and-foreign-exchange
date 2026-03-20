@@ -93,6 +93,50 @@ function getMarketChangeToneClass(value: string): string {
   return "text-stone-500 dark:text-stone-300 font-bold";
 }
 
+function getRegionBgClass(colIndex: number): string {
+  // Background riêng cho từng nhóm dữ liệu để dễ phân biệt khi cuộn ngang.
+  // Mạnh Hải: col_1..col_10
+  if (colIndex >= 1 && colIndex <= 10)
+    return "bg-amber-200/35 dark:bg-amber-900/25";
+  // KITCO - GIÁ VÀNG THẾ GIỚI: col_13..col_21
+  if (colIndex >= 13 && colIndex <= 21)
+    return "bg-emerald-200/35 dark:bg-emerald-900/25";
+  // Dầu: col_22..col_30
+  if (colIndex >= 22 && colIndex <= 30)
+    return "bg-blue-200/35 dark:bg-blue-900/25";
+  // Dollar index: col_31..col_39
+  if (colIndex >= 31 && colIndex <= 39)
+    return "bg-purple-200/35 dark:bg-purple-900/25";
+  // Trái phiếu 10Y: col_40..col_48
+  if (colIndex >= 40 && colIndex <= 48)
+    return "bg-rose-200/35 dark:bg-rose-900/25";
+  // S&P 500: col_49..col_57
+  if (colIndex >= 49 && colIndex <= 57)
+    return "bg-slate-200/30 dark:bg-slate-900/25";
+  // VCB: col_60
+  if (colIndex === 60) return "bg-yellow-200/30 dark:bg-yellow-900/25";
+
+  return "";
+}
+
+function getRegionHeaderBgClass(colIndex: number): string {
+  // Đậm hơn body để nhìn rõ ở header.
+  if (colIndex >= 1 && colIndex <= 10)
+    return "bg-amber-200/70 dark:bg-amber-900/50";
+  if (colIndex >= 13 && colIndex <= 21)
+    return "bg-emerald-200/65 dark:bg-emerald-900/50";
+  if (colIndex >= 22 && colIndex <= 30)
+    return "bg-blue-200/65 dark:bg-blue-900/50";
+  if (colIndex >= 31 && colIndex <= 39)
+    return "bg-purple-200/65 dark:bg-purple-900/50";
+  if (colIndex >= 40 && colIndex <= 48)
+    return "bg-rose-200/65 dark:bg-rose-900/50";
+  if (colIndex >= 49 && colIndex <= 57)
+    return "bg-slate-200/60 dark:bg-slate-900/50";
+  if (colIndex === 60) return "bg-yellow-200/60 dark:bg-yellow-900/50";
+  return "";
+}
+
 function formatChangeWithPlus(value: string): string {
   const trimmed = value.trim();
   if (trimmed === "–" || trimmed === "") return "–";
@@ -721,61 +765,61 @@ export default function Home() {
                 <tr>
                   <th
                     rowSpan={3}
-                    className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-2 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap bg-amber-100/70 dark:bg-amber-900/40"
+                    className="sticky left-0 z-40 border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-2 w-16 min-w-16 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap bg-white dark:bg-stone-950"
                   >
                     Thứ
                   </th>
                   <th
                     rowSpan={3}
-                    className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-2 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap bg-amber-100/70 dark:bg-amber-900/40"
+                    className="sticky left-16 z-40 border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-2 w-20 min-w-20 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap bg-white dark:bg-stone-950"
                   >
                     Ngày
                   </th>
                   <th
                     colSpan={5}
-                    className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-2 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap bg-amber-100/70 dark:bg-amber-900/40"
+                    className={`border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-2 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap ${getRegionHeaderBgClass(1)}`}
                   >
                     MUA - Mạnh Hải
                   </th>
                   <th
                     colSpan={5}
-                    className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-2 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap bg-amber-100/70 dark:bg-amber-900/40"
+                    className={`border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-2 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap ${getRegionHeaderBgClass(1)}`}
                   >
                     BÁN - Mạnh Hải
                   </th>
                   <th
                     colSpan={9}
-                    className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-2 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap bg-amber-100/70 dark:bg-amber-900/40"
+                    className={`border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-2 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
                   >
                     KITCO - GIÁ VÀNG THẾ GIỚI
                   </th>
                   <th
                     colSpan={9}
-                    className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-2 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap bg-amber-100/70 dark:bg-amber-900/40"
+                    className={`border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-2 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
                   >
                     GIÁ DẦU
                   </th>
                   <th
                     colSpan={9}
-                    className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-2 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap bg-amber-100/70 dark:bg-amber-900/40"
+                    className={`border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-2 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
                   >
                     DOLLAR INDEX
                   </th>
                   <th
                     colSpan={9}
-                    className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-2 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap bg-amber-100/70 dark:bg-amber-900/40"
+                    className={`border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-2 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
                   >
                     TRÁI PHIẾU US - 10 NĂM
                   </th>
                   <th
                     colSpan={9}
-                    className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-2 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap bg-amber-100/70 dark:bg-amber-900/40"
+                    className={`border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-2 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
                   >
                     S&P 500
                   </th>
                   <th
                     colSpan={1}
-                    className="border-b border-amber-200/60 dark:border-amber-800/40 px-2 py-2 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap bg-amber-100/70 dark:bg-amber-900/40"
+                    className={`border-b border-amber-200/60 dark:border-amber-800/40 px-2 py-2 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap ${getRegionHeaderBgClass(60)}`}
                   >
                     Tỷ Giá VCB
                   </th>
@@ -785,129 +829,183 @@ export default function Home() {
                   {/* Mua - Mạnh Hải (5 cột) */}
                   <th
                     colSpan={3}
-                    className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30"
+                    className={`border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(1)}`}
                   >
                     MỞ
                   </th>
-                  <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
+                  <th
+                    className={`border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(1)}`}
+                  >
                     ĐÓNG
                   </th>
-                  <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
+                  <th
+                    className={`border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(1)}`}
+                  >
                     CHÊNH LỆCH
                   </th>
                   {/* Bán - Mạnh Hải (5 cột) */}
                   <th
                     colSpan={3}
-                    className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30"
+                    className={`border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(1)}`}
                   >
                     MỞ
                   </th>
-                  <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
+                  <th
+                    className={`border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(1)}`}
+                  >
                     ĐÓNG
                   </th>
-                  <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
+                  <th
+                    className={`border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(1)}`}
+                  >
                     CHÊNH LỆCH
                   </th>
                   {/* Thứ, Ngày đã rowSpan=3 ở dòng 1 nên bỏ qua ở dòng 2 */}
                   {/* KITCO (9 cột) */}
                   <th
                     colSpan={5}
-                    className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30"
+                    className={`border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
                   >
                     MỞ
                   </th>
-                  <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
+                  <th
+                    className={`border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                  >
                     ĐÓNG
                   </th>
-                  <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
+                  <th
+                    className={`border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                  >
                     CAO
                   </th>
-                  <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
+                  <th
+                    className={`border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                  >
                     THẤP (Low)
                   </th>
-                  <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
+                  <th
+                    className={`border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                  >
                     THAY ĐỔI (Change)
                   </th>
                   {/* Giá dầu (9 cột) */}
                   <th
                     colSpan={5}
-                    className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30"
+                    className={`border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
                   >
                     MỞ
                   </th>
-                  <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
+                  <th
+                    className={`border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                  >
                     ĐÓNG
                   </th>
-                  <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
+                  <th
+                    className={`border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                  >
                     CAO
                   </th>
-                  <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
+                  <th
+                    className={`border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                  >
                     THẤP
                   </th>
-                  <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
+                  <th
+                    className={`border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                  >
                     THAY ĐỔI
                   </th>
                   {/* Dollar index (9 cột) */}
                   <th
                     colSpan={5}
-                    className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30"
+                    className={`border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
                   >
                     MỞ
                   </th>
-                  <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
+                  <th
+                    className={`border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                  >
                     ĐÓNG
                   </th>
-                  <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
+                  <th
+                    className={`border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                  >
                     CAO
                   </th>
-                  <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
+                  <th
+                    className={`border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                  >
                     THẤP
                   </th>
-                  <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
+                  <th
+                    className={`border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                  >
                     THAY ĐỔI
                   </th>
                   {/* Trái phiếu 10Y (9 cột) */}
-                  <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
+                  <th
+                    className={`border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                  >
                     MỞ
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30" />
                   <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30" />
                   <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30" />
                   <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30" />
-                  <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
+                  <th
+                    className={`border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                  >
                     ĐÓNG
                   </th>
-                  <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
+                  <th
+                    className={`border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                  >
                     CAO
                   </th>
-                  <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
+                  <th
+                    className={`border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                  >
                     THẤP
                   </th>
-                  <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
+                  <th
+                    className={`border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                  >
                     THAY ĐỔI
                   </th>
                   {/* S&P 500 (9 cột) */}
-                  <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
+                  <th
+                    className={`border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                  >
                     MỞ
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30" />
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30" />
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30" />
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30" />
-                  <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
+                  <th
+                    className={`border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                  >
                     ĐÓNG
                   </th>
-                  <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
+                  <th
+                    className={`border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                  >
                     CAO
                   </th>
-                  <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
+                  <th
+                    className={`border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                  >
                     THẤP
                   </th>
-                  <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
+                  <th
+                    className={`border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                  >
                     THAY ĐỔI
                   </th>
                   {/* Tỷ giá VCB (1 cột - chỉ lấy Bán) */}
-                  <th className="border-b border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30">
+                  <th
+                    className={`border-b border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(60)}`}
+                  >
                     Bán
                   </th>
                 </tr>
@@ -1068,7 +1166,11 @@ export default function Home() {
                         className={
                           j === 0
                             ? "border-0 px-0 py-0 w-0 max-w-0 overflow-hidden"
-                            : "border-r border-b border-stone-300 dark:border-stone-700 px-2 py-2 text-xs font-bold max-w-[120px] truncate tabular-nums text-stone-400 dark:text-stone-500"
+                            : j === 11
+                              ? "sticky left-0 z-30 border-r border-b border-stone-300 dark:border-stone-700 px-2 py-2 text-xs font-bold w-16 max-w-16 truncate tabular-nums text-stone-400 dark:text-stone-500 bg-white dark:bg-stone-950"
+                              : j === 12
+                                ? "sticky left-16 z-30 border-r border-b border-stone-300 dark:border-stone-700 px-2 py-2 text-xs font-bold w-20 max-w-20 truncate tabular-nums text-stone-400 dark:text-stone-500 bg-white dark:bg-stone-950"
+                            : `border-r border-b border-stone-300 dark:border-stone-700 px-2 py-2 text-xs font-bold max-w-[120px] truncate tabular-nums text-stone-400 dark:text-stone-500 ${getRegionBgClass(j)}`
                         }
                       >
                         {isLoadingTable && j !== 0 && j !== 11 && j !== 12 ? (
