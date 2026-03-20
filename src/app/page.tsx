@@ -95,6 +95,21 @@ function getChangeToneClass(value: string): string {
   return "text-stone-500 dark:text-stone-300 font-bold";
 }
 
+function getMarketChangeToneClass(value: string): string {
+  // Match web: dương xanh, âm đỏ (cho Change% của Oil / Dollar / Bond / S&P)
+  const trimmed = value.trim();
+  if (trimmed === "–" || trimmed === "") {
+    return "text-stone-500 dark:text-stone-300 font-bold";
+  }
+  const num = parseFloat(trimmed.replace("%", "").replace(",", "."));
+  if (!Number.isFinite(num)) {
+    return "text-stone-500 dark:text-stone-300 font-bold";
+  }
+  if (num > 0) return "text-green-600 dark:text-green-400 font-bold";
+  if (num < 0) return "text-red-600 dark:text-red-400 font-bold";
+  return "text-stone-500 dark:text-stone-300 font-bold";
+}
+
 function formatChangeWithPlus(value: string): string {
   const trimmed = value.trim();
   if (trimmed === "–" || trimmed === "") return "–";
@@ -1111,7 +1126,7 @@ export default function Home() {
                             );
                             const text = formatChangeWithPlus(v);
                             return (
-                              <span className={getChangeToneClass(v)}>
+                              <span className={getMarketChangeToneClass(v)}>
                                 {text}
                               </span>
                             );
@@ -1125,7 +1140,7 @@ export default function Home() {
                             );
                             const text = formatChangeWithPlus(v);
                             return (
-                              <span className={getChangeToneClass(v)}>
+                              <span className={getMarketChangeToneClass(v)}>
                                 {text}
                               </span>
                             );
@@ -1139,7 +1154,7 @@ export default function Home() {
                             );
                             const text = formatChangeWithPlus(v);
                             return (
-                              <span className={getChangeToneClass(v)}>
+                              <span className={getMarketChangeToneClass(v)}>
                                 {text}
                               </span>
                             );
@@ -1153,7 +1168,7 @@ export default function Home() {
                             );
                             const text = formatChangeWithPlus(v);
                             return (
-                              <span className={getChangeToneClass(v)}>
+                              <span className={getMarketChangeToneClass(v)}>
                                 {text}
                               </span>
                             );
