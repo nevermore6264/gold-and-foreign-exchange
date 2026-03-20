@@ -765,13 +765,13 @@ export default function Home() {
                 <tr>
                   <th
                     rowSpan={3}
-                    className="sticky left-0 z-40 border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-2 w-16 min-w-16 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap bg-white dark:bg-stone-950"
+                    className="sticky left-0 z-40 border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-2 w-20 min-w-20 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30"
                   >
                     Thứ
                   </th>
                   <th
                     rowSpan={3}
-                    className="sticky left-16 z-40 border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-2 w-20 min-w-20 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap bg-white dark:bg-stone-950"
+                    className="sticky left-20 z-40 border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-2 w-24 min-w-24 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30"
                   >
                     Ngày
                   </th>
@@ -944,14 +944,11 @@ export default function Home() {
                   </th>
                   {/* Trái phiếu 10Y (9 cột) */}
                   <th
+                    colSpan={5}
                     className={`border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
                   >
                     MỞ
                   </th>
-                  <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30" />
-                  <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30" />
-                  <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30" />
-                  <th className="border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30" />
                   <th
                     className={`border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
                   >
@@ -974,14 +971,11 @@ export default function Home() {
                   </th>
                   {/* S&P 500 (9 cột) */}
                   <th
+                    colSpan={5}
                     className={`border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
                   >
                     MỞ
                   </th>
-                  <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30" />
-                  <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30" />
-                  <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30" />
-                  <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30" />
                   <th
                     className={`border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
                   >
@@ -1167,9 +1161,9 @@ export default function Home() {
                           j === 0
                             ? "border-0 px-0 py-0 w-0 max-w-0 overflow-hidden"
                             : j === 11
-                              ? "sticky left-0 z-30 border-r border-b border-stone-300 dark:border-stone-700 px-2 py-2 text-xs font-bold w-16 max-w-16 truncate tabular-nums text-stone-400 dark:text-stone-500 bg-white dark:bg-stone-950"
+                              ? "sticky left-0 z-30 border-r border-b border-stone-300 dark:border-stone-700 px-2 py-2 text-xs font-bold w-20 max-w-20 truncate tabular-nums text-stone-400 dark:text-stone-500 bg-amber-50/60 dark:bg-amber-950/20"
                               : j === 12
-                                ? "sticky left-16 z-30 border-r border-b border-stone-300 dark:border-stone-700 px-2 py-2 text-xs font-bold w-20 max-w-20 truncate tabular-nums text-stone-400 dark:text-stone-500 bg-white dark:bg-stone-950"
+                                ? "sticky left-20 z-30 border-r border-b border-stone-300 dark:border-stone-700 px-2 py-2 text-xs font-bold w-24 max-w-24 truncate tabular-nums text-stone-400 dark:text-stone-500 bg-amber-50/60 dark:bg-amber-950/20"
                             : `border-r border-b border-stone-300 dark:border-stone-700 px-2 py-2 text-xs font-bold max-w-[120px] truncate tabular-nums text-stone-400 dark:text-stone-500 ${getRegionBgClass(j)}`
                         }
                       >
