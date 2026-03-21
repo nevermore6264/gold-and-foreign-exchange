@@ -1,6 +1,6 @@
 /**
  * Bảng 60 cột (col_0 .. col_59). Nguồn:
- * - col_1-10: Mua/Bán Mạnh Hải – bỏ tạm, xử lý sau (để null)
+ * - col_1-10: Mua/Bán Mạnh Hải (snapshot cache/manh-hai, xem MANH_HAI_COL)
  * - col_12: DATE
  * - col_13-21: KITCO (XAU/USD) → investing / FreeGoldAPI
  * - col_22-30: Giá dầu → Investing.com crude-oil-historical-data (fallback Yahoo CL=F)
@@ -15,13 +15,18 @@ import {
   fetchVietcombankUsdRatesByDate,
   type VietcombankUsdRates,
 } from "./vietcombank";
-import { fetchInvestingHistorical, PAIR_IDS, type OHLCRow } from "./investing";
+import {
+  fetchInvestingHistorical,
+  PAIR_IDS,
+  type OHLCRow,
+} from "./investing";
 import { fetchOilHistoricalYahoo } from "./oil";
 import { fetchDollarIndexHistoricalYahoo } from "./dollar";
 import { fetchXauUsdHistoricalYahoo } from "./xau";
 import { fetchBond10yHistoricalYahoo } from "./bond-10y";
 import { fetchSp500HistoricalYahoo } from "./sp500";
-import { readManhHaiSnapshot, type ManhHaiSlot } from "./manh-hai";
+import { MANH_HAI_COL } from "./manh-hai-columns";
+import { readManhHaiSnapshot, type ManhHaiSlot, type ManhHaiSnapshot } from "./manh-hai";
 
 const CONCURRENCY = 8;
 export const START_DATE = "2022-01-01";
@@ -37,20 +42,27 @@ function addDaysIso(iso: string, deltaDays: number): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+/**
+ * Liệt kê từng ngày [start, end] theo **lịch ISO** (YYYY-MM-DD).
+ * Không dùng `new Date("YYYY-MM-DD")` (UTC) để tránh lệch tháng/ngày theo múi giờ server.
+ */
 export function generateAllDates(start: string, end?: string): string[] {
-  const endDate = end ? new Date(end) : new Date();
+  const endIso =
+    end ??
+    new Date().toISOString().slice(0, 10);
   const dates: string[] = [];
-  const d = new Date(start);
-  d.setHours(0, 0, 0, 0);
-  const e = new Date(endDate);
-  e.setHours(0, 0, 0, 0);
-  while (d <= e) {
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    const dd = String(d.getDate()).padStart(2, "0");
-    // Use local calendar day to avoid timezone shift with toISOString()
+  const [sy, sm, sd] = start.split("-").map((x) => parseInt(x, 10));
+  const [ey, em, ed] = endIso.split("-").map((x) => parseInt(x, 10));
+  let cur = new Date(sy, (sm ?? 1) - 1, sd ?? 1);
+  cur.setHours(0, 0, 0, 0);
+  const endD = new Date(ey, (em ?? 1) - 1, ed ?? 1);
+  endD.setHours(0, 0, 0, 0);
+  while (cur <= endD) {
+    const yyyy = cur.getFullYear();
+    const mm = String(cur.getMonth() + 1).padStart(2, "0");
+    const dd = String(cur.getDate()).padStart(2, "0");
     dates.push(`${yyyy}-${mm}-${dd}`);
-    d.setDate(d.getDate() + 1);
+    cur.setDate(cur.getDate() + 1);
   }
   return dates;
 }
@@ -73,7 +85,64 @@ function ohlcToCols(row: OHLCRow | null): (string | number | null)[] {
   return [row.open, row.high, row.low, row.close, row.changePercent ?? null];
 }
 
+/**
+ * Gộp hai nguồn OHLC: cùng ngày thì ưu tiên primary (Investing).
+ * Cần vì Investing chỉ trả tối đa N điểm — các ngày gần nhất có thể chỉ có ở Yahoo.
+ */
+function mergeOhlcByDate(primary: OHLCRow[], fallback: OHLCRow[]): OHLCRow[] {
+  const map = new Map<string, OHLCRow>();
+  for (const r of fallback) map.set(r.date, { ...r });
+  for (const r of primary) map.set(r.date, { ...r });
+  return [...map.values()].sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function recomputeChangePercent(rows: OHLCRow[]): OHLCRow[] {
+  const sorted = [...rows].sort((a, b) => a.date.localeCompare(b.date));
+  return sorted.map((r, i) => {
+    const prevClose = i > 0 ? sorted[i - 1].close : null;
+    const changePercent =
+      prevClose != null && prevClose !== 0
+        ? (((r.close - prevClose) / prevClose) * 100).toFixed(2) + "%"
+        : null;
+    return { ...r, changePercent };
+  });
+}
+
 export type FullTableRow = Record<string, string | number | null>;
+
+/**
+ * Điền col_1..col_10 từ snapshot Mạnh Hải (MUA/BÁN × 4 khung giờ + chênh lệch).
+ * Dùng chung cho getFullTableRange và khi merge lại từ master/cache.
+ */
+export function applyManhHaiSnapshotToRow(
+  row: FullTableRow,
+  snapshot: ManhHaiSnapshot | null,
+): void {
+  const slot = (s: ManhHaiSlot) => snapshot?.slots?.[s] ?? null;
+  const buy09 = slot("09:00")?.buy ?? null;
+  const buy11 = slot("11:00")?.buy ?? null;
+  const buy1430 = slot("14:30")?.buy ?? null;
+  const buy1730 = slot("17:30")?.buy ?? null;
+  const sell09 = slot("09:00")?.sell ?? null;
+  const sell11 = slot("11:00")?.sell ?? null;
+  const sell1430 = slot("14:30")?.sell ?? null;
+  const sell1730 = slot("17:30")?.sell ?? null;
+  const buyDiff =
+    buy09 != null && buy1730 != null ? buy1730 - buy09 : null;
+  const sellDiff =
+    sell09 != null && sell1730 != null ? sell1730 - sell09 : null;
+
+  row[`col_${MANH_HAI_COL.MUA_9H}`] = buy09;
+  row[`col_${MANH_HAI_COL.MUA_11H}`] = buy11;
+  row[`col_${MANH_HAI_COL.MUA_14H30}`] = buy1430;
+  row[`col_${MANH_HAI_COL.MUA_17H30}`] = buy1730;
+  row[`col_${MANH_HAI_COL.MUA_CHENH_LECH}`] = buyDiff;
+  row[`col_${MANH_HAI_COL.BAN_9H}`] = sell09;
+  row[`col_${MANH_HAI_COL.BAN_11H}`] = sell11;
+  row[`col_${MANH_HAI_COL.BAN_14H30}`] = sell1430;
+  row[`col_${MANH_HAI_COL.BAN_17H30}`] = sell1730;
+  row[`col_${MANH_HAI_COL.BAN_CHENH_LECH}`] = sellDiff;
+}
 
 /**
  * Lấy bảng đầy đủ cột cho khoảng ngày [from, to].
@@ -128,11 +197,16 @@ export async function getFullTableRange(
     fetchSp500HistoricalYahoo(fetchFrom, to),
   ]);
 
-  // Ưu tiên Investing.com (crude-oil-historical-data, usdollar-historical-data), fallback Yahoo
-  const oil = oilInvesting.length > 0 ? oilInvesting : oilYahoo;
-  const dollar = dollarInvesting.length > 0 ? dollarInvesting : dollarYahoo;
-  const bondData = bond.length > 0 ? bond : bondYahoo;
-  const spData = sp500.length > 0 ? sp500 : sp500Yahoo;
+  // Gộp Investing + Yahoo theo ngày (Investing có giới hạn pointscount → tháng gần nhất có thể thiếu).
+  const oil = recomputeChangePercent(mergeOhlcByDate(oilInvesting, oilYahoo));
+  const dollar = recomputeChangePercent(
+    mergeOhlcByDate(dollarInvesting, dollarYahoo),
+  );
+  const bondData = recomputeChangePercent(mergeOhlcByDate(bond, bondYahoo));
+  const xauCombined = recomputeChangePercent(
+    mergeOhlcByDate(xauUsd, xauUsdYahoo as OHLCRow[]),
+  );
+  const spData = recomputeChangePercent(mergeOhlcByDate(sp500, sp500Yahoo));
 
   const goldByMonth = new Map<string, number>();
   for (const { date, price } of goldList) {
@@ -146,8 +220,7 @@ export async function getFullTableRange(
   const oilMap = byDate(oil);
   const dollarMap = byDate(dollar);
   const bondMap = byDate(bondData);
-  const xauMap = byDate(xauUsd);
-  const xauYahooMap = byDate(xauUsdYahoo as unknown as OHLCRow[]);
+  const xauMap = byDate(xauCombined);
   const spMap = byDate(spData);
 
   // Forward-fill missing market days (weekends/holidays) using last known value.
@@ -173,15 +246,13 @@ export async function getFullTableRange(
     const oilRow = oilMap.get(date) ?? lastOil;
     const dollarRow = dollarMap.get(date) ?? lastDollar;
     const bondRow = bondMap.get(date) ?? lastBond;
-    const xauRow = xauMap.get(date) ?? xauYahooMap.get(date) ?? lastXau;
+    const xauRow = xauMap.get(date) ?? lastXau;
     const spRow = spMap.get(date) ?? lastSp;
 
     if (oilMap.has(date)) lastOil = oilMap.get(date) ?? lastOil;
     if (dollarMap.has(date)) lastDollar = dollarMap.get(date) ?? lastDollar;
     if (bondMap.has(date)) lastBond = bondMap.get(date) ?? lastBond;
-    if (xauMap.has(date) || xauYahooMap.has(date)) {
-      lastXau = (xauMap.get(date) ?? xauYahooMap.get(date) ?? lastXau) ?? lastXau;
-    }
+    if (xauMap.has(date)) lastXau = xauMap.get(date) ?? lastXau;
     if (spMap.has(date)) lastSp = spMap.get(date) ?? lastSp;
 
     if (!requestedSet.has(date)) continue;
@@ -189,20 +260,6 @@ export async function getFullTableRange(
     const goldClose = goldByMonth.get(date.slice(0, 7)) ?? null;
     const vcb: VietcombankUsdRates | null = vcbByDate.get(date) ?? null;
     const manhHaiSnap = manhHaiByDate.get(date) ?? null;
-
-    const slot = (s: ManhHaiSlot) => manhHaiSnap?.slots?.[s] ?? null;
-    const buy09 = slot("09:00")?.buy ?? null;
-    const buy11 = slot("11:00")?.buy ?? null;
-    const buy1430 = slot("14:30")?.buy ?? null;
-    const buy1730 = slot("17:30")?.buy ?? null;
-    const sell09 = slot("09:00")?.sell ?? null;
-    const sell11 = slot("11:00")?.sell ?? null;
-    const sell1430 = slot("14:30")?.sell ?? null;
-    const sell1730 = slot("17:30")?.sell ?? null;
-    const buyDiff =
-      buy09 != null && buy1730 != null ? buy1730 - buy09 : null;
-    const sellDiff =
-      sell09 != null && sell1730 != null ? sell1730 - sell09 : null;
 
     const [oilOpen, oilHigh, oilLow, oilClose, oilChange] = ohlcToCols(oilRow);
     const [dollarOpen, dollarHigh, dollarLow, dollarClose, dollarChange] =
@@ -223,18 +280,7 @@ export async function getFullTableRange(
 
     const row: FullTableRow = {};
     for (let j = 0; j < 61; j++) row[`col_${j}`] = null;
-    // col_1..col_10 Mua/Bán Mạnh Hải – không fill data, xử lý sau
-
-    row.col_1 = buy09;
-    row.col_2 = buy11;
-    row.col_3 = buy1430;
-    row.col_4 = buy1730;
-    row.col_5 = buyDiff;
-    row.col_6 = sell09;
-    row.col_7 = sell11;
-    row.col_8 = sell1430;
-    row.col_9 = sell1730;
-    row.col_10 = sellDiff;
+    applyManhHaiSnapshotToRow(row, manhHaiSnap);
 
     row.col_12 = date;
     row.col_13 = kitcoOpen;

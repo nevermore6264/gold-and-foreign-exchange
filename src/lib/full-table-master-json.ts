@@ -8,6 +8,11 @@ import path from "path";
 
 const MASTER_PATH = path.join(process.cwd(), "cache", "full-table-dataset.json");
 
+/**
+ * Tăng khi đổi cách gộp OHLC / generate ngày — bỏ qua master cũ để build lại dữ liệu thị trường.
+ */
+export const MARKET_SCHEMA_VERSION = 2;
+
 /** Cùng shape với FullTableRow trong full-table.ts */
 export type MasterTableRow = Record<string, string | number | null>;
 
@@ -16,6 +21,8 @@ export interface FullTableMasterFile {
   updatedAt: string;
   /** key = YYYY-MM-DD (col_12) */
   byDate: Record<string, MasterTableRow>;
+  /** Khớp MARKET_SCHEMA_VERSION — file cũ không có field này sẽ bị bỏ qua fast path */
+  marketSchemaVersion?: number;
 }
 
 export async function readFullTableMaster(): Promise<FullTableMasterFile> {
@@ -29,6 +36,7 @@ export async function readFullTableMaster(): Promise<FullTableMasterFile> {
       version: 1,
       updatedAt: data.updatedAt ?? new Date().toISOString(),
       byDate: data.byDate,
+      marketSchemaVersion: data.marketSchemaVersion,
     };
   } catch {
     return { version: 1, updatedAt: new Date().toISOString(), byDate: {} };
@@ -48,6 +56,7 @@ export async function mergeRowsIntoFullTableMaster(
     master.byDate[date] = { ...row };
   }
   master.updatedAt = new Date().toISOString();
+  master.marketSchemaVersion = MARKET_SCHEMA_VERSION;
   await mkdir(path.dirname(MASTER_PATH), { recursive: true });
   await writeFile(MASTER_PATH, JSON.stringify(master, null, 0), "utf-8");
 }
@@ -56,6 +65,7 @@ export function hasAllDatesInMaster(
   master: FullTableMasterFile,
   dates: string[],
 ): boolean {
+  if (master.marketSchemaVersion !== MARKET_SCHEMA_VERSION) return false;
   if (dates.length === 0) return false;
   return dates.every((d) => {
     const r = master.byDate[d];

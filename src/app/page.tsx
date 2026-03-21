@@ -1,5 +1,6 @@
 "use client";
 
+import { MANH_HAI_COL } from "@/lib/manh-hai-columns";
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 
@@ -147,10 +148,12 @@ const MH_HEAD_BLUE =
   "bg-[#BDD7EE] dark:bg-sky-900/45 text-stone-900 dark:text-sky-50";
 /** Viền ô bảng: đen (light) / sáng (dark) — nét rõ giữa hàng & cột */
 const TABLE_CELL_BR =
-  "border-b border-r border-stone-900 dark:border-stone-200";
-const TABLE_CELL_B = "border-b border-stone-900 dark:border-stone-200";
-
+  "border-b border-r border-black dark:border-stone-200";
 const MH_HEAD_BORDER = TABLE_CELL_BR;
+
+/** Hiệu ứng ô: highlight nhẹ khi hover cả hàng (giống glass / macOS) */
+const TD_CELL_FX =
+  "transition-[box-shadow,filter] duration-200 ease-out motion-reduce:transition-none group-hover/row:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.4)] dark:group-hover/row:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.09)] group-hover/row:brightness-[1.015] dark:group-hover/row:brightness-110";
 
 function manhHaiHeaderGroupClass(): string {
   return `${MH_HEAD_BORDER} px-2 py-2.5 text-xs font-bold whitespace-nowrap ${MH_HEAD_BLUE}`;
@@ -346,6 +349,15 @@ export default function Home() {
         // Clear old data immediately when switching range
         setFullRowsByDate({});
         setIsLoadingTable(true);
+        // Cập nhật snapshot Mạnh Hải (hôm nay VN) trước khi merge vào bảng
+        try {
+          const vnToday = getVietnamNowParts().isoDate;
+          await fetch(`/api/manh-hai?date=${encodeURIComponent(vnToday)}`, {
+            signal: controller.signal,
+          });
+        } catch {
+          /* ignore */
+        }
         const res = await fetch(`/api/full-table?from=${from}&to=${to}`, {
           signal: controller.signal,
         });
@@ -539,7 +551,10 @@ export default function Home() {
     const raw = base ? base[`col_${colIndex}`] : null;
     if (raw == null) return { text: "–" };
     const n = typeof raw === "number" ? raw : Number(raw);
-    if (colIndex === 5 || colIndex === 10) {
+    if (
+      colIndex === MANH_HAI_COL.MUA_CHENH_LECH ||
+      colIndex === MANH_HAI_COL.BAN_CHENH_LECH
+    ) {
       const text = formatVnd(raw);
       return {
         text,
@@ -579,7 +594,10 @@ export default function Home() {
    */
   function chiVangIndexTaiSanOverDong17h30(isoDate: string): string {
     const taiSan = parseBigNumberInput(totalTaiSan);
-    const dong17h30Ban = manhHaiRawNumber(isoDate, 9);
+    const dong17h30Ban = manhHaiRawNumber(
+      isoDate,
+      MANH_HAI_COL.BAN_17H30,
+    );
     if (taiSan == null) return "–";
     if (dong17h30Ban == null) return "–";
     const q = taiSan / dong17h30Ban;
@@ -605,7 +623,10 @@ export default function Home() {
   function chiVangThemMinusChiCu(isoDate: string): string {
     const taiSan = parseBigNumberInput(totalTaiSan);
     const chiCu = parseChiVangCuInput(totalChiVangCu);
-    const dong17h30Ban = manhHaiRawNumber(isoDate, 9);
+    const dong17h30Ban = manhHaiRawNumber(
+      isoDate,
+      MANH_HAI_COL.BAN_17H30,
+    );
     if (taiSan == null) return "–";
     if (dong17h30Ban == null) return "–";
     if (chiCu == null) return "–";
@@ -618,7 +639,7 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-amber-50/80 via-stone-50/50 to-orange-50/70 dark:from-stone-950 dark:via-stone-900 dark:to-stone-950 text-stone-900 dark:text-stone-100">
       <header
         className="shrink-0 sticky top-0 z-20 opacity-0 animate-fade-in-up border-b border-amber-200/50 dark:border-amber-900/30 bg-white/90 dark:bg-stone-900/90 backdrop-blur-md shadow-sm"
         style={{ animationDelay: "0ms", animationFillMode: "forwards" }}
@@ -914,10 +935,10 @@ export default function Home() {
         </section>
 
         <div
-          className="relative rounded-2xl border border-amber-200/40 dark:border-amber-900/30 bg-white dark:bg-stone-900 shadow-xl shadow-amber-500/5 overflow-hidden opacity-0 animate-scale-in"
+          className="relative rounded-2xl border border-amber-200/50 dark:border-amber-800/40 bg-gradient-to-br from-white via-amber-50/40 to-orange-50/50 dark:from-stone-900 dark:via-stone-900 dark:to-amber-950/30 shadow-xl shadow-amber-500/10 dark:shadow-black/40 ring-1 ring-white/60 dark:ring-stone-700/50 overflow-hidden opacity-0 animate-scale-in"
           style={{ animationDelay: "140ms", animationFillMode: "forwards" }}
         >
-          <div className="border-b border-amber-200/50 dark:border-amber-900/30 px-5 py-3.5 text-sm text-stone-500 dark:text-stone-400 bg-gradient-to-r from-amber-50/70 to-white/60 dark:from-amber-950/20 dark:to-stone-900/10 backdrop-blur flex items-center justify-between gap-3">
+          <div className="border-b border-amber-200/50 dark:border-amber-900/30 px-5 py-3.5 text-sm text-stone-500 dark:text-stone-400 bg-gradient-to-r from-amber-100/50 via-white/70 to-amber-50/40 dark:from-amber-950/30 dark:via-stone-900/50 dark:to-amber-950/20 backdrop-blur-sm flex items-center justify-between gap-3">
             <span className="font-medium text-stone-700 dark:text-stone-300">
               Tổng hợp vàng, tỷ giá & chỉ số thị trường
             </span>
@@ -928,18 +949,19 @@ export default function Home() {
               </span>
             )}
           </div>
-          <div className="overflow-auto">
+          <div className="relative bg-gradient-to-br from-amber-50/50 via-white/30 to-stone-100/40 dark:from-stone-950/60 dark:via-stone-900/50 dark:to-stone-950/70 p-2 sm:p-2.5">
+            <div className="scroll-table-premium overflow-auto max-h-[min(78vh,1200px)] rounded-xl border border-white/70 dark:border-stone-600/35 bg-white/45 dark:bg-stone-900/40 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.75),0_10px_40px_-16px_rgba(180,83,9,0.18)] dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06),0_12px_48px_-12px_rgba(0,0,0,0.55)] backdrop-blur-[3px]">
             <table className="w-full text-left border-separate border-spacing-0 min-w-max">
-              <thead className="sticky top-0 z-10 bg-amber-100/90 dark:bg-amber-900/30 backdrop-blur-sm text-center [&_th]:font-bold [&_th]:!border-stone-900 [&_th]:dark:!border-stone-200">
+              <thead className="sticky top-0 z-10 bg-amber-100/90 dark:bg-amber-900/30 backdrop-blur-sm text-center [&_th]:font-bold [&_th]:!border-black [&_th]:dark:!border-stone-200 [&_th]:transition-[filter,box-shadow] [&_th]:duration-200 [&_th]:hover:brightness-[1.04] dark:[&_th]:hover:brightness-110">
                 {/* Dòng 1: nhóm lớn + STT + Thứ/Ngày (rowSpan) */}
                 <tr>
                   <th
                     rowSpan={3}
-                    className="sticky left-0 z-40 border-b border-r border-stone-900 dark:border-stone-200 px-2 py-2 w-20 min-w-20 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30"
+                    className="sticky left-0 z-40 border-b border-r border-black dark:border-stone-200 px-2 py-2 w-20 min-w-20 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30"
                   ></th>
                   <th
                     rowSpan={3}
-                    className="sticky left-20 z-40 border-b border-r border-stone-900 dark:border-stone-200 px-2 py-2 w-28 min-w-28 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30"
+                    className="sticky left-20 z-40 border-b border-r border-black dark:border-stone-200 px-2 py-2 w-28 min-w-28 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30"
                   >
                     DATE
                   </th>
@@ -951,7 +973,7 @@ export default function Home() {
                   </th>
                   <th
                     rowSpan={3}
-                    className={`border border-stone-800 dark:border-stone-600 px-1.5 py-2 w-12 min-w-12 text-[10px] font-bold leading-tight text-stone-900 dark:text-stone-100 ${getRegionHeaderBgClass(61)}`}
+                    className={`border border-black dark:border-stone-200 px-1.5 py-2 w-12 min-w-12 text-[10px] font-bold leading-tight text-stone-900 dark:text-stone-100 ${getRegionHeaderBgClass(61)}`}
                   >
                     <span className="block">∑</span>
                     <span className="block">chỉ</span>
@@ -959,7 +981,7 @@ export default function Home() {
                   </th>
                   <th
                     rowSpan={3}
-                    className={`border border-stone-800 dark:border-stone-600 border-l-0 px-1.5 py-2 w-14 min-w-14 text-[10px] font-bold leading-tight text-stone-900 dark:text-stone-100 ${getRegionHeaderBgClass(62)}`}
+                    className={`border border-black dark:border-stone-200 border-l-0 px-1.5 py-2 w-14 min-w-14 text-[10px] font-bold leading-tight text-stone-900 dark:text-stone-100 ${getRegionHeaderBgClass(62)}`}
                   >
                     <span className="block">∑</span>
                     <span className="block">chỉ vàng</span>
@@ -967,37 +989,37 @@ export default function Home() {
                   </th>
                   <th
                     colSpan={9}
-                    className={`border-b border-r border-stone-900 dark:border-stone-200 px-2 py-2 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-2 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
                   >
                     KITCO - GIÁ VÀNG THẾ GIỚI
                   </th>
                   <th
                     colSpan={9}
-                    className={`border-b border-r border-stone-900 dark:border-stone-200 px-2 py-2 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-2 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
                   >
                     GIÁ DẦU
                   </th>
                   <th
                     colSpan={9}
-                    className={`border-b border-r border-stone-900 dark:border-stone-200 px-2 py-2 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-2 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
                   >
                     DOLLAR INDEX
                   </th>
                   <th
                     colSpan={9}
-                    className={`border-b border-r border-stone-900 dark:border-stone-200 px-2 py-2 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-2 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
                   >
                     TRÁI PHIẾU US - 10 NĂM
                   </th>
                   <th
                     colSpan={9}
-                    className={`border-b border-r border-stone-900 dark:border-stone-200 px-2 py-2 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-2 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
                   >
                     S&P 500
                   </th>
                   <th
                     colSpan={1}
-                    className={`border-b border-amber-200/60 dark:border-amber-800/40 px-2 py-2 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap ${getRegionHeaderBgClass(60)}`}
+                    className={`border-b border-black dark:border-stone-200 px-2 py-2 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap ${getRegionHeaderBgClass(60)}`}
                   >
                     Tỷ Giá VCB
                   </th>
@@ -1030,141 +1052,141 @@ export default function Home() {
                   {/* KITCO (9 cột) */}
                   <th
                     colSpan={5}
-                    className={`border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
                   >
                     MỞ
                   </th>
                   <th
-                    className={`border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
                   >
                     ĐÓNG
                   </th>
                   <th
-                    className={`border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
                   >
                     CAO
                   </th>
                   <th
-                    className={`border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
                   >
                     THẤP (Low)
                   </th>
                   <th
-                    className={`border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
                   >
                     THAY ĐỔI (Change)
                   </th>
                   {/* Giá dầu (9 cột) */}
                   <th
                     colSpan={5}
-                    className={`border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
                   >
                     MỞ
                   </th>
                   <th
-                    className={`border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
                   >
                     ĐÓNG
                   </th>
                   <th
-                    className={`border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
                   >
                     CAO
                   </th>
                   <th
-                    className={`border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
                   >
                     THẤP
                   </th>
                   <th
-                    className={`border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
                   >
                     THAY ĐỔI
                   </th>
                   {/* Dollar index (9 cột) */}
                   <th
                     colSpan={5}
-                    className={`border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
                   >
                     MỞ
                   </th>
                   <th
-                    className={`border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
                   >
                     ĐÓNG
                   </th>
                   <th
-                    className={`border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
                   >
                     CAO
                   </th>
                   <th
-                    className={`border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
                   >
                     THẤP
                   </th>
                   <th
-                    className={`border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
                   >
                     THAY ĐỔI
                   </th>
                   {/* Trái phiếu 10Y (9 cột) */}
                   <th
                     colSpan={5}
-                    className={`border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
                   >
                     MỞ
                   </th>
                   <th
-                    className={`border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
                   >
                     ĐÓNG
                   </th>
                   <th
-                    className={`border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
                   >
                     CAO
                   </th>
                   <th
-                    className={`border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
                   >
                     THẤP
                   </th>
                   <th
-                    className={`border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
                   >
                     THAY ĐỔI
                   </th>
                   {/* S&P 500 (9 cột) */}
                   <th
                     colSpan={5}
-                    className={`border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
                   >
                     MỞ
                   </th>
                   <th
-                    className={`border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
                   >
                     ĐÓNG
                   </th>
                   <th
-                    className={`border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
                   >
                     CAO
                   </th>
                   <th
-                    className={`border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
                   >
                     THẤP
                   </th>
                   <th
-                    className={`border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
                   >
                     THAY ĐỔI
                   </th>
                   {/* Tỷ giá VCB (1 cột - chỉ lấy Bán) */}
                   <th
-                    className={`border-b border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(60)}`}
+                    className={`border-b border-black dark:border-stone-200 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(60)}`}
                   >
                     Bán
                   </th>
@@ -1215,174 +1237,174 @@ export default function Home() {
                   </th>
                   {/* Thứ, Ngày đã rowSpan=3 ở dòng 1 */}
                   {/* KITCO (9 cột) */}
-                  <th className="border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
+                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
                     0h <br />
                     (Kitco)
                   </th>
-                  <th className="border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
+                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
                     9h
                     <br />
                     (Việt Nam)
                   </th>
-                  <th className="border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
+                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
                     11h
                     <br />
                     (Việt Nam)
                   </th>
-                  <th className="border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
+                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
                     14h30
                     <br />
                     (Việt Nam)
                   </th>
-                  <th className="border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
+                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
                     17h30
                     <br />
                     (Việt Nam)
                   </th>
-                  <th className="border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
+                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
                     24h <br />
                     (Kitco)
                   </th>
-                  <th className="border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
-                  <th className="border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
-                  <th className="border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
+                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
+                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
+                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
                   {/* Giá dầu (9 cột) */}
-                  <th className="border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
+                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
                     0h
                     <br /> (Investing)
                   </th>
-                  <th className="border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
+                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
                     9h
                     <br />
                     (Việt Nam)
                   </th>
-                  <th className="border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
+                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
                     11h
                     <br />
                     (Việt Nam)
                   </th>
-                  <th className="border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
+                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
                     14h30
                     <br />
                     (Việt Nam)
                   </th>
-                  <th className="border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
+                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
                     17h30
                     <br />
                     (Việt Nam)
                   </th>
-                  <th className="border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
+                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
                     24h
                     <br /> (Investing)
                   </th>
-                  <th className="border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
-                  <th className="border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
-                  <th className="border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
+                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
+                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
+                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
                   {/* Dollar index (9 cột) */}
-                  <th className="border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
+                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
                     0h
                     <br /> (Investing)
                   </th>
-                  <th className="border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
+                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
                     9h
                     <br />
                     (Việt Nam)
                   </th>
-                  <th className="border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
+                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
                     11h
                     <br />
                     (Việt Nam)
                   </th>
-                  <th className="border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
+                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
                     14h30
                     <br />
                     (Việt Nam)
                   </th>
-                  <th className="border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
+                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
                     17h30
                     <br />
                     (Việt Nam)
                   </th>
-                  <th className="border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
+                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
                     24h
                     <br /> (Investing)
                   </th>
-                  <th className="border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
-                  <th className="border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
-                  <th className="border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
+                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
+                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
+                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
                   {/* Trái phiếu 10Y (9 cột) */}
-                  <th className="border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
+                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
                     0h <br />
                     (Investing)
                   </th>
-                  <th className="border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
+                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
                     9h
                     <br />
                     (Việt Nam)
                   </th>
-                  <th className="border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
+                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
                     11h
                     <br />
                     (Việt Nam)
                   </th>
-                  <th className="border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
+                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
                     14h30
                     <br />
                     (Việt Nam)
                   </th>
-                  <th className="border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
+                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
                     17h30
                     <br />
                     (Việt Nam)
                   </th>
-                  <th className="border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
+                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
                     24h
                     <br /> (Investing)
                   </th>
-                  <th className="border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
-                  <th className="border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
-                  <th className="border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
+                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
+                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
+                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
                   {/* S&P 500 (9 cột) */}
-                  <th className="border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
+                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
                     0h <br />
                     (Investing)
                   </th>
-                  <th className="border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
+                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
                     9h
                     <br />
                     (Việt Nam)
                   </th>
-                  <th className="border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
+                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
                     11h
                     <br />
                     (Việt Nam)
                   </th>
-                  <th className="border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
+                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
                     14h30
                     <br />
                     (Việt Nam)
                   </th>
-                  <th className="border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
+                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
                     17h30
                     <br />
                     (Việt Nam)
                   </th>
-                  <th className="border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
+                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
                     24h
                     <br /> (Investing)
                   </th>
-                  <th className="border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
-                  <th className="border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
-                  <th className="border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
+                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
+                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
+                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
                   {/* Tỷ giá VCB (1 cột - chỉ lấy Bán) */}
-                  <th className="border-b border-r border-stone-900 dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
+                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
                 </tr>
               </thead>
               <tbody>
                 {dateRows.map((row) => (
                   <tr
                     key={row.isoDate}
-                    className="transition-colors duration-200 hover:bg-amber-50/60 dark:hover:bg-amber-950/30"
+                    className="group/row transition-colors duration-200 hover:bg-amber-50/60 dark:hover:bg-amber-950/30"
                   >
                     {[
                       0, 11, 12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 61, 62, 13, 14,
@@ -1398,12 +1420,12 @@ export default function Home() {
                             j === 0
                               ? "border-0 px-0 py-0 w-0 max-w-0 overflow-hidden"
                               : j === 11
-                                ? "sticky left-0 z-30 border-r border-b border-stone-300 dark:border-stone-700 px-2 py-2 text-xs font-bold w-20 max-w-20 truncate tabular-nums text-stone-400 dark:text-stone-500 bg-amber-50/60 dark:bg-amber-950/20"
+                                ? `sticky left-0 z-30 border-r border-b border-black dark:border-stone-200 px-2 py-2 text-xs font-bold w-20 max-w-20 truncate tabular-nums text-stone-400 dark:text-stone-500 bg-amber-50/60 dark:bg-amber-950/20 ${TD_CELL_FX}`
                                 : j === 12
-                                  ? "sticky left-20 z-30 border-r border-b border-stone-300 dark:border-stone-700 px-2 py-2 text-xs font-bold w-28 max-w-28 truncate tabular-nums text-red-600 dark:text-red-400 bg-amber-50/60 dark:bg-amber-950/20"
+                                  ? `sticky left-20 z-30 border-r border-b border-black dark:border-stone-200 px-2 py-2 text-xs font-bold w-28 max-w-28 truncate tabular-nums text-red-600 dark:text-red-400 bg-amber-50/60 dark:bg-amber-950/20 ${TD_CELL_FX}`
                                   : j === 61 || j === 62
-                                    ? `border-r border-b border-stone-300 dark:border-stone-700 px-2 py-2 text-xs font-bold max-w-[100px] truncate tabular-nums text-stone-700 dark:text-stone-300 text-center ${getRegionBgClass(j)}`
-                                    : `border-r border-b border-stone-300 dark:border-stone-700 px-2 py-2 text-xs font-bold max-w-[120px] truncate tabular-nums text-stone-400 dark:text-stone-500 ${getRegionBgClass(j)}`
+                                    ? `border-r border-b border-black dark:border-stone-200 px-2 py-2 text-xs font-bold max-w-[100px] truncate tabular-nums text-stone-700 dark:text-stone-300 text-center ${getRegionBgClass(j)} ${TD_CELL_FX}`
+                                    : `border-r border-b border-black dark:border-stone-200 px-2 py-2 text-xs font-bold max-w-[120px] truncate tabular-nums text-stone-400 dark:text-stone-500 ${getRegionBgClass(j)} ${TD_CELL_FX}`
                           }
                         >
                           {isLoadingTable && j !== 0 && j !== 11 && j !== 12 ? (
@@ -1602,6 +1624,7 @@ export default function Home() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
       </main>

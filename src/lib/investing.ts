@@ -54,17 +54,19 @@ export async function fetchInvestingHistorical(
   toDate: string,
 ): Promise<OHLCRow[]> {
   try {
-    const fromTs = Math.floor(new Date(fromDate).getTime() / 1000);
-    const toTs = Math.floor(new Date(toDate).getTime() / 1000);
-    const url = `${INVESTING_API}/${pairId}/historical/chart?period=P10Y&interval=P1D&pointscount=2000`;
+    // pointscount: ~10 năm ngày giao dịch > 2000 — tăng để không mất các ngày gần nhất (vd. tháng hiện tại).
+    const url = `${INVESTING_API}/${pairId}/historical/chart?period=P10Y&interval=P1D&pointscount=12000`;
     const res = await fetch(url, {
       next: { revalidate: 86400 },
       headers: DEFAULT_HEADERS,
     });
     if (!res.ok) return [];
     const data = (await res.json()) as { data?: InvestingChartPoint[] };
-    const points = data?.data ?? [];
-    const rows: OHLCRow[] = [];
+    const points = [...(data?.data ?? [])].sort(
+      (a, b) => (a.date ?? 0) - (b.date ?? 0),
+    );
+
+    const byDay = new Map<string, Omit<OHLCRow, "changePercent">>();
     for (const p of points) {
       const ts = p.date;
       if (ts == null) continue;
@@ -72,24 +74,26 @@ export async function fetchInvestingHistorical(
       const yyyy = d.getFullYear();
       const mm = String(d.getMonth() + 1).padStart(2, "0");
       const dd = String(d.getDate()).padStart(2, "0");
-      // Use local calendar day for stable YYYY-MM-DD keys
       const dateStr = `${yyyy}-${mm}-${dd}`;
       if (dateStr < fromDate || dateStr > toDate) continue;
       const open = p.price_open ?? p.price_close ?? 0;
       const high = p.price_high ?? p.price_close ?? open;
       const low = p.price_low ?? p.price_close ?? open;
       const close = p.price_close ?? open;
-      const prevClose = rows.length > 0 ? rows[rows.length - 1].close : close;
+      byDay.set(dateStr, { date: dateStr, open, high, low, close });
+    }
+
+    const sortedDates = [...byDay.keys()].sort((a, b) => a.localeCompare(b));
+    const rows: OHLCRow[] = [];
+    for (const dateStr of sortedDates) {
+      const row = byDay.get(dateStr)!;
+      const prevClose = rows.length > 0 ? rows[rows.length - 1].close : row.close;
       const changePercent =
         prevClose && prevClose !== 0
-          ? (((close - prevClose) / prevClose) * 100).toFixed(2) + "%"
+          ? (((row.close - prevClose) / prevClose) * 100).toFixed(2) + "%"
           : null;
       rows.push({
-        date: dateStr,
-        open,
-        high,
-        low,
-        close,
+        ...row,
         changePercent,
       });
     }

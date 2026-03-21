@@ -1,4 +1,11 @@
-import { getFullTable, getFullTableRange, generateAllDates } from "@/lib/full-table";
+import {
+  applyManhHaiSnapshotToRow,
+  getFullTable,
+  getFullTableRange,
+  generateAllDates,
+  type FullTableRow,
+} from "@/lib/full-table";
+import { readManhHaiSnapshot } from "@/lib/manh-hai";
 import {
   readFullTableCache,
   writeFullTableCache,
@@ -13,6 +20,22 @@ import { NextRequest, NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 export const maxDuration = 120;
+
+/** Luôn merge snapshot Mạnh Hải mới nhất (master/cache có thể cũ ở col_1..10). */
+async function patchRowsWithManhHaiSnapshots(
+  rows: FullTableRow[],
+): Promise<FullTableRow[]> {
+  return Promise.all(
+    rows.map(async (r) => {
+      const date = r.col_12;
+      if (typeof date !== "string" || !date) return r;
+      const snap = await readManhHaiSnapshot(date);
+      const next = { ...r };
+      applyManhHaiSnapshotToRow(next, snap);
+      return next;
+    }),
+  );
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -30,8 +53,11 @@ export async function GET(request: NextRequest) {
       const dates = generateAllDates(from, to);
       const master = await readFullTableMaster();
       if (hasAllDatesInMaster(master, dates)) {
+        const rows = await patchRowsWithManhHaiSnapshots(
+          dates.map((d) => ({ ...master.byDate[d]! })),
+        );
         return NextResponse.json({
-          rows: dates.map((d) => master.byDate[d]!),
+          rows,
           fromDate: from,
           toDate: to,
         });
@@ -40,8 +66,9 @@ export async function GET(request: NextRequest) {
       // Fallback: cache theo từng khoảng from-to (cũ)
       const cached = await readFullTableCache(from, to);
       if (cached) {
+        const rows = await patchRowsWithManhHaiSnapshots(cached.rows);
         return NextResponse.json({
-          rows: cached.rows,
+          rows,
           fromDate: cached.fromDate,
           toDate: cached.toDate,
         });
