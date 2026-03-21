@@ -828,34 +828,38 @@ export default function Home() {
                 <tr>
                   {/* Mua - Mạnh Hải (5 cột) */}
                   <th
-                    colSpan={3}
+                    colSpan={2}
                     className={`border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(1)}`}
                   >
                     MỞ
                   </th>
                   <th
+                    colSpan={2}
                     className={`border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(1)}`}
                   >
                     ĐÓNG
                   </th>
                   <th
+                    colSpan={1}
                     className={`border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(1)}`}
                   >
                     CHÊNH LỆCH
                   </th>
                   {/* Bán - Mạnh Hải (5 cột) */}
                   <th
-                    colSpan={3}
+                    colSpan={2}
                     className={`border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(1)}`}
                   >
                     MỞ
                   </th>
                   <th
+                    colSpan={2}
                     className={`border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(1)}`}
                   >
                     ĐÓNG
                   </th>
                   <th
+                    colSpan={1}
                     className={`border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(1)}`}
                   >
                     CHÊNH LỆCH
@@ -1007,139 +1011,205 @@ export default function Home() {
                 <tr>
                   {/* Mua - Mạnh Hải (5 cột) */}
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
-                    9h (Việt Nam)
+                    9h
+                    <br />
+                    (Việt Nam)
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
-                    11h (Việt Nam)
+                    11h
+                    <br />
+                    (Việt Nam)
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
-                    14h30 (Việt Nam)
+                    14h30
+                    <br />
+                    (Việt Nam)
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
-                    17h30 (Việt Nam)
+                    17h30
+                    <br />
+                    (Việt Nam)
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
                   {/* Bán - Mạnh Hải (5 cột) */}
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
-                    9h (Việt Nam)
+                    9h
+                    <br />
+                    (Việt Nam)
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
-                    11h (Việt Nam)
+                    11h
+                    <br />
+                    (Việt Nam)
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
-                    14h30 (Việt Nam)
+                    14h30
+                    <br />
+                    (Việt Nam)
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
-                    17h30 (Việt Nam)
+                    17h30
+                    <br />
+                    (Việt Nam)
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
                   {/* Thứ, Ngày đã rowSpan=3 ở dòng 1 */}
                   {/* KITCO (9 cột) */}
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
-                    0h (Kitco)
+                    0h <br />
+                    (Kitco)
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
-                    9h (Việt Nam)
+                    9h
+                    <br />
+                    (Việt Nam)
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
-                    11h (Việt Nam)
+                    11h
+                    <br />
+                    (Việt Nam)
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
-                    14h30 (Việt Nam)
+                    14h30
+                    <br />
+                    (Việt Nam)
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
-                    17h30 (Việt Nam)
+                    17h30
+                    <br />
+                    (Việt Nam)
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
-                    24h (Kitco)
+                    24h <br />
+                    (Kitco)
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
                   {/* Giá dầu (9 cột) */}
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
-                    0h (Investing)
+                    0h
+                    <br /> (Investing)
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
-                    9h (Việt Nam)
+                    9h
+                    <br />
+                    (Việt Nam)
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
-                    11h (Việt Nam)
+                    11h
+                    <br />
+                    (Việt Nam)
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
-                    14h30 (Việt Nam)
+                    14h30
+                    <br />
+                    (Việt Nam)
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
-                    17h30 (Việt Nam)
+                    17h30
+                    <br />
+                    (Việt Nam)
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
-                    24h (Investing)
+                    24h
+                    <br /> (Investing)
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
                   {/* Dollar index (9 cột) */}
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
-                    0h (Investing)
+                    0h
+                    <br /> (Investing)
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
-                    9h (Việt Nam)
+                    9h
+                    <br />
+                    (Việt Nam)
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
-                    11h (Việt Nam)
+                    11h
+                    <br />
+                    (Việt Nam)
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
-                    14h30 (Việt Nam)
+                    14h30
+                    <br />
+                    (Việt Nam)
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
-                    17h30 (Việt Nam)
+                    17h30
+                    <br />
+                    (Việt Nam)
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
-                    24h (Investing)
+                    24h
+                    <br /> (Investing)
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
                   {/* Trái phiếu 10Y (9 cột) */}
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
-                    0h (Investing)
+                    0h <br />
+                    (Investing)
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
-                    9h (Việt Nam)
+                    9h
+                    <br />
+                    (Việt Nam)
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
-                    11h (Việt Nam)
+                    11h
+                    <br />
+                    (Việt Nam)
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
-                    14h30 (Việt Nam)
+                    14h30
+                    <br />
+                    (Việt Nam)
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
-                    17h30 (Việt Nam)
+                    17h30
+                    <br />
+                    (Việt Nam)
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
-                    24h (Investing)
+                    24h
+                    <br /> (Investing)
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
                   {/* S&P 500 (9 cột) */}
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
-                    0h (Investing)
+                    0h <br />
+                    (Investing)
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
-                    9h (Việt Nam)
+                    9h
+                    <br />
+                    (Việt Nam)
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
-                    11h (Việt Nam)
+                    11h
+                    <br />
+                    (Việt Nam)
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
-                    14h30 (Việt Nam)
+                    14h30
+                    <br />
+                    (Việt Nam)
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
-                    17h30 (Việt Nam)
+                    17h30
+                    <br />
+                    (Việt Nam)
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
-                    24h (Investing)
+                    24h
+                    <br /> (Investing)
                   </th>
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
@@ -1154,182 +1224,213 @@ export default function Home() {
                     key={row.isoDate}
                     className="transition-colors duration-200 hover:bg-amber-50/60 dark:hover:bg-amber-950/30"
                   >
-                    {[0, 11, 12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 60].map((j) => (j === 0 || j === 58 || j === 59 ? null : (
-                      <td
-                        key={j}
-                        className={
-                          j === 0
-                            ? "border-0 px-0 py-0 w-0 max-w-0 overflow-hidden"
-                            : j === 11
-                              ? "sticky left-0 z-30 border-r border-b border-stone-300 dark:border-stone-700 px-2 py-2 text-xs font-bold w-20 max-w-20 truncate tabular-nums text-stone-400 dark:text-stone-500 bg-amber-50/60 dark:bg-amber-950/20"
-                              : j === 12
-                                ? "sticky left-20 z-30 border-r border-b border-stone-300 dark:border-stone-700 px-2 py-2 text-xs font-bold w-24 max-w-24 truncate tabular-nums text-stone-400 dark:text-stone-500 bg-amber-50/60 dark:bg-amber-950/20"
-                            : `border-r border-b border-stone-300 dark:border-stone-700 px-2 py-2 text-xs font-bold max-w-[120px] truncate tabular-nums text-stone-400 dark:text-stone-500 ${getRegionBgClass(j)}`
-                        }
-                      >
-                        {isLoadingTable && j !== 0 && j !== 11 && j !== 12 ? (
-                          <div className="h-4 w-14 rounded bg-stone-200/70 dark:bg-stone-800/70 animate-pulse" />
-                        ) : j === 0 ? (
-                          ""
-                        ) : j === 11 ? (
-                          row.weekdayLabel
-                        ) : j === 12 ? (
-                          row.dateLabel
-                        ) : j >= 1 && j <= 10 ? (
-                          (() => {
-                            const v = manhHaiCellValue(row.isoDate, j);
-                            return v.toneClass ? (
-                              <span className={v.toneClass}>{v.text}</span>
-                            ) : (
-                              v.text
-                            );
-                          })()
-                        ) : j === 21 ? (
-                          (() => {
-                            const v = kitcoCellValue(row.isoDate, j);
-                            const text = formatChangeWithPlus(v);
-                            return (
-                              <span className={getMarketChangeToneClass(v)}>
-                                {text}
-                              </span>
-                            );
-                          })()
-                        ) : j === 30 ? (
-                          (() => {
-                            const v = marketTimedCellValue(
-                              row.isoDate,
-                              j,
-                              "oil",
-                            );
-                            const text = formatChangeWithPlus(v);
-                            return (
-                              <span className={getMarketChangeToneClass(v)}>
-                                {text}
-                              </span>
-                            );
-                          })()
-                        ) : j === 39 ? (
-                          (() => {
-                            const v = marketTimedCellValue(
-                              row.isoDate,
-                              j,
-                              "dollarIndex",
-                            );
-                            const text = formatChangeWithPlus(v);
-                            return (
-                              <span className={getMarketChangeToneClass(v)}>
-                                {text}
-                              </span>
-                            );
-                          })()
-                        ) : j === 48 ? (
-                          (() => {
-                            const v = marketTimedCellValue(
-                              row.isoDate,
-                              j,
-                              "bond10y",
-                            );
-                            const text = formatChangeWithPlus(v);
-                            return (
-                              <span className={getMarketChangeToneClass(v)}>
-                                {text}
-                              </span>
-                            );
-                          })()
-                        ) : j === 57 ? (
-                          (() => {
-                            const v = marketTimedCellValue(
-                              row.isoDate,
-                              j,
-                              "sp500",
-                            );
-                            const text = formatChangeWithPlus(v);
-                            return (
-                              <span className={getMarketChangeToneClass(v)}>
-                                {text}
-                              </span>
-                            );
-                          })()
-                        ) : j >= 13 && j <= 17 ? (
-                          (() => {
-                            const v = kitcoCellValue(row.isoDate, j);
-                            const ch = kitcoCellValue(row.isoDate, 21);
-                            const tone = getMarketChangeToneClass(ch);
-                            return v === "–" ? v : <span className={tone}>{v}</span>;
-                          })()
-                        ) : j >= 18 && j <= 20 ? (
-                          kitcoCellValue(row.isoDate, j)
-                        ) : j >= 22 && j <= 29 ? (
-                          (() => {
-                            const v = marketTimedCellValue(row.isoDate, j, "oil");
-                            const ch = marketTimedCellValue(
-                              row.isoDate,
-                              30,
-                              "oil",
-                            );
-                            const tone = getMarketChangeToneClass(
-                              formatChangeWithPlus(ch),
-                            );
-                            return v === "–" ? v : <span className={tone}>{v}</span>;
-                          })()
-                        ) : j >= 31 && j <= 38 ? (
-                          (() => {
-                            const v = marketTimedCellValue(
-                              row.isoDate,
-                              j,
-                              "dollarIndex",
-                            );
-                            const ch = marketTimedCellValue(
-                              row.isoDate,
-                              39,
-                              "dollarIndex",
-                            );
-                            const tone = getMarketChangeToneClass(
-                              formatChangeWithPlus(ch),
-                            );
-                            return v === "–" ? v : <span className={tone}>{v}</span>;
-                          })()
-                        ) : j >= 40 && j <= 47 ? (
-                          (() => {
-                            const v = marketTimedCellValue(
-                              row.isoDate,
-                              j,
-                              "bond10y",
-                            );
-                            const ch = marketTimedCellValue(
-                              row.isoDate,
-                              48,
-                              "bond10y",
-                            );
-                            const tone = getMarketChangeToneClass(
-                              formatChangeWithPlus(ch),
-                            );
-                            return v === "–" ? v : <span className={tone}>{v}</span>;
-                          })()
-                        ) : j >= 49 && j <= 56 ? (
-                          (() => {
-                            const v = marketTimedCellValue(
-                              row.isoDate,
-                              j,
-                              "sp500",
-                            );
-                            const ch = marketTimedCellValue(
-                              row.isoDate,
-                              57,
-                              "sp500",
-                            );
-                            const tone = getMarketChangeToneClass(
-                              formatChangeWithPlus(ch),
-                            );
-                            return v === "–" ? v : <span className={tone}>{v}</span>;
-                          })()
-                        ) : j >= 58 && j <= 60 ? (
-                          vcbCellValue(row.isoDate, j)
-                        ) : (
-                          "–"
-                        )}
-                      </td>
-                    )))} 
+                    {[
+                      0, 11, 12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 13, 14, 15, 16,
+                      17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
+                      31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44,
+                      45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 60,
+                    ].map((j) =>
+                      j === 0 || j === 58 || j === 59 ? null : (
+                        <td
+                          key={j}
+                          className={
+                            j === 0
+                              ? "border-0 px-0 py-0 w-0 max-w-0 overflow-hidden"
+                              : j === 11
+                                ? "sticky left-0 z-30 border-r border-b border-stone-300 dark:border-stone-700 px-2 py-2 text-xs font-bold w-20 max-w-20 truncate tabular-nums text-stone-400 dark:text-stone-500 bg-amber-50/60 dark:bg-amber-950/20"
+                                : j === 12
+                                  ? "sticky left-20 z-30 border-r border-b border-stone-300 dark:border-stone-700 px-2 py-2 text-xs font-bold w-24 max-w-24 truncate tabular-nums text-stone-400 dark:text-stone-500 bg-amber-50/60 dark:bg-amber-950/20"
+                                  : `border-r border-b border-stone-300 dark:border-stone-700 px-2 py-2 text-xs font-bold max-w-[120px] truncate tabular-nums text-stone-400 dark:text-stone-500 ${getRegionBgClass(j)}`
+                          }
+                        >
+                          {isLoadingTable && j !== 0 && j !== 11 && j !== 12 ? (
+                            <div className="h-4 w-14 rounded bg-stone-200/70 dark:bg-stone-800/70 animate-pulse" />
+                          ) : j === 0 ? (
+                            ""
+                          ) : j === 11 ? (
+                            row.weekdayLabel
+                          ) : j === 12 ? (
+                            row.dateLabel
+                          ) : j >= 1 && j <= 10 ? (
+                            (() => {
+                              const v = manhHaiCellValue(row.isoDate, j);
+                              return v.toneClass ? (
+                                <span className={v.toneClass}>{v.text}</span>
+                              ) : (
+                                v.text
+                              );
+                            })()
+                          ) : j === 21 ? (
+                            (() => {
+                              const v = kitcoCellValue(row.isoDate, j);
+                              const text = formatChangeWithPlus(v);
+                              return (
+                                <span className={getMarketChangeToneClass(v)}>
+                                  {text}
+                                </span>
+                              );
+                            })()
+                          ) : j === 30 ? (
+                            (() => {
+                              const v = marketTimedCellValue(
+                                row.isoDate,
+                                j,
+                                "oil",
+                              );
+                              const text = formatChangeWithPlus(v);
+                              return (
+                                <span className={getMarketChangeToneClass(v)}>
+                                  {text}
+                                </span>
+                              );
+                            })()
+                          ) : j === 39 ? (
+                            (() => {
+                              const v = marketTimedCellValue(
+                                row.isoDate,
+                                j,
+                                "dollarIndex",
+                              );
+                              const text = formatChangeWithPlus(v);
+                              return (
+                                <span className={getMarketChangeToneClass(v)}>
+                                  {text}
+                                </span>
+                              );
+                            })()
+                          ) : j === 48 ? (
+                            (() => {
+                              const v = marketTimedCellValue(
+                                row.isoDate,
+                                j,
+                                "bond10y",
+                              );
+                              const text = formatChangeWithPlus(v);
+                              return (
+                                <span className={getMarketChangeToneClass(v)}>
+                                  {text}
+                                </span>
+                              );
+                            })()
+                          ) : j === 57 ? (
+                            (() => {
+                              const v = marketTimedCellValue(
+                                row.isoDate,
+                                j,
+                                "sp500",
+                              );
+                              const text = formatChangeWithPlus(v);
+                              return (
+                                <span className={getMarketChangeToneClass(v)}>
+                                  {text}
+                                </span>
+                              );
+                            })()
+                          ) : j >= 13 && j <= 17 ? (
+                            (() => {
+                              const v = kitcoCellValue(row.isoDate, j);
+                              const ch = kitcoCellValue(row.isoDate, 21);
+                              const tone = getMarketChangeToneClass(ch);
+                              return v === "–" ? (
+                                v
+                              ) : (
+                                <span className={tone}>{v}</span>
+                              );
+                            })()
+                          ) : j >= 18 && j <= 20 ? (
+                            kitcoCellValue(row.isoDate, j)
+                          ) : j >= 22 && j <= 29 ? (
+                            (() => {
+                              const v = marketTimedCellValue(
+                                row.isoDate,
+                                j,
+                                "oil",
+                              );
+                              const ch = marketTimedCellValue(
+                                row.isoDate,
+                                30,
+                                "oil",
+                              );
+                              const tone = getMarketChangeToneClass(
+                                formatChangeWithPlus(ch),
+                              );
+                              return v === "–" ? (
+                                v
+                              ) : (
+                                <span className={tone}>{v}</span>
+                              );
+                            })()
+                          ) : j >= 31 && j <= 38 ? (
+                            (() => {
+                              const v = marketTimedCellValue(
+                                row.isoDate,
+                                j,
+                                "dollarIndex",
+                              );
+                              const ch = marketTimedCellValue(
+                                row.isoDate,
+                                39,
+                                "dollarIndex",
+                              );
+                              const tone = getMarketChangeToneClass(
+                                formatChangeWithPlus(ch),
+                              );
+                              return v === "–" ? (
+                                v
+                              ) : (
+                                <span className={tone}>{v}</span>
+                              );
+                            })()
+                          ) : j >= 40 && j <= 47 ? (
+                            (() => {
+                              const v = marketTimedCellValue(
+                                row.isoDate,
+                                j,
+                                "bond10y",
+                              );
+                              const ch = marketTimedCellValue(
+                                row.isoDate,
+                                48,
+                                "bond10y",
+                              );
+                              const tone = getMarketChangeToneClass(
+                                formatChangeWithPlus(ch),
+                              );
+                              return v === "–" ? (
+                                v
+                              ) : (
+                                <span className={tone}>{v}</span>
+                              );
+                            })()
+                          ) : j >= 49 && j <= 56 ? (
+                            (() => {
+                              const v = marketTimedCellValue(
+                                row.isoDate,
+                                j,
+                                "sp500",
+                              );
+                              const ch = marketTimedCellValue(
+                                row.isoDate,
+                                57,
+                                "sp500",
+                              );
+                              const tone = getMarketChangeToneClass(
+                                formatChangeWithPlus(ch),
+                              );
+                              return v === "–" ? (
+                                v
+                              ) : (
+                                <span className={tone}>{v}</span>
+                              );
+                            })()
+                          ) : j >= 58 && j <= 60 ? (
+                            vcbCellValue(row.isoDate, j)
+                          ) : (
+                            "–"
+                          )}
+                        </td>
+                      ),
+                    )}
                   </tr>
                 ))}
               </tbody>
