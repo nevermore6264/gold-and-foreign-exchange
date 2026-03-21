@@ -115,6 +115,9 @@ function getRegionBgClass(colIndex: number): string {
     return "bg-slate-200/30 dark:bg-slate-900/25";
   // VCB: col_60
   if (colIndex === 60) return "bg-yellow-200/30 dark:bg-yellow-900/25";
+  // Cột nhập tay sau Bán Mạnh Hải (không có trong API cũ)
+  if (colIndex === 61) return "bg-rose-200/60 dark:bg-rose-900/30";
+  if (colIndex === 62) return "bg-emerald-200/60 dark:bg-emerald-900/30";
 
   return "";
 }
@@ -134,7 +137,31 @@ function getRegionHeaderBgClass(colIndex: number): string {
   if (colIndex >= 49 && colIndex <= 57)
     return "bg-slate-200/60 dark:bg-slate-900/50";
   if (colIndex === 60) return "bg-yellow-200/60 dark:bg-yellow-900/50";
+  if (colIndex === 61) return "bg-rose-200/80 dark:bg-rose-900/45";
+  if (colIndex === 62) return "bg-emerald-200/80 dark:bg-emerald-900/45";
   return "";
+}
+
+/** Mạnh Hải (Mua/Bán): header xanh dương nhạt (~Excel #BDD7EE) */
+const MH_HEAD_BLUE =
+  "bg-[#BDD7EE] dark:bg-sky-900/45 text-stone-900 dark:text-sky-50";
+const MH_HEAD_BORDER =
+  "border-b border-r border-sky-500/60 dark:border-sky-700/60";
+
+function manhHaiHeaderGroupClass(): string {
+  return `${MH_HEAD_BORDER} px-2 py-2.5 text-xs font-bold whitespace-nowrap ${MH_HEAD_BLUE}`;
+}
+
+function manhHaiHeaderRow2CellClass(): string {
+  return `${MH_HEAD_BORDER} px-2 py-2 text-[11px] font-bold whitespace-nowrap ${MH_HEAD_BLUE}`;
+}
+
+function manhHaiHeaderChenhLechRowSpanClass(): string {
+  return `${MH_HEAD_BORDER} px-2 py-2 align-middle text-[11px] font-bold whitespace-nowrap ${MH_HEAD_BLUE}`;
+}
+
+function manhHaiHeaderTimeRowClass(): string {
+  return `${MH_HEAD_BORDER} px-2 py-2 text-[10px] font-semibold text-stone-800 dark:text-sky-100 whitespace-nowrap ${MH_HEAD_BLUE}`;
 }
 
 function formatChangeWithPlus(value: string): string {
@@ -154,6 +181,10 @@ function clampIsoToTodayInVietnam(isoDate: string): string {
 function daysInMonth(year: number, month1to12: number): number {
   return new Date(year, month1to12, 0).getDate();
 }
+
+/** localStorage keys cho 2 chỉ số nhập tay */
+const LS_INPUT_TAI_SAN = "gia-vang-input-tai-san";
+const LS_INPUT_CHI_VANG_CU = "gia-vang-input-chi-vang-cu";
 
 function computeRange(
   mode: RangeMode,
@@ -266,14 +297,13 @@ export default function Home() {
       d = new Date(d.getFullYear(), d.getMonth(), d.getDate() - 1)
     ) {
       const day = d.getDay(); // 0..6 (Sun..Sat)
-      const weekdayLabel =
-        day === 0 ? "Chủ nhật" : day === 6 ? "Thứ 7" : `Thứ ${day + 1}`; // Mon=2..Sat=7
+      const weekdayLabel = day === 0 ? "CN" : day === 6 ? "7" : `${day + 1}`; // Mon=2..Sat=7
 
-      // Force dd/mm/yyyy (e.g. 07/10/2026)
+      // Hiển thị: dd - mm - yyyy (e.g. 20 - 03 - 2026)
       const dd = String(d.getDate()).padStart(2, "0");
       const mm = String(d.getMonth() + 1).padStart(2, "0");
       const yyyy = String(d.getFullYear());
-      const dateLabel = `${dd}/${mm}/${yyyy}`;
+      const dateLabel = `${dd} - ${mm} - ${yyyy}`;
       const isoDate = toIsoDateLocal(d);
 
       rows.push({ date: d, isoDate, weekdayLabel, dateLabel });
@@ -287,6 +317,21 @@ export default function Home() {
   const [isLoadingTable, setIsLoadingTable] = useState<boolean>(false);
   const [kitcoLive, setKitcoLive] = useState<GoldApiResponse["live"]>();
   const [marketLive, setMarketLive] = useState<MarketLiveResponse>();
+
+  /** ∑ TÀI SẢN / ∑ CHỈ VÀNG CŨ — nhập tay, lưu trên trình duyệt */
+  const [totalTaiSan, setTotalTaiSan] = useState("");
+  const [totalChiVangCu, setTotalChiVangCu] = useState("");
+
+  useEffect(() => {
+    try {
+      const a = localStorage.getItem(LS_INPUT_TAI_SAN);
+      const b = localStorage.getItem(LS_INPUT_CHI_VANG_CU);
+      if (a != null) setTotalTaiSan(a);
+      if (b != null) setTotalChiVangCu(b);
+    } catch {
+      // ignore
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -500,6 +545,59 @@ export default function Home() {
     return { text: formatVnd(raw) };
   }
 
+  /** Ô ∑ TÀI SẢN / ∑ CHỈ VÀNG CŨ: số nguyên, có thể nhập kiểu 36.500.000.000 */
+  function parseBigNumberInput(raw: string): number | null {
+    const t = raw.trim();
+    if (!t) return null;
+    const noDots = t.replace(/\./g, "").replace(/\s/g, "");
+    const n = Number(noDots);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }
+
+  /** Giá Mạnh Hải thô (VNĐ) từ col_1..col_10 */
+  function manhHaiRawNumber(
+    isoDate: string,
+    colIndex: number,
+  ): number | null {
+    const base = fullRowsByDate[isoDate];
+    const raw = base ? base[`col_${colIndex}`] : null;
+    if (raw == null) return null;
+    if (typeof raw === "number")
+      return Number.isFinite(raw) && raw > 0 ? raw : null;
+    const s = String(raw).replace(/\./g, "").replace(/,/g, "");
+    const n = parseFloat(s);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }
+
+  /**
+   * Bán – Đóng 17h30 = col_9 (sau 9h, 11h MỞ; 14h30, 17h30 ĐÓNG).
+   * col_61 "∑ chỉ vàng" = ∑ TÀI SẢN ÷ (Bán Đóng 17h30)
+   */
+  function chiVangIndexTaiSanOverDong17h30(isoDate: string): string {
+    const taiSan = parseBigNumberInput(totalTaiSan);
+    const dong17h30Ban = manhHaiRawNumber(isoDate, 9);
+    if (taiSan == null) return "–";
+    if (dong17h30Ban == null) return "–";
+    const q = taiSan / dong17h30Ban;
+    return q.toLocaleString("vi-VN", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 4,
+    });
+  }
+
+  /** col_62 "∑ chỉ vàng thêm" = ∑ CHỈ VÀNG CŨ ÷ (Bán Đóng 17h30) */
+  function chiVangThemOverDong17h30(isoDate: string): string {
+    const chiCu = parseBigNumberInput(totalChiVangCu);
+    const dong17h30Ban = manhHaiRawNumber(isoDate, 9);
+    if (chiCu == null) return "–";
+    if (dong17h30Ban == null) return "–";
+    const q = chiCu / dong17h30Ban;
+    return q.toLocaleString("vi-VN", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 4,
+    });
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100">
       <header
@@ -685,6 +783,59 @@ export default function Home() {
             </div>
           </div>
 
+          {/* Hai chỉ số nhập tay: trái / phải — nhãn trên, input dưới */}
+          <div className="mt-4 grid w-full max-w-lg grid-cols-2 gap-3 sm:max-w-xl">
+            <div className="min-w-0 overflow-hidden rounded-md border border-emerald-800/50 bg-white dark:border-emerald-700/45 dark:bg-stone-900">
+              <div className="border-b border-stone-200 bg-stone-100/90 px-2 py-1 text-center dark:border-stone-700 dark:bg-stone-800/60">
+                <span className="text-[10px] font-bold leading-tight text-stone-900 dark:text-stone-100">
+                  ∑ TÀI SẢN
+                </span>
+              </div>
+              <input
+                type="text"
+                inputMode="decimal"
+                autoComplete="off"
+                placeholder="0"
+                value={totalTaiSan}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setTotalTaiSan(v);
+                  try {
+                    localStorage.setItem(LS_INPUT_TAI_SAN, v);
+                  } catch {
+                    /* ignore */
+                  }
+                }}
+                className="h-7 w-full border-0 bg-stone-50 px-2 py-0.5 text-right text-xs font-bold tabular-nums text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-1 focus:ring-amber-400/50 focus:ring-inset dark:bg-stone-900/80 dark:text-stone-100 dark:placeholder:text-stone-500"
+              />
+            </div>
+            <div className="min-w-0 overflow-hidden rounded-md border border-emerald-800/50 bg-white dark:border-emerald-700/45 dark:bg-stone-900">
+              <div className="border-b border-stone-200 bg-stone-100/90 px-2 py-1 text-center dark:border-stone-700 dark:bg-stone-800/60">
+                <span className="text-[10px] font-bold leading-tight text-stone-900 dark:text-stone-100">
+                  <span className="block">∑ CHỈ</span>
+                  <span className="block">VÀNG CŨ</span>
+                </span>
+              </div>
+              <input
+                type="text"
+                inputMode="decimal"
+                autoComplete="off"
+                placeholder="0"
+                value={totalChiVangCu}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setTotalChiVangCu(v);
+                  try {
+                    localStorage.setItem(LS_INPUT_CHI_VANG_CU, v);
+                  } catch {
+                    /* ignore */
+                  }
+                }}
+                className="h-7 w-full border-0 bg-stone-50 px-2 py-0.5 text-right text-xs font-bold tabular-nums text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-1 focus:ring-amber-400/50 focus:ring-inset dark:bg-stone-900/80 dark:text-stone-100 dark:placeholder:text-stone-500"
+              />
+            </div>
+          </div>
+
           <div className="mt-3 flex flex-wrap gap-2 hidden">
             <button
               type="button"
@@ -766,26 +917,34 @@ export default function Home() {
                   <th
                     rowSpan={3}
                     className="sticky left-0 z-40 border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-2 w-20 min-w-20 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30"
+                  ></th>
+                  <th
+                    rowSpan={3}
+                    className="sticky left-20 z-40 border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-2 w-28 min-w-28 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30"
                   >
-                    Thứ
+                    DATE
+                  </th>
+                  <th colSpan={5} className={manhHaiHeaderGroupClass()}>
+                    MUA - Mạnh Hải
+                  </th>
+                  <th colSpan={5} className={manhHaiHeaderGroupClass()}>
+                    BÁN - Mạnh Hải
                   </th>
                   <th
                     rowSpan={3}
-                    className="sticky left-20 z-40 border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-2 w-24 min-w-24 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap bg-amber-50/80 dark:bg-amber-950/30"
+                    className={`border border-stone-800 dark:border-stone-600 px-1.5 py-2 w-12 min-w-12 text-[10px] font-bold leading-tight text-stone-900 dark:text-stone-100 ${getRegionHeaderBgClass(61)}`}
                   >
-                    Ngày
+                    <span className="block">∑</span>
+                    <span className="block">chỉ</span>
+                    <span className="block">vàng</span>
                   </th>
                   <th
-                    colSpan={5}
-                    className={`border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-2 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap ${getRegionHeaderBgClass(1)}`}
+                    rowSpan={3}
+                    className={`border border-stone-800 dark:border-stone-600 border-l-0 px-1.5 py-2 w-14 min-w-14 text-[10px] font-bold leading-tight text-stone-900 dark:text-stone-100 ${getRegionHeaderBgClass(62)}`}
                   >
-                    MUA - Mạnh Hải
-                  </th>
-                  <th
-                    colSpan={5}
-                    className={`border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-2 text-[11px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap ${getRegionHeaderBgClass(1)}`}
-                  >
-                    BÁN - Mạnh Hải
+                    <span className="block">∑</span>
+                    <span className="block">chỉ vàng</span>
+                    <span className="block">thêm</span>
                   </th>
                   <th
                     colSpan={9}
@@ -826,41 +985,25 @@ export default function Home() {
                 </tr>
                 {/* Dòng 2: Mở/Đóng/Chênh lệch, v.v. */}
                 <tr>
-                  {/* Mua - Mạnh Hải (5 cột) */}
+                  {/* Mua - Mạnh Hải: MỞ/ĐÓNG từng ô; CHÊNH LỆCH gộp 2 dòng */}
+                  <th className={manhHaiHeaderRow2CellClass()}>MỞ</th>
+                  <th className={manhHaiHeaderRow2CellClass()}></th>
+                  <th className={manhHaiHeaderRow2CellClass()}></th>
+                  <th className={manhHaiHeaderRow2CellClass()}>ĐÓNG</th>
                   <th
-                    colSpan={2}
-                    className={`border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(1)}`}
-                  >
-                    MỞ
-                  </th>
-                  <th
-                    colSpan={2}
-                    className={`border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(1)}`}
-                  >
-                    ĐÓNG
-                  </th>
-                  <th
-                    colSpan={1}
-                    className={`border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(1)}`}
+                    rowSpan={2}
+                    className={manhHaiHeaderChenhLechRowSpanClass()}
                   >
                     CHÊNH LỆCH
                   </th>
-                  {/* Bán - Mạnh Hải (5 cột) */}
+                  {/* Bán - Mạnh Hải */}
+                  <th className={manhHaiHeaderRow2CellClass()}>MỞ</th>
+                  <th className={manhHaiHeaderRow2CellClass()}></th>
+                  <th className={manhHaiHeaderRow2CellClass()}></th>
+                  <th className={manhHaiHeaderRow2CellClass()}>ĐÓNG</th>
                   <th
-                    colSpan={2}
-                    className={`border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(1)}`}
-                  >
-                    MỞ
-                  </th>
-                  <th
-                    colSpan={2}
-                    className={`border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(1)}`}
-                  >
-                    ĐÓNG
-                  </th>
-                  <th
-                    colSpan={1}
-                    className={`border-b border-r border-amber-200/60 dark:border-amber-800/40 px-2 py-1.5 text-[11px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(1)}`}
+                    rowSpan={2}
+                    className={manhHaiHeaderChenhLechRowSpanClass()}
                   >
                     CHÊNH LỆCH
                   </th>
@@ -1009,50 +1152,48 @@ export default function Home() {
                 </tr>
                 {/* Dòng 3: các mốc giờ chi tiết */}
                 <tr>
-                  {/* Mua - Mạnh Hải (5 cột) */}
-                  <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
+                  {/* Mua - Mạnh Hải: 4 ô giờ (CHÊNH LỆCH đã rowSpan ở dòng trên) */}
+                  <th className={manhHaiHeaderTimeRowClass()}>
                     9h
                     <br />
                     (Việt Nam)
                   </th>
-                  <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
+                  <th className={manhHaiHeaderTimeRowClass()}>
                     11h
                     <br />
                     (Việt Nam)
                   </th>
-                  <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
+                  <th className={manhHaiHeaderTimeRowClass()}>
                     14h30
                     <br />
                     (Việt Nam)
                   </th>
-                  <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
+                  <th className={manhHaiHeaderTimeRowClass()}>
                     17h30
                     <br />
                     (Việt Nam)
                   </th>
-                  <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
-                  {/* Bán - Mạnh Hải (5 cột) */}
-                  <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
+                  {/* Bán - Mạnh Hải */}
+                  <th className={manhHaiHeaderTimeRowClass()}>
                     9h
                     <br />
                     (Việt Nam)
                   </th>
-                  <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
+                  <th className={manhHaiHeaderTimeRowClass()}>
                     11h
                     <br />
                     (Việt Nam)
                   </th>
-                  <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
+                  <th className={manhHaiHeaderTimeRowClass()}>
                     14h30
                     <br />
                     (Việt Nam)
                   </th>
-                  <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
+                  <th className={manhHaiHeaderTimeRowClass()}>
                     17h30
                     <br />
                     (Việt Nam)
                   </th>
-                  <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap" />
                   {/* Thứ, Ngày đã rowSpan=3 ở dòng 1 */}
                   {/* KITCO (9 cột) */}
                   <th className="border-b border-r border-amber-200/60 dark-border-amber-800/40 px-2 py-1.5 text-[10px] font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap">
@@ -1225,10 +1366,11 @@ export default function Home() {
                     className="transition-colors duration-200 hover:bg-amber-50/60 dark:hover:bg-amber-950/30"
                   >
                     {[
-                      0, 11, 12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 13, 14, 15, 16,
-                      17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
-                      31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44,
-                      45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 60,
+                      0, 11, 12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 61, 62, 13, 14,
+                      15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28,
+                      29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42,
+                      43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56,
+                      57, 60,
                     ].map((j) =>
                       j === 0 || j === 58 || j === 59 ? null : (
                         <td
@@ -1239,8 +1381,10 @@ export default function Home() {
                               : j === 11
                                 ? "sticky left-0 z-30 border-r border-b border-stone-300 dark:border-stone-700 px-2 py-2 text-xs font-bold w-20 max-w-20 truncate tabular-nums text-stone-400 dark:text-stone-500 bg-amber-50/60 dark:bg-amber-950/20"
                                 : j === 12
-                                  ? "sticky left-20 z-30 border-r border-b border-stone-300 dark:border-stone-700 px-2 py-2 text-xs font-bold w-24 max-w-24 truncate tabular-nums text-stone-400 dark:text-stone-500 bg-amber-50/60 dark:bg-amber-950/20"
-                                  : `border-r border-b border-stone-300 dark:border-stone-700 px-2 py-2 text-xs font-bold max-w-[120px] truncate tabular-nums text-stone-400 dark:text-stone-500 ${getRegionBgClass(j)}`
+                                  ? "sticky left-20 z-30 border-r border-b border-stone-300 dark:border-stone-700 px-2 py-2 text-xs font-bold w-28 max-w-28 truncate tabular-nums text-red-600 dark:text-red-400 bg-amber-50/60 dark:bg-amber-950/20"
+                                  : j === 61 || j === 62
+                                    ? `border-r border-b border-stone-300 dark:border-stone-700 px-2 py-2 text-xs font-bold max-w-[100px] truncate tabular-nums text-stone-700 dark:text-stone-300 text-center ${getRegionBgClass(j)}`
+                                    : `border-r border-b border-stone-300 dark:border-stone-700 px-2 py-2 text-xs font-bold max-w-[120px] truncate tabular-nums text-stone-400 dark:text-stone-500 ${getRegionBgClass(j)}`
                           }
                         >
                           {isLoadingTable && j !== 0 && j !== 11 && j !== 12 ? (
@@ -1423,6 +1567,10 @@ export default function Home() {
                                 <span className={tone}>{v}</span>
                               );
                             })()
+                          ) : j === 61 ? (
+                            chiVangIndexTaiSanOverDong17h30(row.isoDate)
+                          ) : j === 62 ? (
+                            chiVangThemOverDong17h30(row.isoDate)
                           ) : j >= 58 && j <= 60 ? (
                             vcbCellValue(row.isoDate, j)
                           ) : (
