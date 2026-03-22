@@ -140,21 +140,21 @@ function getRegionBgClass(colIndex: number): string {
   // Lãi (nếu bán ra): col_63..66 — xanh lá nhạt (Excel ~#e6f0db)
   if (colIndex >= 63 && colIndex <= 66)
     return "bg-[#e6f0db] dark:bg-emerald-950/35 group-hover/row:bg-[#dce8d0] dark:group-hover/row:bg-emerald-950/50";
-  // KITCO - GIÁ VÀNG THẾ GIỚI: col_13..col_21 — vàng
+  // KITCO - GIÁ VÀNG THẾ GIỚI: col_13..col_21 — nền xám nhạt (giống Excel)
   if (colIndex >= 13 && colIndex <= 21)
-    return "bg-yellow-200/50 dark:bg-yellow-900/30";
-  // Giá dầu: col_22..col_30 — xám
+    return "bg-[#e5e5e5] dark:bg-stone-800/45 group-hover/row:bg-[#dadada] dark:group-hover/row:bg-stone-800/65";
+  // Giá dầu: col_22..col_30 — nền trắng / kem
   if (colIndex >= 22 && colIndex <= 30)
-    return "bg-stone-200/55 dark:bg-stone-700/35";
-  // Dollar index: col_31..col_39 — xanh dương
+    return "bg-white dark:bg-stone-950/35 group-hover/row:bg-[#fafafa] dark:group-hover/row:bg-stone-900/45";
+  // Dollar index: col_31..col_39 — xám nhạt (cùng tông KITCO / S&P)
   if (colIndex >= 31 && colIndex <= 39)
-    return "bg-sky-200/50 dark:bg-sky-900/30";
-  // Trái phiếu 10Y: col_40..col_48 — xanh lá
+    return "bg-[#e5e5e5] dark:bg-stone-800/45 group-hover/row:bg-[#dadada] dark:group-hover/row:bg-stone-800/65";
+  // Trái phiếu 10Y: col_40..col_48 — trắng (cùng tông giá dầu)
   if (colIndex >= 40 && colIndex <= 48)
-    return "bg-emerald-200/50 dark:bg-emerald-900/30";
-  // S&P 500: col_49..col_57 — hồng
+    return "bg-white dark:bg-stone-950/35 group-hover/row:bg-[#fafafa] dark:group-hover/row:bg-stone-900/45";
+  // S&P 500: col_49..col_57 — xám nhạt
   if (colIndex >= 49 && colIndex <= 57)
-    return "bg-pink-200/50 dark:bg-pink-900/30";
+    return "bg-[#e5e5e5] dark:bg-stone-800/45 group-hover/row:bg-[#dadada] dark:group-hover/row:bg-stone-800/65";
   // VCB: col_60 — tím
   if (colIndex === 60) return "bg-violet-200/50 dark:bg-violet-900/30";
   // Cột nhập tay sau Bán Mạnh Hải (không có trong API cũ)
@@ -169,16 +169,20 @@ function getRegionHeaderBgClass(colIndex: number): string {
   if (colIndex >= 1 && colIndex <= 10) return "bg-[#C8E3F5] dark:bg-sky-900/48";
   if (colIndex >= 63 && colIndex <= 66)
     return "bg-[#d4e8c8] dark:bg-emerald-900/50";
+  // KITCO: header đào / hồng nhạt (nhóm “MỞ / ĐÓNG / …”)
   if (colIndex >= 13 && colIndex <= 21)
-    return "bg-yellow-300/75 dark:bg-yellow-900/45";
+    return "bg-[#fde4dc] dark:bg-rose-950/40";
+  // Giá dầu: header vàng kem
   if (colIndex >= 22 && colIndex <= 30)
-    return "bg-stone-300/70 dark:bg-stone-700/45";
+    return "bg-[#fff4d6] dark:bg-amber-950/35";
+  // Dollar & S&P: header đào (giống KITCO)
   if (colIndex >= 31 && colIndex <= 39)
-    return "bg-sky-300/75 dark:bg-sky-900/45";
+    return "bg-[#fde4dc] dark:bg-rose-950/40";
+  // Trái phiếu 10Y: header vàng kem (giống giá dầu)
   if (colIndex >= 40 && colIndex <= 48)
-    return "bg-emerald-300/75 dark:bg-emerald-900/45";
+    return "bg-[#fff4d6] dark:bg-amber-950/35";
   if (colIndex >= 49 && colIndex <= 57)
-    return "bg-pink-300/75 dark:bg-pink-900/45";
+    return "bg-[#fde4dc] dark:bg-rose-950/40";
   if (colIndex === 60) return "bg-violet-300/75 dark:bg-violet-900/45";
   if (colIndex === 61) return "bg-rose-200/80 dark:bg-rose-900/45";
   if (colIndex === 62) return "bg-emerald-200/80 dark:bg-emerald-900/45";
@@ -1826,7 +1830,7 @@ export default function Home() {
                 {columnVisibility.kitco ? (
                   <th
                     colSpan={9}
-                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-2 text-[14px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-2 text-[14px] font-bold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
                   >
                     KITCO - GIÁ VÀNG THẾ GIỚI
                   </th>
@@ -1834,7 +1838,7 @@ export default function Home() {
                 {columnVisibility.oil ? (
                   <th
                     colSpan={9}
-                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-2 text-[14px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-2 text-[14px] font-bold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
                   >
                     GIÁ DẦU
                   </th>
@@ -1842,7 +1846,7 @@ export default function Home() {
                 {columnVisibility.dollar ? (
                   <th
                     colSpan={9}
-                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-2 text-[14px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-2 text-[14px] font-bold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
                   >
                     DOLLAR INDEX
                   </th>
@@ -1850,7 +1854,7 @@ export default function Home() {
                 {columnVisibility.bond ? (
                   <th
                     colSpan={9}
-                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-2 text-[14px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-2 text-[14px] font-bold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
                   >
                     TRÁI PHIẾU US - 10 NĂM
                   </th>
@@ -1858,7 +1862,7 @@ export default function Home() {
                 {columnVisibility.sp500 ? (
                   <th
                     colSpan={9}
-                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-2 text-[14px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-2 text-[14px] font-bold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
                   >
                     S&amp;P 500
                   </th>
@@ -1907,51 +1911,51 @@ export default function Home() {
                   <>
                     {/* KITCO (9 cột) */}
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
                     >
                       MỞ
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
                       aria-hidden
                     >
                       {"\u00a0"}
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
                       aria-hidden
                     >
                       {"\u00a0"}
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
                       aria-hidden
                     >
                       {"\u00a0"}
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
                       aria-hidden
                     >
                       {"\u00a0"}
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
                     >
                       ĐÓNG
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
                     >
                       CAO
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
                     >
                       THẤP
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
                     >
                       THAY ĐỔI
                     </th>
@@ -1961,51 +1965,51 @@ export default function Home() {
                   <>
                     {/* Giá dầu (9 cột) */}
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
                     >
                       MỞ
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
                       aria-hidden
                     >
                       {"\u00a0"}
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
                       aria-hidden
                     >
                       {"\u00a0"}
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
                       aria-hidden
                     >
                       {"\u00a0"}
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
                       aria-hidden
                     >
                       {"\u00a0"}
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
                     >
                       ĐÓNG
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
                     >
                       CAO
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
                     >
                       THẤP
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
                     >
                       THAY ĐỔI
                     </th>
@@ -2015,51 +2019,51 @@ export default function Home() {
                   <>
                     {/* Dollar index (9 cột) */}
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
                     >
                       MỞ
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
                       aria-hidden
                     >
                       {"\u00a0"}
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
                       aria-hidden
                     >
                       {"\u00a0"}
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
                       aria-hidden
                     >
                       {"\u00a0"}
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
                       aria-hidden
                     >
                       {"\u00a0"}
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
                     >
                       ĐÓNG
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
                     >
                       CAO
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
                     >
                       THẤP
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
                     >
                       THAY ĐỔI
                     </th>
@@ -2069,51 +2073,51 @@ export default function Home() {
                   <>
                     {/* Trái phiếu 10Y (9 cột) */}
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
                     >
                       MỞ
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
                       aria-hidden
                     >
                       {"\u00a0"}
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
                       aria-hidden
                     >
                       {"\u00a0"}
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
                       aria-hidden
                     >
                       {"\u00a0"}
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
                       aria-hidden
                     >
                       {"\u00a0"}
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
                     >
                       ĐÓNG
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
                     >
                       CAO
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
                     >
                       THẤP
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
                     >
                       THAY ĐỔI
                     </th>
@@ -2123,51 +2127,51 @@ export default function Home() {
                   <>
                     {/* S&P 500 (9 cột) */}
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
                     >
                       MỞ
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
                       aria-hidden
                     >
                       {"\u00a0"}
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
                       aria-hidden
                     >
                       {"\u00a0"}
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
                       aria-hidden
                     >
                       {"\u00a0"}
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
                       aria-hidden
                     >
                       {"\u00a0"}
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
                     >
                       ĐÓNG
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
                     >
                       CAO
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
                     >
                       THẤP
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
                     >
                       THAY ĐỔI
                     </th>
@@ -2264,181 +2268,271 @@ export default function Home() {
                 {columnVisibility.kitco ? (
                   <>
                     {/* KITCO (9 cột) */}
-                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                    >
                       0h <br />
                       (Kitco)
                     </th>
-                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                    >
                       9h
                       <br />
                       (Việt Nam)
                     </th>
-                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                    >
                       11h
                       <br />
                       (Việt Nam)
                     </th>
-                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                    >
                       14h30
                       <br />
                       (Việt Nam)
                     </th>
-                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                    >
                       17h30
                       <br />
                       (Việt Nam)
                     </th>
-                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                    >
                       24h <br />
                       (Kitco)
                     </th>
-                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap" />
-                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap" />
-                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap" />
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                    />
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                    />
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                    />
                   </>
                 ) : null}
                 {columnVisibility.oil ? (
                   <>
                     {/* Giá dầu (9 cột) */}
-                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                    >
                       0h
                       <br /> (Investing)
                     </th>
-                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                    >
                       9h
                       <br />
                       (Việt Nam)
                     </th>
-                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                    >
                       11h
                       <br />
                       (Việt Nam)
                     </th>
-                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                    >
                       14h30
                       <br />
                       (Việt Nam)
                     </th>
-                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                    >
                       17h30
                       <br />
                       (Việt Nam)
                     </th>
-                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                    >
                       24h
                       <br /> (Investing)
                     </th>
-                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap" />
-                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap" />
-                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap" />
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                    />
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                    />
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                    />
                   </>
                 ) : null}
                 {columnVisibility.dollar ? (
                   <>
                     {/* Dollar index (9 cột) */}
-                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                    >
                       0h
                       <br /> (Investing)
                     </th>
-                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                    >
                       9h
                       <br />
                       (Việt Nam)
                     </th>
-                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                    >
                       11h
                       <br />
                       (Việt Nam)
                     </th>
-                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                    >
                       14h30
                       <br />
                       (Việt Nam)
                     </th>
-                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                    >
                       17h30
                       <br />
                       (Việt Nam)
                     </th>
-                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                    >
                       24h
                       <br /> (Investing)
                     </th>
-                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap" />
-                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap" />
-                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap" />
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                    />
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                    />
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                    />
                   </>
                 ) : null}
                 {columnVisibility.bond ? (
                   <>
                     {/* Trái phiếu 10Y (9 cột) */}
-                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                    >
                       0h <br />
                       (Investing)
                     </th>
-                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                    >
                       9h
                       <br />
                       (Việt Nam)
                     </th>
-                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                    >
                       11h
                       <br />
                       (Việt Nam)
                     </th>
-                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                    >
                       14h30
                       <br />
                       (Việt Nam)
                     </th>
-                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                    >
                       17h30
                       <br />
                       (Việt Nam)
                     </th>
-                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                    >
                       24h
                       <br /> (Investing)
                     </th>
-                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap" />
-                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap" />
-                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap" />
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                    />
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                    />
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                    />
                   </>
                 ) : null}
                 {columnVisibility.sp500 ? (
                   <>
                     {/* S&P 500 (9 cột) */}
-                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                    >
                       0h <br />
                       (Investing)
                     </th>
-                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                    >
                       9h
                       <br />
                       (Việt Nam)
                     </th>
-                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                    >
                       11h
                       <br />
                       (Việt Nam)
                     </th>
-                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                    >
                       14h30
                       <br />
                       (Việt Nam)
                     </th>
-                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                    >
                       17h30
                       <br />
                       (Việt Nam)
                     </th>
-                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                    >
                       24h
                       <br /> (Investing)
                     </th>
-                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap" />
-                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap" />
-                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap" />
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                    />
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                    />
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                    />
                   </>
                 ) : null}
                 {columnVisibility.vcb ? (
