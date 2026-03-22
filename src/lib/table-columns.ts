@@ -2,7 +2,7 @@
  * Thứ tự cột bảng (trùng page.tsx) — col_0 / 58 / 59 không render.
  */
 export const TABLE_COL_ORDER: number[] = [
-  0, 11, 12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 61, 62, 13, 14, 15, 16, 17, 18, 19, 20,
+  0, 11, 12, 1, 2, 3, 4, 5, 63, 64, 65, 66, 6, 7, 8, 9, 10, 61, 62, 13, 14, 15, 16, 17, 18, 19, 20,
   21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41,
   42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 60,
 ];
@@ -57,6 +57,8 @@ export const LS_COLUMN_VISIBILITY = "gia-vang-column-visibility-v1";
 export function colGroupForDataColumn(j: number): ToggleableColGroup | null {
   if (j === 11 || j === 12) return null;
   if (j >= 1 && j <= 5) return "muaMh";
+  /** Lãi (nếu bán ra) — đi kèm vùng MUA */
+  if (j >= 63 && j <= 66) return "muaMh";
   if (j >= 6 && j <= 10) return "banMh";
   if (j === 61 || j === 62) return "sumCols";
   if (j >= 13 && j <= 21) return "kitco";
@@ -93,6 +95,10 @@ export const CSV_COL_LABELS: Record<number, string> = {
   8: "BAN_14h30_VN",
   9: "BAN_17h30_VN",
   10: "BAN_CHENH_Dong_Mo",
+  63: "LAI_neu_ban_9h_VN",
+  64: "LAI_neu_ban_11h_VN",
+  65: "LAI_neu_ban_14h30_VN",
+  66: "LAI_neu_ban_17h30_VN",
   61: "SUM_chi_vang",
   62: "SUM_chi_vang_them",
   13: "KITCO_0h",

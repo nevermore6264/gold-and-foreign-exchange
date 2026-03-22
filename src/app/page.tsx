@@ -136,6 +136,9 @@ function getRegionBgClass(colIndex: number): string {
   // Mạnh Hải: col_1..col_10 — xanh dương nhạt (cùng tông header #BDD7EE)
   if (colIndex >= 1 && colIndex <= 10)
     return "bg-[#E8F4FC] dark:bg-sky-950/28 group-hover/row:bg-[#DDF0FA] dark:group-hover/row:bg-sky-900/38";
+  // Lãi (nếu bán ra): col_63..66 — xanh lá nhạt (Excel ~#e6f0db)
+  if (colIndex >= 63 && colIndex <= 66)
+    return "bg-[#e6f0db] dark:bg-emerald-950/35 group-hover/row:bg-[#dce8d0] dark:group-hover/row:bg-emerald-950/50";
   // KITCO - GIÁ VÀNG THẾ GIỚI: col_13..col_21 — vàng
   if (colIndex >= 13 && colIndex <= 21)
     return "bg-yellow-200/50 dark:bg-yellow-900/30";
@@ -162,8 +165,9 @@ function getRegionBgClass(colIndex: number): string {
 
 function getRegionHeaderBgClass(colIndex: number): string {
   // Đậm hơn body để nhìn rõ ở header.
-  if (colIndex >= 1 && colIndex <= 10)
-    return "bg-[#C8E3F5] dark:bg-sky-900/48";
+  if (colIndex >= 1 && colIndex <= 10) return "bg-[#C8E3F5] dark:bg-sky-900/48";
+  if (colIndex >= 63 && colIndex <= 66)
+    return "bg-[#d4e8c8] dark:bg-emerald-900/50";
   if (colIndex >= 13 && colIndex <= 21)
     return "bg-yellow-300/75 dark:bg-yellow-900/45";
   if (colIndex >= 22 && colIndex <= 30)
@@ -184,9 +188,13 @@ function getRegionHeaderBgClass(colIndex: number): string {
 const MH_HEAD_BLUE =
   "bg-[#BDD7EE] dark:bg-sky-900/45 text-stone-900 dark:text-sky-50";
 /** Viền ô bảng: đen (light) / sáng (dark) — nét rõ giữa hàng & cột */
-const TABLE_CELL_BR =
-  "border-b border-r border-black dark:border-stone-200";
+const TABLE_CELL_BR = "border-b border-r border-black dark:border-stone-200";
 const MH_HEAD_BORDER = TABLE_CELL_BR;
+
+/** Header cột Lãi (nếu bán ra) — nền xanh lá nhạt như Excel */
+const LAI_HEAD_GREEN =
+  "bg-[#e6f0db] dark:bg-emerald-950/40 text-stone-950 dark:text-emerald-50";
+const LAI_HEAD_TIME_CLASS = `${TABLE_CELL_BR} px-2 py-2 text-[14px] font-bold ${LAI_HEAD_GREEN} whitespace-nowrap`;
 
 /** Hiệu ứng ô: highlight nhẹ khi hover cả hàng (giống glass / macOS) */
 const TD_CELL_FX =
@@ -235,6 +243,8 @@ function daysInMonth(year: number, month1to12: number): number {
 /** localStorage keys cho 2 chỉ số nhập tay */
 const LS_INPUT_TAI_SAN = "gia-vang-input-tai-san";
 const LS_INPUT_CHI_VANG_CU = "gia-vang-input-chi-vang-cu";
+const LS_INPUT_DAU_TU = "gia-vang-input-dau-tu";
+const LS_INPUT_CHI_VANG_DANG_CO = "gia-vang-input-chi-vang-dang-co";
 
 function computeRange(
   mode: RangeMode,
@@ -474,6 +484,10 @@ export default function Home() {
   /** ∑ TÀI SẢN / ∑ CHỈ VÀNG CŨ — nhập tay, lưu trên trình duyệt */
   const [totalTaiSan, setTotalTaiSan] = useState("");
   const [totalChiVangCu, setTotalChiVangCu] = useState("");
+  /** Σ Đầu tư (VNĐ) — tham chiếu / đối chiếu */
+  const [totalDauTu, setTotalDauTu] = useState("");
+  /** Σ chỉ vàng đang có — tham chiếu */
+  const [chiVangDangCo, setChiVangDangCo] = useState("");
 
   const [columnVisibility, setColumnVisibility] = useState<
     Record<ToggleableColGroup, boolean>
@@ -509,8 +523,12 @@ export default function Home() {
     try {
       const a = localStorage.getItem(LS_INPUT_TAI_SAN);
       const b = localStorage.getItem(LS_INPUT_CHI_VANG_CU);
+      const c = localStorage.getItem(LS_INPUT_DAU_TU);
+      const d = localStorage.getItem(LS_INPUT_CHI_VANG_DANG_CO);
       if (a != null) setTotalTaiSan(formatTaiSanInputDisplay(a));
       if (b != null) setTotalChiVangCu(formatChiVangCuInputDisplay(b));
+      if (c != null) setTotalDauTu(formatTaiSanInputDisplay(c));
+      if (d != null) setChiVangDangCo(formatChiVangCuInputDisplay(d));
     } catch {
       // ignore
     }
@@ -812,9 +830,7 @@ export default function Home() {
           const text = formatVnd(live);
           return {
             text,
-            toneClass: getNumberToneClass(
-              Number.isFinite(live) ? live : null,
-            ),
+            toneClass: getNumberToneClass(Number.isFinite(live) ? live : null),
           };
         }
         return { text: formatVnd(live) };
@@ -848,10 +864,7 @@ export default function Home() {
   }
 
   /** Giá Mạnh Hải thô (VNĐ) từ col_1..col_10 */
-  function manhHaiRawNumber(
-    isoDate: string,
-    colIndex: number,
-  ): number | null {
+  function manhHaiRawNumber(isoDate: string, colIndex: number): number | null {
     const vn = getVietnamNowParts();
     if (isoDate === vn.isoDate && manhHaiLive?.slots) {
       const live = computeLiveManhHaiNumber(
@@ -881,10 +894,7 @@ export default function Home() {
    */
   function chiVangIndexTaiSanOverDong17h30(isoDate: string): string {
     const taiSan = parseBigNumberInput(totalTaiSan);
-    const dong17h30Ban = manhHaiRawNumber(
-      isoDate,
-      MANH_HAI_COL.BAN_17H30,
-    );
+    const dong17h30Ban = manhHaiRawNumber(isoDate, MANH_HAI_COL.BAN_17H30);
     if (taiSan == null) return "–";
     if (dong17h30Ban == null) return "–";
     const q = taiSan / dong17h30Ban;
@@ -910,10 +920,7 @@ export default function Home() {
   function chiVangThemMinusChiCu(isoDate: string): string {
     const taiSan = parseBigNumberInput(totalTaiSan);
     const chiCu = parseChiVangCuInput(totalChiVangCu);
-    const dong17h30Ban = manhHaiRawNumber(
-      isoDate,
-      MANH_HAI_COL.BAN_17H30,
-    );
+    const dong17h30Ban = manhHaiRawNumber(isoDate, MANH_HAI_COL.BAN_17H30);
     if (taiSan == null) return "–";
     if (dong17h30Ban == null) return "–";
     if (chiCu == null) return "–";
@@ -925,6 +932,35 @@ export default function Home() {
     });
   }
 
+  /**
+   * Lãi (nếu bán ra) tại từng mốc = (giá Bán × Σ chỉ đang có) − Σ đầu tư (VNĐ).
+   * Giá Bán: col 6–9; cần ô Σ Đầu tư (VNĐ) — Σ chỉ vàng đang có.
+   */
+  function laiNeuBanRa(
+    isoDate: string,
+    colJ: 63 | 64 | 65 | 66,
+  ): { text: string; toneClass?: string } {
+    const banCols = [
+      MANH_HAI_COL.BAN_9H,
+      MANH_HAI_COL.BAN_11H,
+      MANH_HAI_COL.BAN_14H30,
+      MANH_HAI_COL.BAN_17H30,
+    ] as const;
+    const slotIdx = colJ - 63;
+    const dauTu = parseBigNumberInput(totalDauTu);
+    const chi = parseChiVangCuInput(chiVangDangCo);
+    const giaBan = manhHaiRawNumber(isoDate, banCols[slotIdx]!);
+    if (dauTu == null || chi == null || giaBan == null) return { text: "–" };
+    const revenue = giaBan * chi;
+    const lai = revenue - dauTu;
+    if (!Number.isFinite(lai)) return { text: "–" };
+    const text = formatVnd(lai);
+    return {
+      text,
+      toneClass: getNumberToneClass(lai),
+    };
+  }
+
   function exportCellPlainText(
     row: { isoDate: string; weekdayLabel: string; dateLabel: string },
     j: number,
@@ -933,8 +969,9 @@ export default function Home() {
     if (j === 11) return row.weekdayLabel;
     if (j === 12) return row.dateLabel;
     if (j >= 1 && j <= 10) return manhHaiCellValue(isoDate, j).text;
-    if (j === 21)
-      return formatChangeWithPlus(kitcoCellValue(isoDate, j));
+    if (j >= 63 && j <= 66)
+      return laiNeuBanRa(isoDate, j as 63 | 64 | 65 | 66).text;
+    if (j === 21) return formatChangeWithPlus(kitcoCellValue(isoDate, j));
     if (j === 30)
       return formatChangeWithPlus(marketTimedCellValue(isoDate, j, "oil"));
     if (j === 39)
@@ -1153,27 +1190,29 @@ export default function Home() {
             </div>
 
             {!isAllRange ? (
-            <div className="flex items-center gap-2">
-              <span className="text-[14px] font-semibold text-stone-600 dark:text-stone-400">
-                Năm
-              </span>
-              <select
-                value={selectedYear}
-                onChange={(e) => setSelectedYear(parseInt(e.target.value, 10))}
-                className="h-9 rounded-xl border border-amber-200/60 dark:border-amber-800/40 bg-white dark:bg-stone-900 px-3 text-sm"
-              >
-                {Array.from(
-                  { length: currentYear - 2022 + 1 },
-                  (_, i) => 2022 + i,
-                )
-                  .reverse()
-                  .map((y) => (
-                    <option key={y} value={y}>
-                      {y}
-                    </option>
-                  ))}
-              </select>
-            </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[14px] font-semibold text-stone-600 dark:text-stone-400">
+                  Năm
+                </span>
+                <select
+                  value={selectedYear}
+                  onChange={(e) =>
+                    setSelectedYear(parseInt(e.target.value, 10))
+                  }
+                  className="h-9 rounded-xl border border-amber-200/60 dark:border-amber-800/40 bg-white dark:bg-stone-900 px-3 text-sm"
+                >
+                  {Array.from(
+                    { length: currentYear - 2022 + 1 },
+                    (_, i) => 2022 + i,
+                  )
+                    .reverse()
+                    .map((y) => (
+                      <option key={y} value={y}>
+                        {y}
+                      </option>
+                    ))}
+                </select>
+              </div>
             ) : (
               <div className="flex flex-wrap items-center gap-2 rounded-xl border border-amber-300/50 bg-amber-50/70 px-3 py-2 text-[13px] dark:border-amber-800/50 dark:bg-amber-950/35">
                 <span className="font-bold text-amber-900 dark:text-amber-200">
@@ -1260,9 +1299,8 @@ export default function Home() {
                 <div className="mt-2 w-full max-w-md sm:ml-auto">
                   <div className="mb-1 flex flex-wrap items-center justify-between gap-2 text-[12px] text-amber-800 dark:text-amber-200">
                     <span className="font-medium text-amber-900 dark:text-amber-100">
-                      Đang tải bảng (gói{" "}
-                      {tableLoadProgress.chunkCurrent}/{tableLoadProgress.chunkTotal}
-                      )
+                      Đang tải bảng (gói {tableLoadProgress.chunkCurrent}/
+                      {tableLoadProgress.chunkTotal})
                     </span>
                     <span className="font-bold tabular-nums">
                       {tableLoadProgress.loaded.toLocaleString("vi-VN")} /{" "}
@@ -1288,101 +1326,203 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Hai chỉ số nhập tay — card dashboard, số có dấu phân nghìn khi blur */}
-          <div className="mt-5 grid w-full max-w-3xl grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
-            <div className="group relative min-w-0 overflow-hidden rounded-2xl border border-emerald-200/70 bg-white shadow-md shadow-emerald-900/[0.06] ring-1 ring-stone-900/[0.04] transition-[box-shadow,transform] duration-200 hover:shadow-lg hover:shadow-emerald-900/10 dark:border-emerald-800/45 dark:bg-stone-900 dark:shadow-black/40 dark:ring-white/[0.06] dark:hover:shadow-black/50">
-              <div
-                className="h-1 w-full bg-gradient-to-r from-emerald-600 via-teal-500 to-emerald-500 opacity-95 dark:from-emerald-500 dark:via-teal-400 dark:to-emerald-400"
-                aria-hidden
-              />
-              <div className="flex items-start justify-between gap-3 px-4 pb-1 pt-3.5">
-                <div className="min-w-0">
-                  <p className="text-[13px] font-extrabold uppercase tracking-wide text-emerald-900 dark:text-emerald-200">
-                    ∑ Tài sản
-                  </p>
-                  <p className="mt-1 text-[12px] leading-snug text-stone-500 dark:text-stone-400">
-                    Tổng giá trị VNĐ — dùng tính cột ∑ chỉ vàng
-                  </p>
-                </div>
-                <span className="shrink-0 rounded-lg border border-emerald-200/80 bg-emerald-50 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-emerald-800 dark:border-emerald-700/60 dark:bg-emerald-950/70 dark:text-emerald-300">
-                  VNĐ
-                </span>
-              </div>
-              <div className="px-3 pb-3.5 pt-1">
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="off"
-                  placeholder="vd. 36.500.000.000"
-                  value={totalTaiSan}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    setTotalTaiSan(v);
-                    try {
-                      localStorage.setItem(LS_INPUT_TAI_SAN, v);
-                    } catch {
-                      /* ignore */
-                    }
-                  }}
-                  onBlur={(e) => {
-                    const v = formatTaiSanInputDisplay(e.target.value);
-                    setTotalTaiSan(v);
-                    try {
-                      localStorage.setItem(LS_INPUT_TAI_SAN, v);
-                    } catch {
-                      /* ignore */
-                    }
-                  }}
-                  className="h-14 w-full rounded-xl border border-stone-200/90 bg-gradient-to-b from-stone-50/90 to-white px-3 py-2 text-right text-lg font-bold tabular-nums tracking-tight text-stone-900 shadow-inner shadow-stone-900/[0.03] placeholder:text-stone-400 placeholder:text-sm focus:border-emerald-400/70 focus:outline-none focus:ring-2 focus:ring-emerald-400/35 dark:border-stone-600 dark:from-stone-900 dark:to-stone-950 dark:text-stone-50 dark:placeholder:text-stone-500 dark:focus:border-emerald-600/50 dark:focus:ring-emerald-500/25"
+          {/* Bốn chỉ số nhập tay — lưới 2×2 (giống bảng Excel): trái Đầu tư / chỉ đang có · phải Tài sản / chỉ cũ */}
+          <div className="mt-5 w-full max-w-4xl">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
+              {/* 1 — Σ Đầu tư */}
+              <div className="group relative min-w-0 overflow-hidden rounded-2xl border border-blue-200/80 bg-white shadow-md shadow-blue-900/[0.05] ring-1 ring-stone-900/[0.04] transition-[box-shadow] duration-200 hover:shadow-lg dark:border-blue-800/40 dark:bg-stone-900 dark:ring-white/[0.06]">
+                <div
+                  className="h-1 w-full bg-gradient-to-r from-blue-600 via-sky-500 to-blue-500 opacity-95 dark:from-blue-500 dark:via-sky-400 dark:to-blue-400"
+                  aria-hidden
                 />
+                <div className="flex items-start justify-between gap-2 px-3 pb-0.5 pt-2.5 sm:px-4">
+                  <div className="min-w-0">
+                    <p className="text-[12px] font-extrabold uppercase tracking-wide text-blue-900 dark:text-blue-200">
+                      ∑ Đầu tư
+                    </p>
+                    <p className="mt-0.5 text-[11px] leading-snug text-stone-500 dark:text-stone-400">
+                      Vốn / giá trị đầu tư (VNĐ)
+                    </p>
+                  </div>
+                  <span className="shrink-0 rounded-md border border-blue-200/80 bg-blue-50 px-2 py-0.5 text-[10px] font-bold uppercase text-blue-800 dark:border-blue-800/60 dark:bg-blue-950/60 dark:text-blue-200">
+                    VNĐ
+                  </span>
+                </div>
+                <div className="px-3 pb-3 pt-1 sm:px-4">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    placeholder="vd. 30.000.000.000"
+                    value={totalDauTu}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setTotalDauTu(v);
+                      try {
+                        localStorage.setItem(LS_INPUT_DAU_TU, v);
+                      } catch {
+                        /* ignore */
+                      }
+                    }}
+                    onBlur={(e) => {
+                      const v = formatTaiSanInputDisplay(e.target.value);
+                      setTotalDauTu(v);
+                      try {
+                        localStorage.setItem(LS_INPUT_DAU_TU, v);
+                      } catch {
+                        /* ignore */
+                      }
+                    }}
+                    className="h-12 w-full rounded-xl border border-stone-200/90 bg-gradient-to-b from-stone-50/90 to-white px-2.5 py-1.5 text-right text-base font-bold tabular-nums text-stone-900 shadow-inner focus:border-blue-400/70 focus:outline-none focus:ring-2 focus:ring-blue-400/30 dark:border-stone-600 dark:from-stone-900 dark:to-stone-950 dark:text-stone-50 dark:focus:border-blue-600/50 dark:focus:ring-blue-500/25"
+                  />
+                </div>
               </div>
-            </div>
 
-            <div className="group relative min-w-0 overflow-hidden rounded-2xl border border-amber-200/80 bg-white shadow-md shadow-amber-900/[0.07] ring-1 ring-stone-900/[0.04] transition-[box-shadow,transform] duration-200 hover:shadow-lg hover:shadow-amber-900/10 dark:border-amber-800/40 dark:bg-stone-900 dark:shadow-black/40 dark:ring-white/[0.06] dark:hover:shadow-black/50">
-              <div
-                className="h-1 w-full bg-gradient-to-r from-amber-600 via-orange-500 to-amber-500 opacity-95 dark:from-amber-500 dark:via-orange-400 dark:to-amber-400"
-                aria-hidden
-              />
-              <div className="flex items-start justify-between gap-3 px-4 pb-1 pt-3.5">
-                <div className="min-w-0">
-                  <p className="text-[13px] font-extrabold uppercase tracking-wide text-amber-900 dark:text-amber-200">
-                    ∑ Chỉ vàng cũ
-                  </p>
-                  <p className="mt-1 text-[12px] leading-snug text-stone-500 dark:text-stone-400">
-                    Số chỉ đã có — trừ khi tính “∑ chỉ vàng thêm”
-                  </p>
-                </div>
-                <span className="shrink-0 rounded-lg border border-amber-200/80 bg-amber-50 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/70 dark:text-amber-200">
-                  chỉ
-                </span>
-              </div>
-              <div className="px-3 pb-3.5 pt-1">
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="off"
-                  placeholder="vd. 1.148"
-                  value={totalChiVangCu}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    setTotalChiVangCu(v);
-                    try {
-                      localStorage.setItem(LS_INPUT_CHI_VANG_CU, v);
-                    } catch {
-                      /* ignore */
-                    }
-                  }}
-                  onBlur={(e) => {
-                    const v = formatChiVangCuInputDisplay(e.target.value);
-                    setTotalChiVangCu(v);
-                    try {
-                      localStorage.setItem(LS_INPUT_CHI_VANG_CU, v);
-                    } catch {
-                      /* ignore */
-                    }
-                  }}
-                  className="h-14 w-full rounded-xl border border-stone-200/90 bg-gradient-to-b from-stone-50/90 to-white px-3 py-2 text-right text-lg font-bold tabular-nums tracking-tight text-stone-900 shadow-inner shadow-stone-900/[0.03] placeholder:text-stone-400 placeholder:text-sm focus:border-amber-400/70 focus:outline-none focus:ring-2 focus:ring-amber-400/35 dark:border-stone-600 dark:from-stone-900 dark:to-stone-950 dark:text-stone-50 dark:placeholder:text-stone-500 dark:focus:border-amber-600/50 dark:focus:ring-amber-500/25"
+              {/* 2 — Σ Tài sản (dùng trong công thức cột bảng) */}
+              <div className="group relative min-w-0 overflow-hidden rounded-2xl border border-emerald-200/70 bg-white shadow-md shadow-emerald-900/[0.06] ring-1 ring-stone-900/[0.04] transition-[box-shadow] duration-200 hover:shadow-lg dark:border-emerald-800/45 dark:bg-stone-900 dark:ring-white/[0.06]">
+                <div
+                  className="h-1 w-full bg-gradient-to-r from-emerald-600 via-teal-500 to-emerald-500 opacity-95 dark:from-emerald-500 dark:via-teal-400 dark:to-emerald-400"
+                  aria-hidden
                 />
+                <div className="flex items-start justify-between gap-2 px-3 pb-0.5 pt-2.5 sm:px-4">
+                  <div className="min-w-0">
+                    <p className="text-[12px] font-extrabold uppercase tracking-wide text-emerald-900 dark:text-emerald-200">
+                      ∑ Tài sản
+                    </p>
+                    <p className="mt-0.5 text-[11px] leading-snug text-stone-500 dark:text-stone-400">
+                      Dùng tính cột ∑ chỉ vàng trong bảng
+                    </p>
+                  </div>
+                  <span className="shrink-0 rounded-md border border-emerald-200/80 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold uppercase text-emerald-800 dark:border-emerald-700/60 dark:bg-emerald-950/70 dark:text-emerald-300">
+                    VNĐ
+                  </span>
+                </div>
+                <div className="px-3 pb-3 pt-1 sm:px-4">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    placeholder="vd. 36.500.000.000"
+                    value={totalTaiSan}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setTotalTaiSan(v);
+                      try {
+                        localStorage.setItem(LS_INPUT_TAI_SAN, v);
+                      } catch {
+                        /* ignore */
+                      }
+                    }}
+                    onBlur={(e) => {
+                      const v = formatTaiSanInputDisplay(e.target.value);
+                      setTotalTaiSan(v);
+                      try {
+                        localStorage.setItem(LS_INPUT_TAI_SAN, v);
+                      } catch {
+                        /* ignore */
+                      }
+                    }}
+                    className="h-12 w-full rounded-xl border border-stone-200/90 bg-gradient-to-b from-stone-50/90 to-white px-2.5 py-1.5 text-right text-base font-bold tabular-nums text-stone-900 shadow-inner focus:border-emerald-400/70 focus:outline-none focus:ring-2 focus:ring-emerald-400/35 dark:border-stone-600 dark:from-stone-900 dark:to-stone-950 dark:text-stone-50 dark:focus:border-emerald-600/50 dark:focus:ring-emerald-500/25"
+                  />
+                </div>
+              </div>
+
+              {/* 3 — Σ chỉ vàng đang có */}
+              <div className="group relative min-w-0 overflow-hidden rounded-2xl border border-violet-200/80 bg-white shadow-md shadow-violet-900/[0.06] ring-1 ring-stone-900/[0.04] transition-[box-shadow] duration-200 hover:shadow-lg dark:border-violet-800/40 dark:bg-stone-900 dark:ring-white/[0.06]">
+                <div
+                  className="h-1 w-full bg-gradient-to-r from-violet-600 via-purple-500 to-violet-500 opacity-95 dark:from-violet-500 dark:via-purple-400 dark:to-violet-400"
+                  aria-hidden
+                />
+                <div className="flex items-start justify-between gap-2 px-3 pb-0.5 pt-2.5 sm:px-4">
+                  <div className="min-w-0">
+                    <p className="text-[12px] font-extrabold uppercase tracking-wide text-violet-900 dark:text-violet-200">
+                      ∑ chỉ vàng đang có
+                    </p>
+                    <p className="mt-0.5 text-[11px] leading-snug text-stone-500 dark:text-stone-400">
+                      Số chỉ hiện đang nắm giữ
+                    </p>
+                  </div>
+                  <span className="shrink-0 rounded-md border border-violet-200/80 bg-violet-50 px-2 py-0.5 text-[10px] font-bold uppercase text-violet-900 dark:border-violet-700/60 dark:bg-violet-950/70 dark:text-violet-200">
+                    chỉ
+                  </span>
+                </div>
+                <div className="px-3 pb-3 pt-1 sm:px-4">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    placeholder="vd. 1.920"
+                    value={chiVangDangCo}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setChiVangDangCo(v);
+                      try {
+                        localStorage.setItem(LS_INPUT_CHI_VANG_DANG_CO, v);
+                      } catch {
+                        /* ignore */
+                      }
+                    }}
+                    onBlur={(e) => {
+                      const v = formatChiVangCuInputDisplay(e.target.value);
+                      setChiVangDangCo(v);
+                      try {
+                        localStorage.setItem(LS_INPUT_CHI_VANG_DANG_CO, v);
+                      } catch {
+                        /* ignore */
+                      }
+                    }}
+                    className="h-12 w-full rounded-xl border border-stone-200/90 bg-gradient-to-b from-stone-50/90 to-white px-2.5 py-1.5 text-right text-base font-bold tabular-nums text-stone-900 shadow-inner focus:border-violet-400/70 focus:outline-none focus:ring-2 focus:ring-violet-400/35 dark:border-stone-600 dark:from-stone-900 dark:to-stone-950 dark:text-stone-50 dark:focus:border-violet-600/50 dark:focus:ring-violet-500/25"
+                  />
+                </div>
+              </div>
+
+              {/* 4 — Σ chỉ vàng cũ (dùng trong công thức cột bảng) */}
+              <div className="group relative min-w-0 overflow-hidden rounded-2xl border border-amber-200/80 bg-white shadow-md shadow-amber-900/[0.07] ring-1 ring-stone-900/[0.04] transition-[box-shadow] duration-200 hover:shadow-lg dark:border-amber-800/40 dark:bg-stone-900 dark:ring-white/[0.06]">
+                <div
+                  className="h-1 w-full bg-gradient-to-r from-amber-600 via-orange-500 to-amber-500 opacity-95 dark:from-amber-500 dark:via-orange-400 dark:to-amber-400"
+                  aria-hidden
+                />
+                <div className="flex items-start justify-between gap-2 px-3 pb-0.5 pt-2.5 sm:px-4">
+                  <div className="min-w-0">
+                    <p className="text-[12px] font-extrabold uppercase tracking-wide text-amber-900 dark:text-amber-200">
+                      ∑ Chỉ vàng cũ
+                    </p>
+                    <p className="mt-0.5 text-[11px] leading-snug text-stone-500 dark:text-stone-400">
+                      Trừ khi tính “∑ chỉ vàng thêm”
+                    </p>
+                  </div>
+                  <span className="shrink-0 rounded-md border border-amber-200/80 bg-amber-50 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/70 dark:text-amber-200">
+                    chỉ
+                  </span>
+                </div>
+                <div className="px-3 pb-3 pt-1 sm:px-4">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    placeholder="vd. 1.148"
+                    value={totalChiVangCu}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setTotalChiVangCu(v);
+                      try {
+                        localStorage.setItem(LS_INPUT_CHI_VANG_CU, v);
+                      } catch {
+                        /* ignore */
+                      }
+                    }}
+                    onBlur={(e) => {
+                      const v = formatChiVangCuInputDisplay(e.target.value);
+                      setTotalChiVangCu(v);
+                      try {
+                        localStorage.setItem(LS_INPUT_CHI_VANG_CU, v);
+                      } catch {
+                        /* ignore */
+                      }
+                    }}
+                    className="h-12 w-full rounded-xl border border-stone-200/90 bg-gradient-to-b from-stone-50/90 to-white px-2.5 py-1.5 text-right text-base font-bold tabular-nums text-stone-900 shadow-inner focus:border-amber-400/70 focus:outline-none focus:ring-2 focus:ring-amber-400/35 dark:border-stone-600 dark:from-stone-900 dark:to-stone-950 dark:text-stone-50 dark:focus:border-amber-600/50 dark:focus:ring-amber-500/25"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -1446,770 +1586,814 @@ export default function Home() {
         </section>
 
         <div
-          className="relative rounded-2xl border border-amber-200/50 dark:border-amber-800/40 bg-gradient-to-br from-white via-amber-50/40 to-orange-50/50 dark:from-stone-900 dark:via-stone-900 dark:to-amber-950/30 shadow-xl shadow-amber-500/10 dark:shadow-black/40 ring-1 ring-white/60 dark:ring-stone-700/50 overflow-hidden opacity-0 animate-scale-in"
+          className="scroll-table-premium overflow-auto max-h-[min(78vh,1200px)] rounded-xl border border-stone-200/90 dark:border-stone-600/40 bg-white dark:bg-stone-900 opacity-0 animate-scale-in"
           style={{ animationDelay: "140ms", animationFillMode: "forwards" }}
         >
-          <div className="border-b border-amber-200/50 dark:border-amber-900/30 px-5 py-3 text-[14px] text-stone-500 dark:text-stone-400 bg-gradient-to-r from-amber-100/50 via-white/70 to-amber-50/40 dark:from-amber-950/30 dark:via-stone-900/50 dark:to-amber-950/20 backdrop-blur-sm">
-            <span className="font-medium text-stone-700 dark:text-stone-300">
-              Bảng dữ liệu — vàng, tỷ giá &amp; chỉ số thị trường
-            </span>
-          </div>
-          <div className="relative bg-gradient-to-br from-amber-50/50 via-white/30 to-stone-100/40 dark:from-stone-950/60 dark:via-stone-900/50 dark:to-stone-950/70 p-2 sm:p-2.5">
-            <div className="scroll-table-premium overflow-auto max-h-[min(78vh,1200px)] rounded-xl border border-white/70 dark:border-stone-600/35 bg-white/45 dark:bg-stone-900/40 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.75),0_10px_40px_-16px_rgba(180,83,9,0.18)] dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06),0_12px_48px_-12px_rgba(0,0,0,0.55)] backdrop-blur-[3px]">
-            <table className="w-full min-w-max border-separate border-spacing-0 text-left text-[14px]">
-              {/* z-50: luôn nằm trên ô sticky Thứ/Ngày ở tbody (z-20/19) khi cuộn dọc — tránh bị hàng dữ liệu đè header */}
-              <thead className="sticky top-0 z-50 bg-amber-100/90 dark:bg-amber-900/30 backdrop-blur-sm text-center [&_th]:font-bold [&_th]:!border-black [&_th]:dark:!border-stone-200 [&_th]:transition-[filter,box-shadow] [&_th]:duration-200 [&_th]:hover:brightness-[1.04] dark:[&_th]:hover:brightness-110">
-                {/* Dòng 1: nhóm lớn + STT + Thứ/Ngày (rowSpan) */}
-                <tr>
-                  <th
-                    rowSpan={3}
-                    className="sticky left-0 top-0 z-[102] border-b border-r border-black dark:border-stone-200 px-1.5 py-2 w-16 min-w-16 text-[13px] font-bold uppercase tracking-wide text-stone-950 dark:text-stone-100 whitespace-nowrap bg-rose-100 dark:bg-rose-950/55 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.12)] dark:shadow-[4px_0_12px_-4px_rgba(0,0,0,0.45)]"
-                  >
-                    Thứ
+          <table className="w-full min-w-max border-separate border-spacing-0 text-left text-[14px]">
+            {/* z-50: luôn nằm trên ô sticky Thứ/Ngày ở tbody (z-20/19) khi cuộn dọc — tránh bị hàng dữ liệu đè header */}
+            <thead className="sticky top-0 z-50 bg-amber-100/90 dark:bg-amber-900/30 backdrop-blur-sm text-center [&_th]:font-bold [&_th]:!border-black [&_th]:dark:!border-stone-200 [&_th]:transition-[filter,box-shadow] [&_th]:duration-200 [&_th]:hover:brightness-[1.04] dark:[&_th]:hover:brightness-110">
+              {/* Dòng 1: nhóm lớn + STT + Thứ/Ngày (rowSpan) */}
+              <tr>
+                <th
+                  rowSpan={3}
+                  className="sticky left-0 top-0 z-[102] border-b border-r border-black dark:border-stone-200 px-1.5 py-2 w-16 min-w-16 text-[13px] font-bold uppercase tracking-wide text-stone-950 dark:text-stone-100 whitespace-nowrap bg-rose-100 dark:bg-rose-950/55 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.12)] dark:shadow-[4px_0_12px_-4px_rgba(0,0,0,0.45)]"
+                >
+                  Thứ
+                </th>
+                <th
+                  rowSpan={3}
+                  className="sticky left-16 top-0 z-[101] border-b border-r border-black dark:border-stone-200 px-2 py-2 w-32 min-w-32 text-[14px] font-bold uppercase tracking-wide text-stone-950 dark:text-sky-100 whitespace-nowrap bg-sky-100 dark:bg-sky-900/60 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.1)] dark:shadow-[4px_0_12px_-4px_rgba(0,0,0,0.4)]"
+                >
+                  Ngày
+                </th>
+                {columnVisibility.muaMh ? (
+                  <th colSpan={5} className={manhHaiHeaderGroupClass()}>
+                    MUA - Mạnh Hải
                   </th>
+                ) : null}
+                {columnVisibility.muaMh ? (
                   <th
-                    rowSpan={3}
-                    className="sticky left-16 top-0 z-[101] border-b border-r border-black dark:border-stone-200 px-2 py-2 w-32 min-w-32 text-[14px] font-bold uppercase tracking-wide text-stone-950 dark:text-sky-100 whitespace-nowrap bg-sky-100 dark:bg-sky-900/60 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.1)] dark:shadow-[4px_0_12px_-4px_rgba(0,0,0,0.4)]"
+                    colSpan={4}
+                    className={`${TABLE_CELL_BR} px-2 py-2.5 text-center text-[14px] font-bold uppercase tracking-wide ${LAI_HEAD_GREEN}`}
                   >
-                    Ngày
+                    LÃI (nếu bán ra)
                   </th>
-                  {columnVisibility.muaMh ? (
-                    <th colSpan={5} className={manhHaiHeaderGroupClass()}>
-                      MUA - Mạnh Hải
-                    </th>
-                  ) : null}
-                  {columnVisibility.banMh ? (
-                    <th colSpan={5} className={manhHaiHeaderGroupClass()}>
-                      BÁN - Mạnh Hải
-                    </th>
-                  ) : null}
-                  {columnVisibility.sumCols ? (
-                    <>
-                      <th
-                        rowSpan={3}
-                        className={`border border-black dark:border-stone-200 px-1.5 py-2 w-16 min-w-16 text-[14px] font-bold leading-tight text-stone-900 dark:text-stone-100 ${getRegionHeaderBgClass(61)}`}
-                      >
-                        <span className="block">∑</span>
-                        <span className="block">chỉ</span>
-                        <span className="block">vàng</span>
-                      </th>
-                      <th
-                        rowSpan={3}
-                        className={`border border-black dark:border-stone-200 border-l-0 px-1.5 py-2 w-[4.5rem] min-w-[4.5rem] text-[14px] font-bold leading-tight text-stone-900 dark:text-stone-100 ${getRegionHeaderBgClass(62)}`}
-                      >
-                        <span className="block">∑</span>
-                        <span className="block">chỉ vàng</span>
-                        <span className="block">thêm</span>
-                      </th>
-                    </>
-                  ) : null}
-                  {columnVisibility.kitco ? (
-                    <th
-                      colSpan={9}
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-2 text-[14px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
-                    >
-                      KITCO - GIÁ VÀNG THẾ GIỚI
-                    </th>
-                  ) : null}
-                  {columnVisibility.oil ? (
-                    <th
-                      colSpan={9}
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-2 text-[14px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
-                    >
-                      GIÁ DẦU
-                    </th>
-                  ) : null}
-                  {columnVisibility.dollar ? (
-                    <th
-                      colSpan={9}
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-2 text-[14px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
-                    >
-                      DOLLAR INDEX
-                    </th>
-                  ) : null}
-                  {columnVisibility.bond ? (
-                    <th
-                      colSpan={9}
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-2 text-[14px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
-                    >
-                      TRÁI PHIẾU US - 10 NĂM
-                    </th>
-                  ) : null}
-                  {columnVisibility.sp500 ? (
-                    <th
-                      colSpan={9}
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-2 text-[14px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
-                    >
-                      S&amp;P 500
-                    </th>
-                  ) : null}
-                  {columnVisibility.vcb ? (
-                    <th
-                      colSpan={1}
-                      className={`border-b border-black dark:border-stone-200 px-2 py-2 text-[14px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap ${getRegionHeaderBgClass(60)}`}
-                    >
-                      Tỷ Giá VCB
-                    </th>
-                  ) : null}
-                </tr>
-                {/* Dòng 2: Mở/Đóng/Chênh lệch, v.v. */}
-                <tr>
-                  {columnVisibility.muaMh ? (
-                    <>
-                      <th className={manhHaiHeaderRow2CellClass()}>MỞ</th>
-                      <th className={manhHaiHeaderRow2CellClass()}></th>
-                      <th className={manhHaiHeaderRow2CellClass()}></th>
-                      <th className={manhHaiHeaderRow2CellClass()}>ĐÓNG</th>
-                      <th
-                        rowSpan={2}
-                        className={manhHaiHeaderChenhLechRowSpanClass()}
-                      >
-                        CHÊNH LỆCH
-                      </th>
-                    </>
-                  ) : null}
-                  {columnVisibility.banMh ? (
-                    <>
-                      <th className={manhHaiHeaderRow2CellClass()}>MỞ</th>
-                      <th className={manhHaiHeaderRow2CellClass()}></th>
-                      <th className={manhHaiHeaderRow2CellClass()}></th>
-                      <th className={manhHaiHeaderRow2CellClass()}>ĐÓNG</th>
-                      <th
-                        rowSpan={2}
-                        className={manhHaiHeaderChenhLechRowSpanClass()}
-                      >
-                        CHÊNH LỆCH
-                      </th>
-                    </>
-                  ) : null}
-                  {/* Thứ, Ngày đã rowSpan=3 ở dòng 1 nên bỏ qua ở dòng 2 */}
-                  {columnVisibility.kitco ? (
-                    <>
-                  {/* KITCO (9 cột) */}
-                  <th
-                    colSpan={5}
-                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
-                  >
-                    MỞ
+                ) : null}
+                {columnVisibility.banMh ? (
+                  <th colSpan={5} className={manhHaiHeaderGroupClass()}>
+                    BÁN - Mạnh Hải
                   </th>
-                  <th
-                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
-                  >
-                    ĐÓNG
-                  </th>
-                  <th
-                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
-                  >
-                    CAO
-                  </th>
-                  <th
-                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
-                  >
-                    THẤP (Low)
-                  </th>
-                  <th
-                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
-                  >
-                    THAY ĐỔI (Change)
-                  </th>
-                    </>
-                  ) : null}
-                  {columnVisibility.oil ? (
-                    <>
-                  {/* Giá dầu (9 cột) */}
-                  <th
-                    colSpan={5}
-                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
-                  >
-                    MỞ
-                  </th>
-                  <th
-                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
-                  >
-                    ĐÓNG
-                  </th>
-                  <th
-                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
-                  >
-                    CAO
-                  </th>
-                  <th
-                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
-                  >
-                    THẤP
-                  </th>
-                  <th
-                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
-                  >
-                    THAY ĐỔI
-                  </th>
-                    </>
-                  ) : null}
-                  {columnVisibility.dollar ? (
-                    <>
-                  {/* Dollar index (9 cột) */}
-                  <th
-                    colSpan={5}
-                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
-                  >
-                    MỞ
-                  </th>
-                  <th
-                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
-                  >
-                    ĐÓNG
-                  </th>
-                  <th
-                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
-                  >
-                    CAO
-                  </th>
-                  <th
-                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
-                  >
-                    THẤP
-                  </th>
-                  <th
-                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
-                  >
-                    THAY ĐỔI
-                  </th>
-                    </>
-                  ) : null}
-                  {columnVisibility.bond ? (
-                    <>
-                  {/* Trái phiếu 10Y (9 cột) */}
-                  <th
-                    colSpan={5}
-                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
-                  >
-                    MỞ
-                  </th>
-                  <th
-                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
-                  >
-                    ĐÓNG
-                  </th>
-                  <th
-                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
-                  >
-                    CAO
-                  </th>
-                  <th
-                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
-                  >
-                    THẤP
-                  </th>
-                  <th
-                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
-                  >
-                    THAY ĐỔI
-                  </th>
-                    </>
-                  ) : null}
-                  {columnVisibility.sp500 ? (
-                    <>
-                  {/* S&P 500 (9 cột) */}
-                  <th
-                    colSpan={5}
-                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
-                  >
-                    MỞ
-                  </th>
-                  <th
-                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
-                  >
-                    ĐÓNG
-                  </th>
-                  <th
-                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
-                  >
-                    CAO
-                  </th>
-                  <th
-                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
-                  >
-                    THẤP
-                  </th>
-                  <th
-                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
-                  >
-                    THAY ĐỔI
-                  </th>
-                    </>
-                  ) : null}
-                  {columnVisibility.vcb ? (
+                ) : null}
+                {columnVisibility.sumCols ? (
                   <>
-                  {/* Tỷ giá VCB (1 cột - chỉ lấy Bán) */}
-                  <th
-                    className={`border-b border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(60)}`}
-                  >
-                    Bán
-                  </th>
+                    <th
+                      rowSpan={3}
+                      className={`border border-black dark:border-stone-200 px-1.5 py-2 w-16 min-w-16 text-[14px] font-bold leading-tight text-stone-900 dark:text-stone-100 ${getRegionHeaderBgClass(61)}`}
+                    >
+                      <span className="block">∑</span>
+                      <span className="block">chỉ</span>
+                      <span className="block">vàng</span>
+                    </th>
+                    <th
+                      rowSpan={3}
+                      className={`border border-black dark:border-stone-200 border-l-0 px-1.5 py-2 w-[4.5rem] min-w-[4.5rem] text-[14px] font-bold leading-tight text-stone-900 dark:text-stone-100 ${getRegionHeaderBgClass(62)}`}
+                    >
+                      <span className="block">∑</span>
+                      <span className="block">chỉ vàng</span>
+                      <span className="block">thêm</span>
+                    </th>
                   </>
-                  ) : null}
-                </tr>
-                {/* Dòng 3: các mốc giờ chi tiết */}
-                <tr>
-                  {columnVisibility.muaMh ? (
-                    <>
-                      {/* Mua - Mạnh Hải: 4 ô giờ (CHÊNH LỆCH đã rowSpan ở dòng trên) */}
-                      <th className={manhHaiHeaderTimeRowClass()}>
-                        9h
-                        <br />
-                        (Việt Nam)
-                      </th>
-                      <th className={manhHaiHeaderTimeRowClass()}>
-                        11h
-                        <br />
-                        (Việt Nam)
-                      </th>
-                      <th className={manhHaiHeaderTimeRowClass()}>
-                        14h30
-                        <br />
-                        (Việt Nam)
-                      </th>
-                      <th className={manhHaiHeaderTimeRowClass()}>
-                        17h30
-                        <br />
-                        (Việt Nam)
-                      </th>
-                    </>
-                  ) : null}
-                  {columnVisibility.banMh ? (
-                    <>
-                      {/* Bán - Mạnh Hải */}
-                      <th className={manhHaiHeaderTimeRowClass()}>
-                        9h
-                        <br />
-                        (Việt Nam)
-                      </th>
-                      <th className={manhHaiHeaderTimeRowClass()}>
-                        11h
-                        <br />
-                        (Việt Nam)
-                      </th>
-                      <th className={manhHaiHeaderTimeRowClass()}>
-                        14h30
-                        <br />
-                        (Việt Nam)
-                      </th>
-                      <th className={manhHaiHeaderTimeRowClass()}>
-                        17h30
-                        <br />
-                        (Việt Nam)
-                      </th>
-                    </>
-                  ) : null}
-                  {/* Thứ, Ngày đã rowSpan=3 ở dòng 1 */}
-                  {columnVisibility.kitco ? (
-                    <>
-                  {/* KITCO (9 cột) */}
-                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
-                    0h <br />
-                    (Kitco)
-                  </th>
-                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
-                    9h
-                    <br />
-                    (Việt Nam)
-                  </th>
-                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
-                    11h
-                    <br />
-                    (Việt Nam)
-                  </th>
-                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
-                    14h30
-                    <br />
-                    (Việt Nam)
-                  </th>
-                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
-                    17h30
-                    <br />
-                    (Việt Nam)
-                  </th>
-                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
-                    24h <br />
-                    (Kitco)
-                  </th>
-                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap" />
-                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap" />
-                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap" />
-                    </>
-                  ) : null}
-                  {columnVisibility.oil ? (
-                    <>
-                  {/* Giá dầu (9 cột) */}
-                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
-                    0h
-                    <br /> (Investing)
-                  </th>
-                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
-                    9h
-                    <br />
-                    (Việt Nam)
-                  </th>
-                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
-                    11h
-                    <br />
-                    (Việt Nam)
-                  </th>
-                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
-                    14h30
-                    <br />
-                    (Việt Nam)
-                  </th>
-                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
-                    17h30
-                    <br />
-                    (Việt Nam)
-                  </th>
-                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
-                    24h
-                    <br /> (Investing)
-                  </th>
-                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap" />
-                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap" />
-                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap" />
-                    </>
-                  ) : null}
-                  {columnVisibility.dollar ? (
-                    <>
-                  {/* Dollar index (9 cột) */}
-                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
-                    0h
-                    <br /> (Investing)
-                  </th>
-                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
-                    9h
-                    <br />
-                    (Việt Nam)
-                  </th>
-                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
-                    11h
-                    <br />
-                    (Việt Nam)
-                  </th>
-                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
-                    14h30
-                    <br />
-                    (Việt Nam)
-                  </th>
-                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
-                    17h30
-                    <br />
-                    (Việt Nam)
-                  </th>
-                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
-                    24h
-                    <br /> (Investing)
-                  </th>
-                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap" />
-                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap" />
-                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap" />
-                    </>
-                  ) : null}
-                  {columnVisibility.bond ? (
-                    <>
-                  {/* Trái phiếu 10Y (9 cột) */}
-                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
-                    0h <br />
-                    (Investing)
-                  </th>
-                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
-                    9h
-                    <br />
-                    (Việt Nam)
-                  </th>
-                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
-                    11h
-                    <br />
-                    (Việt Nam)
-                  </th>
-                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
-                    14h30
-                    <br />
-                    (Việt Nam)
-                  </th>
-                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
-                    17h30
-                    <br />
-                    (Việt Nam)
-                  </th>
-                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
-                    24h
-                    <br /> (Investing)
-                  </th>
-                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap" />
-                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap" />
-                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap" />
-                    </>
-                  ) : null}
-                  {columnVisibility.sp500 ? (
-                    <>
-                  {/* S&P 500 (9 cột) */}
-                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
-                    0h <br />
-                    (Investing)
-                  </th>
-                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
-                    9h
-                    <br />
-                    (Việt Nam)
-                  </th>
-                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
-                    11h
-                    <br />
-                    (Việt Nam)
-                  </th>
-                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
-                    14h30
-                    <br />
-                    (Việt Nam)
-                  </th>
-                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
-                    17h30
-                    <br />
-                    (Việt Nam)
-                  </th>
-                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
-                    24h
-                    <br /> (Investing)
-                  </th>
-                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap" />
-                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap" />
-                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap" />
-                    </>
-                  ) : null}
-                  {columnVisibility.vcb ? (
-                    <>
-                  {/* Tỷ giá VCB (1 cột - chỉ lấy Bán) */}
-                  <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap" />
-                    </>
-                  ) : null}
-                </tr>
-              </thead>
-              <tbody>
-                {dateRows.map((row) => (
-                  <tr
-                    key={row.isoDate}
-                    className="group/row transition-colors duration-200 hover:bg-stone-100/50 dark:hover:bg-stone-800/30"
+                ) : null}
+                {columnVisibility.kitco ? (
+                  <th
+                    colSpan={9}
+                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-2 text-[14px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
                   >
-                    {visibleJ.map((j) =>
-                      j === 0 || j === 58 || j === 59 ? null : (
-                        <td
-                          key={j}
-                          className={
-                            j === 0
-                              ? "border-0 px-0 py-0 w-0 max-w-0 overflow-hidden"
-                              : j === 11
-                                ? `sticky left-0 z-20 border-r border-b border-black dark:border-stone-200 px-1.5 py-2 text-right text-[13px] font-bold w-16 max-w-16 truncate tabular-nums text-stone-950 dark:text-stone-100 bg-orange-50 dark:bg-orange-950/30 group-hover/row:bg-orange-100/90 dark:group-hover/row:bg-orange-950/45 shadow-[4px_0_10px_-6px_rgba(0,0,0,0.15)] dark:shadow-[4px_0_10px_-6px_rgba(0,0,0,0.5)] ${TD_CELL_FX}`
-                                : j === 12
-                                  ? `sticky left-16 z-[19] border-r border-b border-black dark:border-stone-200 px-2 py-2 text-center text-[14px] font-bold w-32 max-w-32 truncate tabular-nums text-red-600 dark:text-red-400 bg-sky-100 dark:bg-sky-950/45 group-hover/row:bg-sky-200/85 dark:group-hover/row:bg-sky-900/50 shadow-[4px_0_10px_-6px_rgba(0,0,0,0.12)] dark:shadow-[4px_0_10px_-6px_rgba(0,0,0,0.45)] ${TD_CELL_FX}`
-                                  : j === 61 || j === 62
-                                    ? `border-r border-b border-black dark:border-stone-200 px-2 py-2 text-[14px] font-bold max-w-[110px] truncate tabular-nums text-stone-950 dark:text-stone-50 text-center ${getRegionBgClass(j)} ${TD_CELL_FX}`
-                                    : `border-r border-b border-black dark:border-stone-200 px-2 py-2 text-[14px] font-bold max-w-[130px] truncate tabular-nums text-stone-950 dark:text-stone-50 ${getRegionBgClass(j)} ${TD_CELL_FX}`
-                          }
-                        >
-                          {isLoadingTable && j !== 0 && j !== 11 && j !== 12 ? (
-                            <div className="h-4 w-14 rounded bg-stone-200/70 dark:bg-stone-800/70 animate-pulse" />
-                          ) : j === 0 ? (
-                            ""
-                          ) : j === 11 ? (
-                            row.weekdayLabel
-                          ) : j === 12 ? (
-                            row.dateLabel
-                          ) : j >= 1 && j <= 10 ? (
-                            (() => {
-                              const v = manhHaiCellValue(row.isoDate, j);
-                              return v.toneClass ? (
-                                <span className={v.toneClass}>{v.text}</span>
-                              ) : (
-                                v.text
-                              );
-                            })()
-                          ) : j === 21 ? (
-                            (() => {
-                              const v = kitcoCellValue(row.isoDate, j);
-                              const text = formatChangeWithPlus(v);
-                              return (
-                                <span className={getMarketChangeToneClass(v)}>
-                                  {text}
-                                </span>
-                              );
-                            })()
-                          ) : j === 30 ? (
-                            (() => {
-                              const v = marketTimedCellValue(
-                                row.isoDate,
-                                j,
-                                "oil",
-                              );
-                              const text = formatChangeWithPlus(v);
-                              return (
-                                <span className={getMarketChangeToneClass(v)}>
-                                  {text}
-                                </span>
-                              );
-                            })()
-                          ) : j === 39 ? (
-                            (() => {
-                              const v = marketTimedCellValue(
-                                row.isoDate,
-                                j,
-                                "dollarIndex",
-                              );
-                              const text = formatChangeWithPlus(v);
-                              return (
-                                <span className={getMarketChangeToneClass(v)}>
-                                  {text}
-                                </span>
-                              );
-                            })()
-                          ) : j === 48 ? (
-                            (() => {
-                              const v = marketTimedCellValue(
-                                row.isoDate,
-                                j,
-                                "bond10y",
-                              );
-                              const text = formatChangeWithPlus(v);
-                              return (
-                                <span className={getMarketChangeToneClass(v)}>
-                                  {text}
-                                </span>
-                              );
-                            })()
-                          ) : j === 57 ? (
-                            (() => {
-                              const v = marketTimedCellValue(
-                                row.isoDate,
-                                j,
-                                "sp500",
-                              );
-                              const text = formatChangeWithPlus(v);
-                              return (
-                                <span className={getMarketChangeToneClass(v)}>
-                                  {text}
-                                </span>
-                              );
-                            })()
-                          ) : j >= 13 && j <= 17 ? (
-                            (() => {
-                              const v = kitcoCellValue(row.isoDate, j);
-                              const ch = kitcoCellValue(row.isoDate, 21);
-                              const tone = getMarketChangeToneClass(ch);
-                              return v === "–" ? (
-                                v
-                              ) : (
-                                <span className={tone}>{v}</span>
-                              );
-                            })()
-                          ) : j >= 18 && j <= 20 ? (
-                            kitcoCellValue(row.isoDate, j)
-                          ) : j >= 22 && j <= 29 ? (
-                            (() => {
-                              const v = marketTimedCellValue(
-                                row.isoDate,
-                                j,
-                                "oil",
-                              );
-                              const ch = marketTimedCellValue(
-                                row.isoDate,
-                                30,
-                                "oil",
-                              );
-                              const tone = getMarketChangeToneClass(
-                                formatChangeWithPlus(ch),
-                              );
-                              return v === "–" ? (
-                                v
-                              ) : (
-                                <span className={tone}>{v}</span>
-                              );
-                            })()
-                          ) : j >= 31 && j <= 38 ? (
-                            (() => {
-                              const v = marketTimedCellValue(
-                                row.isoDate,
-                                j,
-                                "dollarIndex",
-                              );
-                              const ch = marketTimedCellValue(
-                                row.isoDate,
-                                39,
-                                "dollarIndex",
-                              );
-                              const tone = getMarketChangeToneClass(
-                                formatChangeWithPlus(ch),
-                              );
-                              return v === "–" ? (
-                                v
-                              ) : (
-                                <span className={tone}>{v}</span>
-                              );
-                            })()
-                          ) : j >= 40 && j <= 47 ? (
-                            (() => {
-                              const v = marketTimedCellValue(
-                                row.isoDate,
-                                j,
-                                "bond10y",
-                              );
-                              const ch = marketTimedCellValue(
-                                row.isoDate,
-                                48,
-                                "bond10y",
-                              );
-                              const tone = getMarketChangeToneClass(
-                                formatChangeWithPlus(ch),
-                              );
-                              return v === "–" ? (
-                                v
-                              ) : (
-                                <span className={tone}>{v}</span>
-                              );
-                            })()
-                          ) : j >= 49 && j <= 56 ? (
-                            (() => {
-                              const v = marketTimedCellValue(
-                                row.isoDate,
-                                j,
-                                "sp500",
-                              );
-                              const ch = marketTimedCellValue(
-                                row.isoDate,
-                                57,
-                                "sp500",
-                              );
-                              const tone = getMarketChangeToneClass(
-                                formatChangeWithPlus(ch),
-                              );
-                              return v === "–" ? (
-                                v
-                              ) : (
-                                <span className={tone}>{v}</span>
-                              );
-                            })()
-                          ) : j === 61 ? (
-                            chiVangIndexTaiSanOverDong17h30(row.isoDate)
-                          ) : j === 62 ? (
-                            chiVangThemMinusChiCu(row.isoDate)
-                          ) : j >= 58 && j <= 60 ? (
-                            vcbCellValue(row.isoDate, j)
-                          ) : (
-                            "–"
-                          )}
-                        </td>
-                      ),
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            </div>
-          </div>
+                    KITCO - GIÁ VÀNG THẾ GIỚI
+                  </th>
+                ) : null}
+                {columnVisibility.oil ? (
+                  <th
+                    colSpan={9}
+                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-2 text-[14px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                  >
+                    GIÁ DẦU
+                  </th>
+                ) : null}
+                {columnVisibility.dollar ? (
+                  <th
+                    colSpan={9}
+                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-2 text-[14px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                  >
+                    DOLLAR INDEX
+                  </th>
+                ) : null}
+                {columnVisibility.bond ? (
+                  <th
+                    colSpan={9}
+                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-2 text-[14px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                  >
+                    TRÁI PHIẾU US - 10 NĂM
+                  </th>
+                ) : null}
+                {columnVisibility.sp500 ? (
+                  <th
+                    colSpan={9}
+                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-2 text-[14px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                  >
+                    S&amp;P 500
+                  </th>
+                ) : null}
+                {columnVisibility.vcb ? (
+                  <th
+                    colSpan={1}
+                    className={`border-b border-black dark:border-stone-200 px-2 py-2 text-[14px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap ${getRegionHeaderBgClass(60)}`}
+                  >
+                    Tỷ Giá VCB
+                  </th>
+                ) : null}
+              </tr>
+              {/* Dòng 2: Mở/Đóng/Chênh lệch, v.v. */}
+              <tr>
+                {columnVisibility.muaMh ? (
+                  <>
+                    <th className={manhHaiHeaderRow2CellClass()}>MỞ</th>
+                    <th className={manhHaiHeaderRow2CellClass()}></th>
+                    <th className={manhHaiHeaderRow2CellClass()}></th>
+                    <th className={manhHaiHeaderRow2CellClass()}>ĐÓNG</th>
+                    <th
+                      rowSpan={2}
+                      className={manhHaiHeaderChenhLechRowSpanClass()}
+                    >
+                      CHÊNH LỆCH
+                    </th>
+                  </>
+                ) : null}
+                {columnVisibility.muaMh ? (
+                  <>
+                    <th
+                      colSpan={4}
+                      className={`${TABLE_CELL_BR} min-h-[2.5rem] bg-[#e6f0db] dark:bg-emerald-950/35 px-1 py-2`}
+                      aria-hidden
+                    />
+                  </>
+                ) : null}
+                {columnVisibility.banMh ? (
+                  <>
+                    <th className={manhHaiHeaderRow2CellClass()}>MỞ</th>
+                    <th className={manhHaiHeaderRow2CellClass()}></th>
+                    <th className={manhHaiHeaderRow2CellClass()}></th>
+                    <th className={manhHaiHeaderRow2CellClass()}>ĐÓNG</th>
+                    <th
+                      rowSpan={2}
+                      className={manhHaiHeaderChenhLechRowSpanClass()}
+                    >
+                      CHÊNH LỆCH
+                    </th>
+                  </>
+                ) : null}
+                {/* Thứ, Ngày đã rowSpan=3 ở dòng 1 nên bỏ qua ở dòng 2 */}
+                {columnVisibility.kitco ? (
+                  <>
+                    {/* KITCO (9 cột) */}
+                    <th
+                      colSpan={5}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                    >
+                      MỞ
+                    </th>
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                    >
+                      ĐÓNG
+                    </th>
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                    >
+                      CAO
+                    </th>
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                    >
+                      THẤP
+                    </th>
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                    >
+                      THAY ĐỔI (Change)
+                    </th>
+                  </>
+                ) : null}
+                {columnVisibility.oil ? (
+                  <>
+                    {/* Giá dầu (9 cột) */}
+                    <th
+                      colSpan={5}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                    >
+                      MỞ
+                    </th>
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                    >
+                      ĐÓNG
+                    </th>
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                    >
+                      CAO
+                    </th>
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                    >
+                      THẤP
+                    </th>
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                    >
+                      THAY ĐỔI
+                    </th>
+                  </>
+                ) : null}
+                {columnVisibility.dollar ? (
+                  <>
+                    {/* Dollar index (9 cột) */}
+                    <th
+                      colSpan={5}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                    >
+                      MỞ
+                    </th>
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                    >
+                      ĐÓNG
+                    </th>
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                    >
+                      CAO
+                    </th>
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                    >
+                      THẤP
+                    </th>
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                    >
+                      THAY ĐỔI
+                    </th>
+                  </>
+                ) : null}
+                {columnVisibility.bond ? (
+                  <>
+                    {/* Trái phiếu 10Y (9 cột) */}
+                    <th
+                      colSpan={5}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                    >
+                      MỞ
+                    </th>
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                    >
+                      ĐÓNG
+                    </th>
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                    >
+                      CAO
+                    </th>
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                    >
+                      THẤP
+                    </th>
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                    >
+                      THAY ĐỔI
+                    </th>
+                  </>
+                ) : null}
+                {columnVisibility.sp500 ? (
+                  <>
+                    {/* S&P 500 (9 cột) */}
+                    <th
+                      colSpan={5}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                    >
+                      MỞ
+                    </th>
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                    >
+                      ĐÓNG
+                    </th>
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                    >
+                      CAO
+                    </th>
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                    >
+                      THẤP
+                    </th>
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                    >
+                      THAY ĐỔI
+                    </th>
+                  </>
+                ) : null}
+                {columnVisibility.vcb ? (
+                  <>
+                    {/* Tỷ giá VCB (1 cột - chỉ lấy Bán) */}
+                    <th
+                      className={`border-b border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(60)}`}
+                    >
+                      Bán
+                    </th>
+                  </>
+                ) : null}
+              </tr>
+              {/* Dòng 3: các mốc giờ chi tiết */}
+              <tr>
+                {columnVisibility.muaMh ? (
+                  <>
+                    {/* Mua - Mạnh Hải: 4 ô giờ (CHÊNH LỆCH đã rowSpan ở dòng trên) */}
+                    <th className={manhHaiHeaderTimeRowClass()}>
+                      9h
+                      <br />
+                      (Việt Nam)
+                    </th>
+                    <th className={manhHaiHeaderTimeRowClass()}>
+                      11h
+                      <br />
+                      (Việt Nam)
+                    </th>
+                    <th className={manhHaiHeaderTimeRowClass()}>
+                      14h30
+                      <br />
+                      (Việt Nam)
+                    </th>
+                    <th className={manhHaiHeaderTimeRowClass()}>
+                      17h30
+                      <br />
+                      (Việt Nam)
+                    </th>
+                  </>
+                ) : null}
+                {columnVisibility.muaMh ? (
+                  <>
+                    <th className={LAI_HEAD_TIME_CLASS}>
+                      9h
+                      <br />
+                      (Việt Nam)
+                    </th>
+                    <th className={LAI_HEAD_TIME_CLASS}>
+                      11h
+                      <br />
+                      (Việt Nam)
+                    </th>
+                    <th className={LAI_HEAD_TIME_CLASS}>
+                      14h30
+                      <br />
+                      (Việt Nam)
+                    </th>
+                    <th className={LAI_HEAD_TIME_CLASS}>
+                      17h30
+                      <br />
+                      (Việt Nam)
+                    </th>
+                  </>
+                ) : null}
+                {columnVisibility.banMh ? (
+                  <>
+                    {/* Bán - Mạnh Hải */}
+                    <th className={manhHaiHeaderTimeRowClass()}>
+                      9h
+                      <br />
+                      (Việt Nam)
+                    </th>
+                    <th className={manhHaiHeaderTimeRowClass()}>
+                      11h
+                      <br />
+                      (Việt Nam)
+                    </th>
+                    <th className={manhHaiHeaderTimeRowClass()}>
+                      14h30
+                      <br />
+                      (Việt Nam)
+                    </th>
+                    <th className={manhHaiHeaderTimeRowClass()}>
+                      17h30
+                      <br />
+                      (Việt Nam)
+                    </th>
+                  </>
+                ) : null}
+                {/* Thứ, Ngày đã rowSpan=3 ở dòng 1 */}
+                {columnVisibility.kitco ? (
+                  <>
+                    {/* KITCO (9 cột) */}
+                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                      0h <br />
+                      (Kitco)
+                    </th>
+                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                      9h
+                      <br />
+                      (Việt Nam)
+                    </th>
+                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                      11h
+                      <br />
+                      (Việt Nam)
+                    </th>
+                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                      14h30
+                      <br />
+                      (Việt Nam)
+                    </th>
+                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                      17h30
+                      <br />
+                      (Việt Nam)
+                    </th>
+                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                      24h <br />
+                      (Kitco)
+                    </th>
+                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap" />
+                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap" />
+                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap" />
+                  </>
+                ) : null}
+                {columnVisibility.oil ? (
+                  <>
+                    {/* Giá dầu (9 cột) */}
+                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                      0h
+                      <br /> (Investing)
+                    </th>
+                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                      9h
+                      <br />
+                      (Việt Nam)
+                    </th>
+                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                      11h
+                      <br />
+                      (Việt Nam)
+                    </th>
+                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                      14h30
+                      <br />
+                      (Việt Nam)
+                    </th>
+                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                      17h30
+                      <br />
+                      (Việt Nam)
+                    </th>
+                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                      24h
+                      <br /> (Investing)
+                    </th>
+                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap" />
+                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap" />
+                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap" />
+                  </>
+                ) : null}
+                {columnVisibility.dollar ? (
+                  <>
+                    {/* Dollar index (9 cột) */}
+                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                      0h
+                      <br /> (Investing)
+                    </th>
+                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                      9h
+                      <br />
+                      (Việt Nam)
+                    </th>
+                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                      11h
+                      <br />
+                      (Việt Nam)
+                    </th>
+                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                      14h30
+                      <br />
+                      (Việt Nam)
+                    </th>
+                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                      17h30
+                      <br />
+                      (Việt Nam)
+                    </th>
+                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                      24h
+                      <br /> (Investing)
+                    </th>
+                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap" />
+                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap" />
+                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap" />
+                  </>
+                ) : null}
+                {columnVisibility.bond ? (
+                  <>
+                    {/* Trái phiếu 10Y (9 cột) */}
+                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                      0h <br />
+                      (Investing)
+                    </th>
+                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                      9h
+                      <br />
+                      (Việt Nam)
+                    </th>
+                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                      11h
+                      <br />
+                      (Việt Nam)
+                    </th>
+                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                      14h30
+                      <br />
+                      (Việt Nam)
+                    </th>
+                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                      17h30
+                      <br />
+                      (Việt Nam)
+                    </th>
+                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                      24h
+                      <br /> (Investing)
+                    </th>
+                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap" />
+                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap" />
+                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap" />
+                  </>
+                ) : null}
+                {columnVisibility.sp500 ? (
+                  <>
+                    {/* S&P 500 (9 cột) */}
+                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                      0h <br />
+                      (Investing)
+                    </th>
+                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                      9h
+                      <br />
+                      (Việt Nam)
+                    </th>
+                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                      11h
+                      <br />
+                      (Việt Nam)
+                    </th>
+                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                      14h30
+                      <br />
+                      (Việt Nam)
+                    </th>
+                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                      17h30
+                      <br />
+                      (Việt Nam)
+                    </th>
+                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap">
+                      24h
+                      <br /> (Investing)
+                    </th>
+                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap" />
+                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap" />
+                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap" />
+                  </>
+                ) : null}
+                {columnVisibility.vcb ? (
+                  <>
+                    {/* Tỷ giá VCB (1 cột - chỉ lấy Bán) */}
+                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap" />
+                  </>
+                ) : null}
+              </tr>
+            </thead>
+            <tbody>
+              {dateRows.map((row) => (
+                <tr
+                  key={row.isoDate}
+                  className="group/row transition-colors duration-200 hover:bg-stone-100/50 dark:hover:bg-stone-800/30"
+                >
+                  {visibleJ.map((j) =>
+                    j === 0 || j === 58 || j === 59 ? null : (
+                      <td
+                        key={j}
+                        className={
+                          j === 0
+                            ? "border-0 px-0 py-0 w-0 max-w-0 overflow-hidden"
+                            : j === 11
+                              ? `sticky left-0 z-20 border-r border-b border-black dark:border-stone-200 px-1.5 py-2 text-right text-[13px] font-bold w-16 max-w-16 truncate tabular-nums text-stone-950 dark:text-stone-100 bg-orange-50 dark:bg-orange-950/30 group-hover/row:bg-orange-100/90 dark:group-hover/row:bg-orange-950/45 shadow-[4px_0_10px_-6px_rgba(0,0,0,0.15)] dark:shadow-[4px_0_10px_-6px_rgba(0,0,0,0.5)] ${TD_CELL_FX}`
+                              : j === 12
+                                ? `sticky left-16 z-[19] border-r border-b border-black dark:border-stone-200 px-2 py-2 text-center text-[14px] font-bold w-32 max-w-32 truncate tabular-nums text-red-600 dark:text-red-400 bg-sky-100 dark:bg-sky-950/45 group-hover/row:bg-sky-200/85 dark:group-hover/row:bg-sky-900/50 shadow-[4px_0_10px_-6px_rgba(0,0,0,0.12)] dark:shadow-[4px_0_10px_-6px_rgba(0,0,0,0.45)] ${TD_CELL_FX}`
+                                : j === 61 || j === 62
+                                  ? `border-r border-b border-black dark:border-stone-200 px-2 py-2 text-[14px] font-bold max-w-[110px] truncate tabular-nums text-stone-950 dark:text-stone-50 text-center ${getRegionBgClass(j)} ${TD_CELL_FX}`
+                                  : `border-r border-b border-black dark:border-stone-200 px-2 py-2 text-[14px] font-bold max-w-[130px] truncate tabular-nums text-stone-950 dark:text-stone-50 ${getRegionBgClass(j)} ${TD_CELL_FX}`
+                        }
+                      >
+                        {isLoadingTable && j !== 0 && j !== 11 && j !== 12 ? (
+                          <div className="h-4 w-14 rounded bg-stone-200/70 dark:bg-stone-800/70 animate-pulse" />
+                        ) : j === 0 ? (
+                          ""
+                        ) : j === 11 ? (
+                          row.weekdayLabel
+                        ) : j === 12 ? (
+                          row.dateLabel
+                        ) : j >= 1 && j <= 10 ? (
+                          (() => {
+                            const v = manhHaiCellValue(row.isoDate, j);
+                            return v.toneClass ? (
+                              <span className={v.toneClass}>{v.text}</span>
+                            ) : (
+                              v.text
+                            );
+                          })()
+                        ) : j >= 63 && j <= 66 ? (
+                          (() => {
+                            const v = laiNeuBanRa(
+                              row.isoDate,
+                              j as 63 | 64 | 65 | 66,
+                            );
+                            return v.toneClass ? (
+                              <span className={v.toneClass}>{v.text}</span>
+                            ) : (
+                              v.text
+                            );
+                          })()
+                        ) : j === 21 ? (
+                          (() => {
+                            const v = kitcoCellValue(row.isoDate, j);
+                            const text = formatChangeWithPlus(v);
+                            return (
+                              <span className={getMarketChangeToneClass(v)}>
+                                {text}
+                              </span>
+                            );
+                          })()
+                        ) : j === 30 ? (
+                          (() => {
+                            const v = marketTimedCellValue(
+                              row.isoDate,
+                              j,
+                              "oil",
+                            );
+                            const text = formatChangeWithPlus(v);
+                            return (
+                              <span className={getMarketChangeToneClass(v)}>
+                                {text}
+                              </span>
+                            );
+                          })()
+                        ) : j === 39 ? (
+                          (() => {
+                            const v = marketTimedCellValue(
+                              row.isoDate,
+                              j,
+                              "dollarIndex",
+                            );
+                            const text = formatChangeWithPlus(v);
+                            return (
+                              <span className={getMarketChangeToneClass(v)}>
+                                {text}
+                              </span>
+                            );
+                          })()
+                        ) : j === 48 ? (
+                          (() => {
+                            const v = marketTimedCellValue(
+                              row.isoDate,
+                              j,
+                              "bond10y",
+                            );
+                            const text = formatChangeWithPlus(v);
+                            return (
+                              <span className={getMarketChangeToneClass(v)}>
+                                {text}
+                              </span>
+                            );
+                          })()
+                        ) : j === 57 ? (
+                          (() => {
+                            const v = marketTimedCellValue(
+                              row.isoDate,
+                              j,
+                              "sp500",
+                            );
+                            const text = formatChangeWithPlus(v);
+                            return (
+                              <span className={getMarketChangeToneClass(v)}>
+                                {text}
+                              </span>
+                            );
+                          })()
+                        ) : j >= 13 && j <= 17 ? (
+                          (() => {
+                            const v = kitcoCellValue(row.isoDate, j);
+                            const ch = kitcoCellValue(row.isoDate, 21);
+                            const tone = getMarketChangeToneClass(ch);
+                            return v === "–" ? (
+                              v
+                            ) : (
+                              <span className={tone}>{v}</span>
+                            );
+                          })()
+                        ) : j >= 18 && j <= 20 ? (
+                          kitcoCellValue(row.isoDate, j)
+                        ) : j >= 22 && j <= 29 ? (
+                          (() => {
+                            const v = marketTimedCellValue(
+                              row.isoDate,
+                              j,
+                              "oil",
+                            );
+                            const ch = marketTimedCellValue(
+                              row.isoDate,
+                              30,
+                              "oil",
+                            );
+                            const tone = getMarketChangeToneClass(
+                              formatChangeWithPlus(ch),
+                            );
+                            return v === "–" ? (
+                              v
+                            ) : (
+                              <span className={tone}>{v}</span>
+                            );
+                          })()
+                        ) : j >= 31 && j <= 38 ? (
+                          (() => {
+                            const v = marketTimedCellValue(
+                              row.isoDate,
+                              j,
+                              "dollarIndex",
+                            );
+                            const ch = marketTimedCellValue(
+                              row.isoDate,
+                              39,
+                              "dollarIndex",
+                            );
+                            const tone = getMarketChangeToneClass(
+                              formatChangeWithPlus(ch),
+                            );
+                            return v === "–" ? (
+                              v
+                            ) : (
+                              <span className={tone}>{v}</span>
+                            );
+                          })()
+                        ) : j >= 40 && j <= 47 ? (
+                          (() => {
+                            const v = marketTimedCellValue(
+                              row.isoDate,
+                              j,
+                              "bond10y",
+                            );
+                            const ch = marketTimedCellValue(
+                              row.isoDate,
+                              48,
+                              "bond10y",
+                            );
+                            const tone = getMarketChangeToneClass(
+                              formatChangeWithPlus(ch),
+                            );
+                            return v === "–" ? (
+                              v
+                            ) : (
+                              <span className={tone}>{v}</span>
+                            );
+                          })()
+                        ) : j >= 49 && j <= 56 ? (
+                          (() => {
+                            const v = marketTimedCellValue(
+                              row.isoDate,
+                              j,
+                              "sp500",
+                            );
+                            const ch = marketTimedCellValue(
+                              row.isoDate,
+                              57,
+                              "sp500",
+                            );
+                            const tone = getMarketChangeToneClass(
+                              formatChangeWithPlus(ch),
+                            );
+                            return v === "–" ? (
+                              v
+                            ) : (
+                              <span className={tone}>{v}</span>
+                            );
+                          })()
+                        ) : j === 61 ? (
+                          chiVangIndexTaiSanOverDong17h30(row.isoDate)
+                        ) : j === 62 ? (
+                          chiVangThemMinusChiCu(row.isoDate)
+                        ) : j >= 58 && j <= 60 ? (
+                          vcbCellValue(row.isoDate, j)
+                        ) : (
+                          "–"
+                        )}
+                      </td>
+                    ),
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </main>
 
@@ -2225,9 +2409,7 @@ export default function Home() {
               </span>
               <p>© {new Date().getFullYear()} · Giá vàng & Tỷ giá</p>
             </div>
-            <p className="text-[14px]">
-              Make by Trần Trung Hiếu - 0862478150
-            </p>
+            <p className="text-[14px]">Make by Trần Trung Hiếu - 0862478150</p>
           </div>
         </div>
       </footer>
