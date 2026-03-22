@@ -17,7 +17,7 @@ import {
   type ToggleableColGroup,
 } from "@/lib/table-columns";
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 /**
  * Khung UI trước – chỉ header + bảng trống.
@@ -245,6 +245,28 @@ const LS_INPUT_TAI_SAN = "gia-vang-input-tai-san";
 const LS_INPUT_CHI_VANG_CU = "gia-vang-input-chi-vang-cu";
 const LS_INPUT_DAU_TU = "gia-vang-input-dau-tu";
 const LS_INPUT_CHI_VANG_DANG_CO = "gia-vang-input-chi-vang-dang-co";
+const LS_CELL_BG_COLORS = "gia-vang-cell-bg-colors";
+
+function parseCellBgColorsFromStorage(raw: string | null): Record<string, string> {
+  if (!raw) return {};
+  try {
+    const o = JSON.parse(raw) as unknown;
+    if (!o || typeof o !== "object" || Array.isArray(o)) return {};
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(o)) {
+      if (
+        typeof k === "string" &&
+        typeof v === "string" &&
+        /^#[0-9A-Fa-f]{6}$/.test(v)
+      ) {
+        out[k] = v;
+      }
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
 
 function computeRange(
   mode: RangeMode,
@@ -502,6 +524,23 @@ export default function Home() {
     }
   });
   const [columnMenuOpen, setColumnMenuOpen] = useState(false);
+
+  const [cellBgColors, setCellBgColors] = useState<Record<string, string>>({});
+  const [activeColorCellKey, setActiveColorCellKey] = useState<string | null>(
+    null,
+  );
+  const cellColorInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    try {
+      const parsed = parseCellBgColorsFromStorage(
+        localStorage.getItem(LS_CELL_BG_COLORS),
+      );
+      setCellBgColors(parsed);
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   useEffect(() => {
     try {
@@ -933,13 +972,20 @@ export default function Home() {
   }
 
   /**
-   * Lãi (nếu bán ra) tại từng mốc = (giá Bán × Σ chỉ đang có) − Σ đầu tư (VNĐ).
-   * Giá Bán: col 6–9; cần ô Σ Đầu tư (VNĐ) — Σ chỉ vàng đang có.
+   * Lãi (nếu bán ra) tại từng mốc =
+   * (∑ Đầu tư × ∑ chỉ vàng đang có) − MUA − Bán (Mạnh Hải cùng mốc VN).
+   * MUA: col_1..col_4; Bán: col_6..col_9 (9h, 11h, 14h30, 17h30).
    */
   function laiNeuBanRa(
     isoDate: string,
     colJ: 63 | 64 | 65 | 66,
   ): { text: string; toneClass?: string } {
+    const muaCols = [
+      MANH_HAI_COL.MUA_9H,
+      MANH_HAI_COL.MUA_11H,
+      MANH_HAI_COL.MUA_14H30,
+      MANH_HAI_COL.MUA_17H30,
+    ] as const;
     const banCols = [
       MANH_HAI_COL.BAN_9H,
       MANH_HAI_COL.BAN_11H,
@@ -949,10 +995,12 @@ export default function Home() {
     const slotIdx = colJ - 63;
     const dauTu = parseBigNumberInput(totalDauTu);
     const chi = parseChiVangCuInput(chiVangDangCo);
+    const giaMua = manhHaiRawNumber(isoDate, muaCols[slotIdx]!);
     const giaBan = manhHaiRawNumber(isoDate, banCols[slotIdx]!);
-    if (dauTu == null || chi == null || giaBan == null) return { text: "–" };
-    const revenue = giaBan * chi;
-    const lai = revenue - dauTu;
+    if (dauTu == null || chi == null || giaMua == null || giaBan == null)
+      return { text: "–" };
+    const base = dauTu * chi;
+    const lai = base - giaMua - giaBan;
     if (!Number.isFinite(lai)) return { text: "–" };
     const text = formatVnd(lai);
     return {
@@ -1057,6 +1105,36 @@ export default function Home() {
       </header>
 
       <main className="flex-1 w-full px-4 sm:px-6 py-8 sm:py-10">
+        <input
+          ref={cellColorInputRef}
+          type="color"
+          aria-hidden
+          tabIndex={-1}
+          className="sr-only"
+          value={
+            activeColorCellKey
+              ? (cellBgColors[activeColorCellKey] ?? "#ffffff")
+              : "#ffffff"
+          }
+          onChange={(e) => {
+            const key = activeColorCellKey;
+            if (!key) return;
+            const hex = e.target.value;
+            setCellBgColors((prev) => {
+              const next = { ...prev, [key]: hex };
+              try {
+                localStorage.setItem(
+                  LS_CELL_BG_COLORS,
+                  JSON.stringify(next),
+                );
+              } catch {
+                /* ignore */
+              }
+              return next;
+            });
+          }}
+          onBlur={() => setActiveColorCellKey(null)}
+        />
         <section
           className="mb-6 opacity-0 animate-fade-in-up"
           style={{ animationDelay: "80ms", animationFillMode: "forwards" }}
@@ -2182,6 +2260,26 @@ export default function Home() {
                     j === 0 || j === 58 || j === 59 ? null : (
                       <td
                         key={j}
+                        title="Nhấp đúp để chọn màu nền ô"
+                        style={
+                          cellBgColors[`${row.isoDate}:${j}`]
+                            ? {
+                                backgroundColor:
+                                  cellBgColors[`${row.isoDate}:${j}`],
+                              }
+                            : undefined
+                        }
+                        onMouseDown={(e) => {
+                          if (e.detail > 1) e.preventDefault();
+                        }}
+                        onDoubleClick={() => {
+                          if (j === 0) return;
+                          const key = `${row.isoDate}:${j}`;
+                          setActiveColorCellKey(key);
+                          requestAnimationFrame(() => {
+                            cellColorInputRef.current?.click();
+                          });
+                        }}
                         className={
                           j === 0
                             ? "border-0 px-0 py-0 w-0 max-w-0 overflow-hidden"
