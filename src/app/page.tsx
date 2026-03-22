@@ -1913,23 +1913,27 @@ export default function Home() {
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                      aria-hidden
                     >
-                      MỞ
+                      {"\u00a0"}
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                      aria-hidden
                     >
-                      MỞ
+                      {"\u00a0"}
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                      aria-hidden
                     >
-                      MỞ
+                      {"\u00a0"}
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                      aria-hidden
                     >
-                      MỞ
+                      {"\u00a0"}
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
@@ -1963,23 +1967,27 @@ export default function Home() {
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                      aria-hidden
                     >
-                      MỞ
+                      {"\u00a0"}
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                      aria-hidden
                     >
-                      MỞ
+                      {"\u00a0"}
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                      aria-hidden
                     >
-                      MỞ
+                      {"\u00a0"}
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                      aria-hidden
                     >
-                      MỞ
+                      {"\u00a0"}
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
@@ -2013,23 +2021,27 @@ export default function Home() {
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                      aria-hidden
                     >
-                      MỞ
+                      {"\u00a0"}
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                      aria-hidden
                     >
-                      MỞ
+                      {"\u00a0"}
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                      aria-hidden
                     >
-                      MỞ
+                      {"\u00a0"}
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                      aria-hidden
                     >
-                      MỞ
+                      {"\u00a0"}
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
@@ -2063,23 +2075,27 @@ export default function Home() {
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                      aria-hidden
                     >
-                      MỞ
+                      {"\u00a0"}
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                      aria-hidden
                     >
-                      MỞ
+                      {"\u00a0"}
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                      aria-hidden
                     >
-                      MỞ
+                      {"\u00a0"}
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                      aria-hidden
                     >
-                      MỞ
+                      {"\u00a0"}
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
@@ -2113,23 +2129,27 @@ export default function Home() {
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                      aria-hidden
                     >
-                      MỞ
+                      {"\u00a0"}
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                      aria-hidden
                     >
-                      MỞ
+                      {"\u00a0"}
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                      aria-hidden
                     >
-                      MỞ
+                      {"\u00a0"}
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                      aria-hidden
                     >
-                      MỞ
+                      {"\u00a0"}
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
