@@ -1,6 +1,10 @@
 "use client";
 
-import { MANH_HAI_COL } from "@/lib/manh-hai-columns";
+import {
+  MANH_HAI_COL,
+  MANH_HAI_SLOTS_ORDER,
+  manhHaiSlotMinutes,
+} from "@/lib/manh-hai-columns";
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 
@@ -50,10 +54,10 @@ function formatVnd(v: string | number | null | undefined): string {
 
 function getNumberToneClass(n: number | null): string {
   if (n == null || !Number.isFinite(n))
-    return "text-stone-500 dark:text-stone-300 font-bold";
+    return "text-stone-950 dark:text-stone-50 font-bold";
   if (n < 0) return "text-red-600 dark:text-red-400 font-bold";
-  // Dương/trung tính: dùng đen/xám để đồng nhất màu
-  return "text-stone-700 dark:text-stone-200 font-bold";
+  // Dương/trung tính: đen / chữ sáng (dark mode), in đậm
+  return "text-stone-950 dark:text-stone-50 font-bold";
 }
 
 function getVietnamNowParts(): { isoDate: string; minutes: number } {
@@ -83,15 +87,15 @@ function getMarketChangeToneClass(value: string): string {
   // Match web: dương xanh, âm đỏ (cho Change% của Oil / Dollar / Bond / S&P)
   const trimmed = value.trim();
   if (trimmed === "–" || trimmed === "") {
-    return "text-stone-500 dark:text-stone-300 font-bold";
+    return "text-stone-950 dark:text-stone-50 font-bold";
   }
   const num = parseFloat(trimmed.replace("%", "").replace(",", "."));
   if (!Number.isFinite(num)) {
-    return "text-stone-500 dark:text-stone-300 font-bold";
+    return "text-stone-950 dark:text-stone-50 font-bold";
   }
   if (num > 0) return "text-green-600 dark:text-green-400 font-bold";
   if (num < 0) return "text-red-600 dark:text-red-400 font-bold";
-  return "text-stone-500 dark:text-stone-300 font-bold";
+  return "text-stone-950 dark:text-stone-50 font-bold";
 }
 
 function getRegionBgClass(colIndex: number): string {
@@ -235,6 +239,55 @@ function parseIso(iso: string): Date {
   return new Date(y, (m ?? 1) - 1, d ?? 1);
 }
 
+/** Snapshot slots từ GET /api/manh-hai */
+type ManhHaiSlotMap = Partial<
+  Record<
+    "09:00" | "11:00" | "14:30" | "17:30",
+    { buy: number | null; sell: number | null }
+  >
+>;
+
+/**
+ * Giá từ snapshot live (API). `undefined` = không overlay (dùng full-table);
+ * `null` = chưa đến giờ / chưa có → hiển thị –
+ */
+function computeLiveManhHaiNumber(
+  slots: ManhHaiSlotMap,
+  colIndex: number,
+  nowMin: number,
+): number | null | undefined {
+  const order = MANH_HAI_SLOTS_ORDER;
+  if (colIndex >= 1 && colIndex <= 4) {
+    const k = order[colIndex - 1];
+    if (nowMin < manhHaiSlotMinutes(k)) return null;
+    const buy = slots[k]?.buy;
+    if (buy != null && Number.isFinite(buy)) return buy;
+    return undefined;
+  }
+  if (colIndex >= 6 && colIndex <= 9) {
+    const k = order[colIndex - 6];
+    if (nowMin < manhHaiSlotMinutes(k)) return null;
+    const sell = slots[k]?.sell;
+    if (sell != null && Number.isFinite(sell)) return sell;
+    return undefined;
+  }
+  if (colIndex === MANH_HAI_COL.MUA_CHENH_LECH) {
+    if (nowMin < manhHaiSlotMinutes("17:30")) return null;
+    const b9 = slots["09:00"]?.buy;
+    const b17 = slots["17:30"]?.buy;
+    if (b9 != null && b17 != null) return b17 - b9;
+    return undefined;
+  }
+  if (colIndex === MANH_HAI_COL.BAN_CHENH_LECH) {
+    if (nowMin < manhHaiSlotMinutes("17:30")) return null;
+    const s9 = slots["09:00"]?.sell;
+    const s17 = slots["17:30"]?.sell;
+    if (s9 != null && s17 != null) return s17 - s9;
+    return undefined;
+  }
+  return undefined;
+}
+
 export default function Home() {
   const vnTodayIso = getVietnamNowParts().isoDate;
   const currentYear = parseInt(vnTodayIso.slice(0, 4), 10);
@@ -321,6 +374,10 @@ export default function Home() {
   const [fullRowsByDate, setFullRowsByDate] = useState<
     Record<string, FullTableRow>
   >({});
+  /** Giá Mạnh Hải hôm nay (VN) từ /api/manh-hai — overlay lên full-table */
+  const [manhHaiLive, setManhHaiLive] = useState<{
+    slots: ManhHaiSlotMap;
+  } | null>(null);
   const [isLoadingTable, setIsLoadingTable] = useState<boolean>(false);
   const [kitcoLive, setKitcoLive] = useState<GoldApiResponse["live"]>();
   const [marketLive, setMarketLive] = useState<MarketLiveResponse>();
@@ -384,6 +441,30 @@ export default function Home() {
       controller.abort();
     };
   }, [from, to]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadManhHaiLive() {
+      try {
+        const vn = getVietnamNowParts().isoDate;
+        const res = await fetch(
+          `/api/manh-hai?date=${encodeURIComponent(vn)}`,
+          { cache: "no-store" },
+        );
+        if (!res.ok) return;
+        const data = (await res.json()) as { slots?: ManhHaiSlotMap };
+        if (!cancelled) setManhHaiLive({ slots: data.slots ?? {} });
+      } catch {
+        // ignore
+      }
+    }
+    loadManhHaiLive();
+    const t = setInterval(loadManhHaiLive, 60_000);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -547,6 +628,31 @@ export default function Home() {
     isoDate: string,
     colIndex: number,
   ): { text: string; toneClass?: string } {
+    const vn = getVietnamNowParts();
+    if (isoDate === vn.isoDate && manhHaiLive?.slots) {
+      const live = computeLiveManhHaiNumber(
+        manhHaiLive.slots,
+        colIndex,
+        vn.minutes,
+      );
+      if (live !== undefined) {
+        if (live === null) return { text: "–" };
+        if (
+          colIndex === MANH_HAI_COL.MUA_CHENH_LECH ||
+          colIndex === MANH_HAI_COL.BAN_CHENH_LECH
+        ) {
+          const text = formatVnd(live);
+          return {
+            text,
+            toneClass: getNumberToneClass(
+              Number.isFinite(live) ? live : null,
+            ),
+          };
+        }
+        return { text: formatVnd(live) };
+      }
+    }
+
     const base = fullRowsByDate[isoDate];
     const raw = base ? base[`col_${colIndex}`] : null;
     if (raw == null) return { text: "–" };
@@ -578,6 +684,19 @@ export default function Home() {
     isoDate: string,
     colIndex: number,
   ): number | null {
+    const vn = getVietnamNowParts();
+    if (isoDate === vn.isoDate && manhHaiLive?.slots) {
+      const live = computeLiveManhHaiNumber(
+        manhHaiLive.slots,
+        colIndex,
+        vn.minutes,
+      );
+      if (live !== undefined) {
+        if (live === null) return null;
+        return live;
+      }
+    }
+
     const base = fullRowsByDate[isoDate];
     const raw = base ? base[`col_${colIndex}`] : null;
     if (raw == null) return null;
@@ -1424,8 +1543,8 @@ export default function Home() {
                                 : j === 12
                                   ? `sticky left-20 z-30 border-r border-b border-black dark:border-stone-200 px-2 py-2 text-xs font-bold w-28 max-w-28 truncate tabular-nums text-red-600 dark:text-red-400 bg-amber-50/60 dark:bg-amber-950/20 ${TD_CELL_FX}`
                                   : j === 61 || j === 62
-                                    ? `border-r border-b border-black dark:border-stone-200 px-2 py-2 text-xs font-bold max-w-[100px] truncate tabular-nums text-stone-700 dark:text-stone-300 text-center ${getRegionBgClass(j)} ${TD_CELL_FX}`
-                                    : `border-r border-b border-black dark:border-stone-200 px-2 py-2 text-xs font-bold max-w-[120px] truncate tabular-nums text-stone-400 dark:text-stone-500 ${getRegionBgClass(j)} ${TD_CELL_FX}`
+                                    ? `border-r border-b border-black dark:border-stone-200 px-2 py-2 text-xs font-bold max-w-[100px] truncate tabular-nums text-stone-950 dark:text-stone-50 text-center ${getRegionBgClass(j)} ${TD_CELL_FX}`
+                                    : `border-r border-b border-black dark:border-stone-200 px-2 py-2 text-xs font-bold max-w-[120px] truncate tabular-nums text-stone-950 dark:text-stone-50 ${getRegionBgClass(j)} ${TD_CELL_FX}`
                           }
                         >
                           {isLoadingTable && j !== 0 && j !== 11 && j !== 12 ? (

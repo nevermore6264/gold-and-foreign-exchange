@@ -13,11 +13,12 @@
   --bg-grad-1: #fffbeb;
   --bg-grad-2: #faf8f5;
   --bg-grad-3: #ffedd5;
-  /* Scrollbar (kiểu track + thumb bo 8px, viền track) — tông vàng/amber */
-  --scroll-sb-track-bg: #e7e7e7;
-  --scroll-sb-track-border: #cacaca;
-  --scroll-sb-thumb: #b45309;
-  --scroll-sb-thumb-hover: #d97706;
+  /* Scrollbar — giống macOS (overlay, thumb pill bán trong suốt) */
+  --scrollbar-size: 8px;
+  --scrollbar-track: transparent;
+  --scrollbar-thumb: rgba(0, 0, 0, 0.22);
+  --scrollbar-thumb-hover: rgba(0, 0, 0, 0.4);
+  --scrollbar-thumb-active: rgba(0, 0, 0, 0.52);
 }
 
 @theme inline {
@@ -40,42 +41,45 @@
     --bg-grad-1: #1c1917;
     --bg-grad-2: #292524;
     --bg-grad-3: #422006;
-    --scroll-sb-track-bg: #3f3f3f;
-    --scroll-sb-track-border: #525252;
-    --scroll-sb-thumb: #d97706;
-    --scroll-sb-thumb-hover: #fbbf24;
+    --scrollbar-thumb: rgba(255, 255, 255, 0.28);
+    --scrollbar-thumb-hover: rgba(255, 255, 255, 0.46);
+    --scrollbar-thumb-active: rgba(255, 255, 255, 0.58);
   }
 }
 
 html {
   overflow-x: auto;
   overflow-y: scroll;
-  scrollbar-width: auto;
-  scrollbar-color: var(--scroll-sb-thumb) var(--scroll-sb-track-bg);
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }
 
 html::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: var(--scrollbar-size);
+  height: var(--scrollbar-size);
 }
 
 html::-webkit-scrollbar-track {
-  border-radius: 8px;
-  background-color: var(--scroll-sb-track-bg);
-  border: 1px solid var(--scroll-sb-track-border);
+  background: var(--scrollbar-track);
 }
 
 html::-webkit-scrollbar-thumb {
-  border-radius: 8px;
-  background-color: var(--scroll-sb-thumb);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  background-color: var(--scrollbar-thumb);
 }
 
 html::-webkit-scrollbar-thumb:hover {
-  background-color: var(--scroll-sb-thumb-hover);
+  background-color: var(--scrollbar-thumb-hover);
+}
+
+html::-webkit-scrollbar-thumb:active {
+  background-color: var(--scrollbar-thumb-active);
 }
 
 html::-webkit-scrollbar-corner {
-  background: var(--scroll-sb-track-bg);
+  background: transparent;
 }
 
 body {
@@ -161,68 +165,72 @@ body {
   animation-delay: 0.25s;
 }
 
-/* Scroll area — cùng kiểu với mẫu #scrollbar1 (track + thumb bo 8px) */
+/* Scroll area — cùng kiểu scrollbar macOS với html */
 .scroll-table {
   scrollbar-gutter: stable;
-  scrollbar-width: auto;
-  scrollbar-color: var(--scroll-sb-thumb) var(--scroll-sb-track-bg);
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }
 
 .scroll-table::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: var(--scrollbar-size);
+  height: var(--scrollbar-size);
 }
 
 .scroll-table::-webkit-scrollbar-track {
-  border-radius: 8px;
-  background-color: var(--scroll-sb-track-bg);
-  border: 1px solid var(--scroll-sb-track-border);
+  background: var(--scrollbar-track);
 }
 
 .scroll-table::-webkit-scrollbar-thumb {
-  border-radius: 8px;
-  background-color: var(--scroll-sb-thumb);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  background-color: var(--scrollbar-thumb);
 }
 
 .scroll-table::-webkit-scrollbar-thumb:hover {
-  background-color: var(--scroll-sb-thumb-hover);
+  background-color: var(--scrollbar-thumb-hover);
+}
+
+.scroll-table::-webkit-scrollbar-thumb:active {
+  background-color: var(--scrollbar-thumb-active);
 }
 
 .scroll-table::-webkit-scrollbar-corner {
-  background: var(--scroll-sb-track-bg);
+  background: transparent;
 }
 
 /** Vùng bảng — giống .scroll-table (tên class giữ cho page.tsx) */
 .scroll-table-premium {
   scrollbar-gutter: stable;
-  scrollbar-width: auto;
-  scrollbar-color: var(--scroll-sb-thumb) var(--scroll-sb-track-bg);
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }
 
 .scroll-table-premium::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: var(--scrollbar-size);
+  height: var(--scrollbar-size);
 }
 
 .scroll-table-premium::-webkit-scrollbar-track {
-  border-radius: 8px;
-  background-color: var(--scroll-sb-track-bg);
-  border: 1px solid var(--scroll-sb-track-border);
+  background: var(--scrollbar-track);
 }
 
 .scroll-table-premium::-webkit-scrollbar-thumb {
-  border-radius: 8px;
-  background-color: var(--scroll-sb-thumb);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  background-color: var(--scrollbar-thumb);
 }
 
 .scroll-table-premium::-webkit-scrollbar-thumb:hover {
-  background-color: var(--scroll-sb-thumb-hover);
+  background-color: var(--scrollbar-thumb-hover);
 }
 
 .scroll-table-premium::-webkit-scrollbar-thumb:active {
-  filter: brightness(0.92);
+  background-color: var(--scrollbar-thumb-active);
 }
 
 .scroll-table-premium::-webkit-scrollbar-corner {
-  background: var(--scroll-sb-track-bg);
+  background: transparent;
 }

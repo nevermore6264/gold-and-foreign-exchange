@@ -23,12 +23,27 @@ export async function GET(request: NextRequest) {
     const nowMin = vnNowMinutes();
     const snapshot = (await readManhHaiSnapshot(date)) ?? { date, slots: {} };
 
+    const vnToday = getVietnamTodayIso();
+    // Chỉ cập nhật snapshot bằng giá **hiện tại** cho **hôm nay** (VN). Ngày cũ chỉ đọc file cache.
+    if (date !== vnToday) {
+      return NextResponse.json({
+        date: snapshot.date,
+        keyword,
+        slots: snapshot.slots,
+        nowMinutes: nowMin,
+        readOnly: true,
+      });
+    }
+
     // Nếu đã qua 1 slot giờ và slot đó chưa có snapshot, thì capture.
     const dueSlots = SLOTS.filter((s) => nowMin >= slotMinutes(s));
     const missing = dueSlots.filter((s) => !snapshot.slots[s]);
 
     if (missing.length > 0) {
-      const q = await fetchManhHaiCurrentQuote({ productKeyword: keyword });
+      const q = await fetchManhHaiCurrentQuote({
+        productKeyword: keyword,
+        dateIso: date,
+      });
       const capturedAt = new Date().toISOString();
       for (const s of missing) {
         snapshot.slots[s] = {

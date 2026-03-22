@@ -11,7 +11,16 @@
 import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
 
+import { fetchCafeFGoldSjcPrices } from "./gold-cafef";
+import { fetchVietnamNetGoldSjcPrices } from "./gold-vietnamnet";
+
 const SOURCE_URL = "https://baotinmanhhai.vn/gia-vang-hom-nay";
+
+/**
+ * Từ 08/02/2025 → ưu tiên CafeF; từ 01/01/2022 đến 07/02/2025 → ưu tiên VietnamNet (bài mới nhất trên tag).
+ * Luôn fallback https://baotinmanhhai.vn nếu nguồn trên không parse được bảng.
+ */
+export const DOMESTIC_GOLD_CAFEF_START = "2025-02-08";
 const CACHE_DIR = path.join(process.cwd(), "cache", "manh-hai");
 
 export type ManhHaiSlot = "09:00" | "11:00" | "14:30" | "17:30";
@@ -83,15 +92,11 @@ function parseVndNumber(text: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-export async function fetchManhHaiCurrentQuote(options?: {
-  /**
-   * Nếu muốn cố định 1 dòng sản phẩm (khuyến nghị), truyền keyword để match theo tên.
-   * Mặc định: ưu tiên "Vàng miếng SJC", fallback dòng đầu có đủ Mua/Bán.
-   */
+async function fetchManhHaiFromOfficialSite(options?: {
   productKeyword?: string;
 }): Promise<{ buy: number | null; sell: number | null; productName: string }> {
   const res = await fetch(SOURCE_URL, {
-    next: { revalidate: 60 },
+    cache: "no-store",
     headers: {
       "User-Agent":
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -133,6 +138,38 @@ export async function fetchManhHaiCurrentQuote(options?: {
     sell: pick?.sell ?? null,
     productName: pick?.name ?? "N/A",
   };
+}
+
+export async function fetchManhHaiCurrentQuote(options?: {
+  /**
+   * Nếu muốn cố định 1 dòng sản phẩm (khuyến nghị), truyền keyword để match theo tên.
+   * Mặc định: ưu tiên "Vàng miếng SJC", fallback dòng đầu có đủ Mua/Bán.
+   */
+  productKeyword?: string;
+  /** Ngày snapshot (YYYY-MM-DD, lịch VN) — chọn nguồn CafeF vs VietnamNet */
+  dateIso?: string;
+}): Promise<{ buy: number | null; sell: number | null; productName: string }> {
+  const dateIso = options?.dateIso ?? getVietnamTodayIso();
+  const kw = options?.productKeyword ?? "Vàng miếng SJC";
+
+  try {
+    if (dateIso >= DOMESTIC_GOLD_CAFEF_START) {
+      const c = await fetchCafeFGoldSjcPrices({ productKeyword: kw });
+      if (c.buy != null && c.sell != null) return c;
+    } else {
+      const v = await fetchVietnamNetGoldSjcPrices({ productKeyword: kw });
+      if (v.buy != null && v.sell != null) return v;
+    }
+  } catch {
+    /* fallback site chính thức */
+  }
+
+  try {
+    return await fetchManhHaiFromOfficialSite({ productKeyword: kw });
+  } catch (e) {
+    console.error("fetchManhHaiFromOfficialSite:", e);
+    return { buy: null, sell: null, productName: "N/A" };
+  }
 }
 
 export function slotMinutes(slot: ManhHaiSlot): number {
