@@ -17,7 +17,8 @@ import {
   type ToggleableColGroup,
 } from "@/lib/table-columns";
 import Image from "next/image";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 
 /**
  * Khung UI trước – chỉ header + bảng trống.
@@ -247,7 +248,9 @@ const LS_INPUT_DAU_TU = "gia-vang-input-dau-tu";
 const LS_INPUT_CHI_VANG_DANG_CO = "gia-vang-input-chi-vang-dang-co";
 const LS_CELL_BG_COLORS = "gia-vang-cell-bg-colors";
 
-function parseCellBgColorsFromStorage(raw: string | null): Record<string, string> {
+function parseCellBgColorsFromStorage(
+  raw: string | null,
+): Record<string, string> {
   if (!raw) return {};
   try {
     const o = JSON.parse(raw) as unknown;
@@ -267,6 +270,27 @@ function parseCellBgColorsFromStorage(raw: string | null): Record<string, string
     return {};
   }
 }
+
+/** Màu gợi ý — một cú nhấp là áp nền ô. */
+const CELL_BG_PRESETS = [
+  "#fff9c4",
+  "#ffe082",
+  "#c8e6c9",
+  "#b3e5fc",
+  "#e1bee7",
+  "#ffcdd2",
+  "#ffe0b2",
+  "#dcedc8",
+  "#b2dfdb",
+  "#d1c4e9",
+  "#f5f5f4",
+  "#ffffff",
+  "#e0f2f1",
+  "#fff3e0",
+] as const;
+
+const CELL_COLOR_POPOVER_W = 216;
+const CELL_COLOR_POPOVER_H = 268;
 
 function computeRange(
   mode: RangeMode,
@@ -526,10 +550,19 @@ export default function Home() {
   const [columnMenuOpen, setColumnMenuOpen] = useState(false);
 
   const [cellBgColors, setCellBgColors] = useState<Record<string, string>>({});
-  const [activeColorCellKey, setActiveColorCellKey] = useState<string | null>(
-    null,
-  );
-  const cellColorInputRef = useRef<HTMLInputElement>(null);
+  const [cellColorPicker, setCellColorPicker] = useState<{
+    key: string;
+    top: number;
+    left: number;
+  } | null>(null);
+
+  function persistCellBgColors(next: Record<string, string>) {
+    try {
+      localStorage.setItem(LS_CELL_BG_COLORS, JSON.stringify(next));
+    } catch {
+      /* ignore */
+    }
+  }
 
   useEffect(() => {
     try {
@@ -541,6 +574,20 @@ export default function Home() {
       /* ignore */
     }
   }, []);
+
+  useEffect(() => {
+    if (!cellColorPicker) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setCellColorPicker(null);
+    };
+    const onScroll = () => setCellColorPicker(null);
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", onScroll, true);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", onScroll, true);
+    };
+  }, [cellColorPicker]);
 
   useEffect(() => {
     try {
@@ -1105,36 +1152,87 @@ export default function Home() {
       </header>
 
       <main className="flex-1 w-full px-4 sm:px-6 py-8 sm:py-10">
-        <input
-          ref={cellColorInputRef}
-          type="color"
-          aria-hidden
-          tabIndex={-1}
-          className="sr-only"
-          value={
-            activeColorCellKey
-              ? (cellBgColors[activeColorCellKey] ?? "#ffffff")
-              : "#ffffff"
-          }
-          onChange={(e) => {
-            const key = activeColorCellKey;
-            if (!key) return;
-            const hex = e.target.value;
-            setCellBgColors((prev) => {
-              const next = { ...prev, [key]: hex };
-              try {
-                localStorage.setItem(
-                  LS_CELL_BG_COLORS,
-                  JSON.stringify(next),
-                );
-              } catch {
-                /* ignore */
-              }
-              return next;
-            });
-          }}
-          onBlur={() => setActiveColorCellKey(null)}
-        />
+        {cellColorPicker != null &&
+          typeof document !== "undefined" &&
+          createPortal(
+            <>
+              <button
+                type="button"
+                aria-label="Đóng chọn màu"
+                className="fixed inset-0 z-[199] cursor-default bg-black/20 dark:bg-black/40"
+                onMouseDown={() => setCellColorPicker(null)}
+              />
+              <div
+                role="dialog"
+                aria-label="Màu nền ô"
+                className="fixed z-[200] rounded-xl border border-stone-200/90 bg-white p-2.5 shadow-2xl dark:border-stone-600 dark:bg-stone-900"
+                style={{
+                  top: cellColorPicker.top,
+                  left: cellColorPicker.left,
+                  width: CELL_COLOR_POPOVER_W,
+                }}
+                onMouseDown={(e) => e.stopPropagation()}
+              >
+                <p className="mb-2 text-center text-[12px] font-semibold text-stone-600 dark:text-stone-300">
+                  Màu nền ô
+                </p>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {CELL_BG_PRESETS.map((hex) => (
+                    <button
+                      key={hex}
+                      type="button"
+                      title={hex}
+                      className="h-8 rounded-md border border-stone-300/80 shadow-inner transition hover:scale-105 hover:ring-2 hover:ring-amber-400/70 focus:outline-none focus:ring-2 focus:ring-amber-500 dark:border-stone-600"
+                      style={{ backgroundColor: hex }}
+                      onClick={() => {
+                        const key = cellColorPicker.key;
+                        setCellBgColors((prev) => {
+                          const next = { ...prev, [key]: hex };
+                          persistCellBgColors(next);
+                          return next;
+                        });
+                        setCellColorPicker(null);
+                      }}
+                    />
+                  ))}
+                </div>
+                <label className="mt-2.5 flex items-center gap-2 text-[12px] text-stone-600 dark:text-stone-400">
+                  <span className="shrink-0">Khác</span>
+                  <input
+                    type="color"
+                    className="h-9 min-w-0 flex-1 cursor-pointer rounded-md border border-stone-300 bg-stone-50 p-0.5 dark:border-stone-600 dark:bg-stone-800"
+                    value={cellBgColors[cellColorPicker.key] ?? "#fff9c4"}
+                    onChange={(e) => {
+                      const hex = e.target.value;
+                      const key = cellColorPicker.key;
+                      setCellBgColors((prev) => {
+                        const next = { ...prev, [key]: hex };
+                        persistCellBgColors(next);
+                        return next;
+                      });
+                    }}
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="mt-2 w-full rounded-lg border border-stone-200 py-1.5 text-[12px] font-medium text-stone-600 hover:bg-stone-100 dark:border-stone-600 dark:text-stone-300 dark:hover:bg-stone-800"
+                  onClick={() => {
+                    const key = cellColorPicker.key;
+                    setCellBgColors((prev) => {
+                      const next = { ...prev };
+                      delete next[key];
+                      persistCellBgColors(next);
+                      return next;
+                    });
+                    setCellColorPicker(null);
+                  }}
+                >
+                  Xóa màu (mặc định)
+                </button>
+              </div>
+            </>,
+            document.body,
+          )}
         <section
           className="mb-6 opacity-0 animate-fade-in-up"
           style={{ animationDelay: "80ms", animationFillMode: "forwards" }}
@@ -1691,10 +1789,13 @@ export default function Home() {
                 ) : null}
                 {columnVisibility.muaMh ? (
                   <th
+                    rowSpan={2}
                     colSpan={4}
-                    className={`${TABLE_CELL_BR} px-2 py-2.5 text-center text-[14px] font-bold uppercase tracking-wide ${LAI_HEAD_GREEN}`}
+                    className={`${TABLE_CELL_BR} align-middle px-2 py-2 text-center text-[14px] font-bold uppercase tracking-wide leading-snug ${LAI_HEAD_GREEN}`}
                   >
-                    LÃI (nếu bán ra)
+                    LÃI
+                    <br />
+                    (nếu bán ra)
                   </th>
                 ) : null}
                 {columnVisibility.banMh ? (
@@ -1787,15 +1888,6 @@ export default function Home() {
                     </th>
                   </>
                 ) : null}
-                {columnVisibility.muaMh ? (
-                  <>
-                    <th
-                      colSpan={4}
-                      className={`${TABLE_CELL_BR} min-h-[2.5rem] bg-[#e6f0db] dark:bg-emerald-950/35 px-1 py-2`}
-                      aria-hidden
-                    />
-                  </>
-                ) : null}
                 {columnVisibility.banMh ? (
                   <>
                     <th className={manhHaiHeaderRow2CellClass()}>MỞ</th>
@@ -1815,7 +1907,26 @@ export default function Home() {
                   <>
                     {/* KITCO (9 cột) */}
                     <th
-                      colSpan={5}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                    >
+                      MỞ
+                    </th>
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                    >
+                      MỞ
+                    </th>
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                    >
+                      MỞ
+                    </th>
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                    >
+                      MỞ
+                    </th>
+                    <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
                     >
                       MỞ
@@ -1833,12 +1944,12 @@ export default function Home() {
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
                     >
-                      THẤP (Low)
+                      THẤP
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
                     >
-                      THAY ĐỔI (Change)
+                      THAY ĐỔI
                     </th>
                   </>
                 ) : null}
@@ -1846,7 +1957,26 @@ export default function Home() {
                   <>
                     {/* Giá dầu (9 cột) */}
                     <th
-                      colSpan={5}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                    >
+                      MỞ
+                    </th>
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                    >
+                      MỞ
+                    </th>
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                    >
+                      MỞ
+                    </th>
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                    >
+                      MỞ
+                    </th>
+                    <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
                     >
                       MỞ
@@ -1877,7 +2007,26 @@ export default function Home() {
                   <>
                     {/* Dollar index (9 cột) */}
                     <th
-                      colSpan={5}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                    >
+                      MỞ
+                    </th>
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                    >
+                      MỞ
+                    </th>
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                    >
+                      MỞ
+                    </th>
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                    >
+                      MỞ
+                    </th>
+                    <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
                     >
                       MỞ
@@ -1908,7 +2057,26 @@ export default function Home() {
                   <>
                     {/* Trái phiếu 10Y (9 cột) */}
                     <th
-                      colSpan={5}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                    >
+                      MỞ
+                    </th>
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                    >
+                      MỞ
+                    </th>
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                    >
+                      MỞ
+                    </th>
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                    >
+                      MỞ
+                    </th>
+                    <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
                     >
                       MỞ
@@ -1939,7 +2107,26 @@ export default function Home() {
                   <>
                     {/* S&P 500 (9 cột) */}
                     <th
-                      colSpan={5}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                    >
+                      MỞ
+                    </th>
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                    >
+                      MỞ
+                    </th>
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                    >
+                      MỞ
+                    </th>
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                    >
+                      MỞ
+                    </th>
+                    <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
                     >
                       MỞ
@@ -2009,30 +2196,22 @@ export default function Home() {
                     <th className={LAI_HEAD_TIME_CLASS}>
                       9h
                       <br />
-                      <span className="text-[13px] font-semibold">
-                        (việt nam)
-                      </span>
+                      (Việt Nam)
                     </th>
                     <th className={LAI_HEAD_TIME_CLASS}>
                       11h
                       <br />
-                      <span className="text-[13px] font-semibold">
-                        (việt nam)
-                      </span>
+                      (Việt Nam)
                     </th>
                     <th className={LAI_HEAD_TIME_CLASS}>
                       14h30
                       <br />
-                      <span className="text-[13px] font-semibold">
-                        (việt nam)
-                      </span>
+                      (Việt Nam)
                     </th>
                     <th className={LAI_HEAD_TIME_CLASS}>
                       17h30
                       <br />
-                      <span className="text-[13px] font-semibold">
-                        (việt nam)
-                      </span>
+                      (Việt Nam)
                     </th>
                   </>
                 ) : null}
@@ -2272,13 +2451,35 @@ export default function Home() {
                         onMouseDown={(e) => {
                           if (e.detail > 1) e.preventDefault();
                         }}
-                        onDoubleClick={() => {
+                        onDoubleClick={(e) => {
                           if (j === 0) return;
+                          e.preventDefault();
                           const key = `${row.isoDate}:${j}`;
-                          setActiveColorCellKey(key);
-                          requestAnimationFrame(() => {
-                            cellColorInputRef.current?.click();
-                          });
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          const pad = 8;
+                          let left = rect.left;
+                          let top = rect.bottom + 6;
+                          if (
+                            left + CELL_COLOR_POPOVER_W >
+                            window.innerWidth - pad
+                          ) {
+                            left = Math.max(
+                              pad,
+                              window.innerWidth - pad - CELL_COLOR_POPOVER_W,
+                            );
+                          }
+                          if (left < pad) left = pad;
+                          if (
+                            top + CELL_COLOR_POPOVER_H >
+                            window.innerHeight - pad
+                          ) {
+                            top = Math.max(
+                              pad,
+                              rect.top - CELL_COLOR_POPOVER_H - 6,
+                            );
+                          }
+                          if (top < pad) top = pad;
+                          setCellColorPicker({ key, top, left });
                         }}
                         className={
                           j === 0
