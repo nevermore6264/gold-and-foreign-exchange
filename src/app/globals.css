@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  --background: #faf8f5;
+  --background: #ffffff;
   --foreground: #1c1917;
   --gold: #b8860b;
   --gold-light: #d4a017;
@@ -9,10 +9,10 @@
   --card: #ffffff;
   --card-border: #e7e5e4;
   --muted: #78716c;
-  /* Nền gradient trang */
-  --bg-grad-1: #fffbeb;
-  --bg-grad-2: #faf8f5;
-  --bg-grad-3: #ffedd5;
+  /* Nền trang — trắng */
+  --bg-grad-1: #ffffff;
+  --bg-grad-2: #ffffff;
+  --bg-grad-3: #ffffff;
   /* Scrollbar — giống macOS (overlay, thumb pill bán trong suốt) */
   --scrollbar-size: 8px;
   --scrollbar-track: transparent;
@@ -84,13 +84,7 @@ html::-webkit-scrollbar-corner {
 
 body {
   min-height: 100vh;
-  background: linear-gradient(
-    165deg,
-    var(--bg-grad-1) 0%,
-    var(--bg-grad-2) 42%,
-    var(--bg-grad-3) 100%
-  );
-  background-attachment: fixed;
+  background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
   min-width: min-content;

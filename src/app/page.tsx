@@ -114,7 +114,7 @@ function getVietnamNowParts(): { isoDate: string; minutes: number } {
   return { isoDate: `${y}-${m}-${d}`, minutes: h * 60 + min };
 }
 
-type RangeMode = "month" | "quarter" | "year";
+type RangeMode = "month" | "quarter" | "year" | "all";
 
 function getMarketChangeToneClass(value: string): string {
   // Match web: dương xanh, âm đỏ (cho Change% của Oil / Dollar / Bond / S&P)
@@ -245,6 +245,12 @@ function computeRange(
   from: string;
   to: string;
 } {
+  /** Trùng `START_DATE` trong `src/lib/full-table.ts` — toàn bộ dữ liệu API */
+  if (mode === "all") {
+    const to = clampIsoToTodayInVietnam(getVietnamNowParts().isoDate);
+    return { from: "2022-01-01", to };
+  }
+
   if (mode === "year") {
     const from = `${year}-01-01`;
     const to = clampIsoToTodayInVietnam(`${year}-12-31`);
@@ -276,6 +282,41 @@ function parseIso(iso: string): Date {
   // YYYY-MM-DD -> local Date at 00:00
   const [y, m, d] = iso.split("-").map((x) => parseInt(x, 10));
   return new Date(y, (m ?? 1) - 1, d ?? 1);
+}
+
+/** Số ngày trong [from, to] (cùng logic hiển thị bảng) */
+function countInclusiveDays(fromIso: string, toIso: string): number {
+  const a = parseIso(fromIso);
+  const b = parseIso(toIso);
+  if (a > b) return 0;
+  const dayMs = 86400000;
+  return Math.floor((b.getTime() - a.getTime()) / dayMs) + 1;
+}
+
+/**
+ * Tách khoảng ngày thành các đoạn theo năm dương lịch (để tải dần + hiện % tiến trình).
+ */
+function splitRangeIntoYearChunks(
+  fromIso: string,
+  toIso: string,
+): { from: string; to: string }[] {
+  const start = parseIso(fromIso);
+  const end = parseIso(toIso);
+  if (start > end) return [];
+  const chunks: { from: string; to: string }[] = [];
+  let cur = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+
+  while (cur <= end) {
+    const y = cur.getFullYear();
+    const yearEnd = new Date(y, 11, 31);
+    const chunkEnd = yearEnd.getTime() > end.getTime() ? end : yearEnd;
+    chunks.push({
+      from: toIsoDateLocal(cur),
+      to: toIsoDateLocal(chunkEnd),
+    });
+    cur = new Date(y + 1, 0, 1);
+  }
+  return chunks;
 }
 
 /** Snapshot slots từ GET /api/manh-hai */
@@ -372,6 +413,8 @@ export default function Home() {
     }
   }, [rangeMode, selectedMonth, maxMonth, selectedQuarter, maxQuarter]);
 
+  const isAllRange = rangeMode === "all";
+
   const { from, to } = useMemo(() => {
     return computeRange(
       rangeMode,
@@ -418,6 +461,13 @@ export default function Home() {
     slots: ManhHaiSlotMap;
   } | null>(null);
   const [isLoadingTable, setIsLoadingTable] = useState<boolean>(false);
+  /** Tiến trình tải bảng (theo từng gói năm) */
+  const [tableLoadProgress, setTableLoadProgress] = useState<{
+    loaded: number;
+    total: number;
+    chunkCurrent: number;
+    chunkTotal: number;
+  } | null>(null);
   const [kitcoLive, setKitcoLive] = useState<GoldApiResponse["live"]>();
   const [marketLive, setMarketLive] = useState<MarketLiveResponse>();
 
@@ -471,10 +521,26 @@ export default function Home() {
     const controller = new AbortController();
 
     async function loadFullTable() {
-      try {
-        // Clear old data immediately when switching range
+      const expectedTotal = countInclusiveDays(from, to);
+      if (expectedTotal === 0) {
         setFullRowsByDate({});
+        setTableLoadProgress(null);
+        setIsLoadingTable(false);
+        return;
+      }
+
+      try {
+        setFullRowsByDate({});
+        const chunks = splitRangeIntoYearChunks(from, to);
+        const chunkTotal = Math.max(1, chunks.length);
+        setTableLoadProgress({
+          loaded: 0,
+          total: expectedTotal,
+          chunkCurrent: 1,
+          chunkTotal,
+        });
         setIsLoadingTable(true);
+
         // Cập nhật snapshot Mạnh Hải (hôm nay VN) trước khi merge vào bảng
         try {
           const vnToday = getVietnamNowParts().isoDate;
@@ -484,23 +550,56 @@ export default function Home() {
         } catch {
           /* ignore */
         }
-        const res = await fetch(`/api/full-table?from=${from}&to=${to}`, {
-          signal: controller.signal,
-        });
-        if (!res.ok) return;
-        const data = (await res.json()) as { rows?: FullTableRow[] };
-        if (!data.rows || cancelled) return;
 
-        const map: Record<string, FullTableRow> = {};
-        for (const r of data.rows) {
-          const date = r.col_12;
-          if (typeof date === "string") map[date] = r;
+        let loaded = 0;
+        for (let i = 0; i < chunks.length; i++) {
+          if (cancelled) break;
+          const { from: cf, to: ct } = chunks[i];
+          setTableLoadProgress((p) =>
+            p
+              ? {
+                  ...p,
+                  chunkCurrent: i + 1,
+                }
+              : null,
+          );
+          try {
+            const res = await fetch(
+              `/api/full-table?from=${encodeURIComponent(cf)}&to=${encodeURIComponent(ct)}`,
+              { signal: controller.signal },
+            );
+            if (!res.ok) break;
+            const data = (await res.json()) as { rows?: FullTableRow[] };
+            const rows = data.rows ?? [];
+            if (cancelled) break;
+            loaded += rows.length;
+            setFullRowsByDate((prev) => {
+              const next = { ...prev };
+              for (const r of rows) {
+                const date = r.col_12;
+                if (typeof date === "string") next[date] = r;
+              }
+              return next;
+            });
+            setTableLoadProgress((p) =>
+              p
+                ? {
+                    ...p,
+                    loaded,
+                  }
+                : null,
+            );
+          } catch {
+            break;
+          }
         }
-        if (!cancelled) setFullRowsByDate(map);
       } catch {
         // ignore
       } finally {
-        if (!cancelled) setIsLoadingTable(false);
+        if (!cancelled) {
+          setIsLoadingTable(false);
+          setTableLoadProgress(null);
+        }
       }
     }
 
@@ -880,7 +979,7 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-amber-50/80 via-stone-50/50 to-orange-50/70 dark:from-stone-950 dark:via-stone-900 dark:to-stone-950 text-stone-900 dark:text-stone-100">
+    <div className="min-h-screen flex flex-col bg-white text-stone-900 dark:bg-stone-950 dark:text-stone-100">
       <header
         className="shrink-0 sticky top-0 z-20 opacity-0 animate-fade-in-up border-b border-amber-200/50 dark:border-amber-900/30 bg-white/90 dark:bg-stone-900/90 backdrop-blur-md shadow-sm"
         style={{ animationDelay: "0ms", animationFillMode: "forwards" }}
@@ -928,12 +1027,23 @@ export default function Home() {
           <div className="mt-4 flex flex-col sm:flex-row sm:items-end gap-3">
             {/* Trái: xuất CSV + cột (cùng khu với bộ lọc) */}
             <div className="flex flex-wrap items-center gap-2">
-              {isLoadingTable && (
-                <span className="inline-flex items-center gap-2 text-[14px] text-amber-700 dark:text-amber-300">
-                  <span className="inline-block h-3 w-3 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
-                  <span className="hidden sm:inline">Đang tải...</span>
-                </span>
-              )}
+              {isLoadingTable ? (
+                tableLoadProgress ? (
+                  <span className="inline-flex items-center gap-2 rounded-lg border border-amber-200/70 bg-amber-50/80 px-2.5 py-1 text-[13px] text-amber-900 dark:border-amber-800/50 dark:bg-amber-950/40 dark:text-amber-200">
+                    <span className="inline-block h-3 w-3 shrink-0 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
+                    <span className="font-semibold tabular-nums">
+                      {tableLoadProgress.loaded.toLocaleString("vi-VN")} /{" "}
+                      {tableLoadProgress.total.toLocaleString("vi-VN")}{" "}
+                      <span className="hidden sm:inline">ngày</span>
+                    </span>
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-2 text-[14px] text-amber-700 dark:text-amber-300">
+                    <span className="inline-block h-3 w-3 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
+                    <span className="hidden sm:inline">Đang tải...</span>
+                  </span>
+                )
+              ) : null}
               <button
                 type="button"
                 onClick={handleDownloadCsv}
@@ -1027,9 +1137,22 @@ export default function Home() {
                 >
                   Năm
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setRangeMode("all")}
+                  className={`px-3 py-2 text-sm font-medium transition-colors ${
+                    rangeMode === "all"
+                      ? "bg-amber-100/80 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200"
+                      : "text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800"
+                  }`}
+                  title="Từ 01/01/2022 đến hôm nay (toàn bộ dữ liệu app)"
+                >
+                  Tất cả
+                </button>
               </div>
             </div>
 
+            {!isAllRange ? (
             <div className="flex items-center gap-2">
               <span className="text-[14px] font-semibold text-stone-600 dark:text-stone-400">
                 Năm
@@ -1051,6 +1174,16 @@ export default function Home() {
                   ))}
               </select>
             </div>
+            ) : (
+              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-amber-300/50 bg-amber-50/70 px-3 py-2 text-[13px] dark:border-amber-800/50 dark:bg-amber-950/35">
+                <span className="font-bold text-amber-900 dark:text-amber-200">
+                  Toàn bộ dữ liệu
+                </span>
+                <span className="text-stone-600 dark:text-stone-400">
+                  01/01/2022 → hôm nay
+                </span>
+              </div>
+            )}
 
             {rangeMode === "month" && (
               <div className="flex items-center gap-2">
@@ -1110,6 +1243,11 @@ export default function Home() {
                 <span>
                   Đang xem: <span className="font-semibold">{from}</span> →{" "}
                   <span className="font-semibold">{to}</span>
+                  {isAllRange ? (
+                    <span className="ml-1.5 text-stone-400 dark:text-stone-500">
+                      (tất cả)
+                    </span>
+                  ) : null}
                 </span>
                 {!isLoadingTable && (
                   <span className="hidden sm:inline">
@@ -1118,12 +1256,35 @@ export default function Home() {
                   </span>
                 )}
               </div>
-              {isLoadingTable && (
-                <span className="mt-1 ml-1 inline-flex items-center gap-1 text-amber-600 dark:text-amber-400">
-                  <span className="inline-block h-2 w-2 rounded-full bg-amber-500 animate-ping" />
-                  Đang tải dữ liệu...
-                </span>
-              )}
+              {isLoadingTable && tableLoadProgress ? (
+                <div className="mt-2 w-full max-w-md sm:ml-auto">
+                  <div className="mb-1 flex flex-wrap items-center justify-between gap-2 text-[12px] text-amber-800 dark:text-amber-200">
+                    <span className="font-medium text-amber-900 dark:text-amber-100">
+                      Đang tải bảng (gói{" "}
+                      {tableLoadProgress.chunkCurrent}/{tableLoadProgress.chunkTotal}
+                      )
+                    </span>
+                    <span className="font-bold tabular-nums">
+                      {tableLoadProgress.loaded.toLocaleString("vi-VN")} /{" "}
+                      {tableLoadProgress.total.toLocaleString("vi-VN")} ngày
+                    </span>
+                  </div>
+                  <div
+                    className="h-2 w-full overflow-hidden rounded-full bg-amber-200/50 dark:bg-amber-900/50"
+                    role="progressbar"
+                    aria-valuenow={tableLoadProgress.loaded}
+                    aria-valuemin={0}
+                    aria-valuemax={tableLoadProgress.total}
+                  >
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 transition-[width] duration-300 ease-out dark:from-amber-400 dark:via-orange-400 dark:to-amber-500"
+                      style={{
+                        width: `${tableLoadProgress.total > 0 ? Math.min(100, (tableLoadProgress.loaded / tableLoadProgress.total) * 100) : 0}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              ) : null}
             </div>
           </div>
 
@@ -1302,13 +1463,13 @@ export default function Home() {
                 <tr>
                   <th
                     rowSpan={3}
-                    className="sticky left-0 top-0 z-[102] border-b border-r border-black dark:border-stone-200 px-2 py-2 w-24 min-w-24 text-[14px] font-bold text-stone-950 dark:text-sky-50 whitespace-nowrap bg-sky-200 dark:bg-sky-900/70 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.12)] dark:shadow-[4px_0_12px_-4px_rgba(0,0,0,0.45)]"
+                    className="sticky left-0 top-0 z-[102] border-b border-r border-black dark:border-stone-200 px-1.5 py-2 w-16 min-w-16 text-[13px] font-bold uppercase tracking-wide text-stone-950 dark:text-stone-100 whitespace-nowrap bg-rose-100 dark:bg-rose-950/55 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.12)] dark:shadow-[4px_0_12px_-4px_rgba(0,0,0,0.45)]"
                   >
                     Thứ
                   </th>
                   <th
                     rowSpan={3}
-                    className="sticky left-24 top-0 z-[101] border-b border-r border-black dark:border-stone-200 px-2 py-2 w-32 min-w-32 text-[14px] font-bold text-stone-950 dark:text-violet-50 whitespace-nowrap bg-violet-200 dark:bg-violet-900/65 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.1)] dark:shadow-[4px_0_12px_-4px_rgba(0,0,0,0.4)]"
+                    className="sticky left-16 top-0 z-[101] border-b border-r border-black dark:border-stone-200 px-2 py-2 w-32 min-w-32 text-[14px] font-bold uppercase tracking-wide text-stone-950 dark:text-sky-100 whitespace-nowrap bg-sky-100 dark:bg-sky-900/60 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.1)] dark:shadow-[4px_0_12px_-4px_rgba(0,0,0,0.4)]"
                   >
                     Ngày
                   </th>
@@ -1843,9 +2004,9 @@ export default function Home() {
                             j === 0
                               ? "border-0 px-0 py-0 w-0 max-w-0 overflow-hidden"
                               : j === 11
-                                ? `sticky left-0 z-20 border-r border-b border-black dark:border-stone-200 px-2 py-2 text-[14px] font-bold w-24 max-w-24 truncate tabular-nums text-stone-950 dark:text-sky-50 bg-sky-100 dark:bg-sky-950/55 group-hover/row:bg-sky-200 dark:group-hover/row:bg-sky-900/50 shadow-[4px_0_10px_-6px_rgba(0,0,0,0.15)] dark:shadow-[4px_0_10px_-6px_rgba(0,0,0,0.5)] ${TD_CELL_FX}`
+                                ? `sticky left-0 z-20 border-r border-b border-black dark:border-stone-200 px-1.5 py-2 text-right text-[13px] font-bold w-16 max-w-16 truncate tabular-nums text-stone-950 dark:text-stone-100 bg-orange-50 dark:bg-orange-950/30 group-hover/row:bg-orange-100/90 dark:group-hover/row:bg-orange-950/45 shadow-[4px_0_10px_-6px_rgba(0,0,0,0.15)] dark:shadow-[4px_0_10px_-6px_rgba(0,0,0,0.5)] ${TD_CELL_FX}`
                                 : j === 12
-                                  ? `sticky left-24 z-[19] border-r border-b border-black dark:border-stone-200 px-2 py-2 text-[14px] font-bold w-32 max-w-32 truncate tabular-nums text-stone-950 dark:text-violet-50 bg-violet-100 dark:bg-violet-950/50 group-hover/row:bg-violet-200 dark:group-hover/row:bg-violet-900/45 shadow-[4px_0_10px_-6px_rgba(0,0,0,0.12)] dark:shadow-[4px_0_10px_-6px_rgba(0,0,0,0.45)] ${TD_CELL_FX}`
+                                  ? `sticky left-16 z-[19] border-r border-b border-black dark:border-stone-200 px-2 py-2 text-center text-[14px] font-bold w-32 max-w-32 truncate tabular-nums text-red-600 dark:text-red-400 bg-sky-100 dark:bg-sky-950/45 group-hover/row:bg-sky-200/85 dark:group-hover/row:bg-sky-900/50 shadow-[4px_0_10px_-6px_rgba(0,0,0,0.12)] dark:shadow-[4px_0_10px_-6px_rgba(0,0,0,0.45)] ${TD_CELL_FX}`
                                   : j === 61 || j === 62
                                     ? `border-r border-b border-black dark:border-stone-200 px-2 py-2 text-[14px] font-bold max-w-[110px] truncate tabular-nums text-stone-950 dark:text-stone-50 text-center ${getRegionBgClass(j)} ${TD_CELL_FX}`
                                     : `border-r border-b border-black dark:border-stone-200 px-2 py-2 text-[14px] font-bold max-w-[130px] truncate tabular-nums text-stone-950 dark:text-stone-50 ${getRegionBgClass(j)} ${TD_CELL_FX}`
