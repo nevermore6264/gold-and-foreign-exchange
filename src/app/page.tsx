@@ -1755,7 +1755,7 @@ export default function Home() {
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
                     >
-                      THẤP
+                      THẤP (Low)
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
@@ -1931,22 +1931,30 @@ export default function Home() {
                     <th className={LAI_HEAD_TIME_CLASS}>
                       9h
                       <br />
-                      (Việt Nam)
+                      <span className="text-[13px] font-semibold">
+                        (việt nam)
+                      </span>
                     </th>
                     <th className={LAI_HEAD_TIME_CLASS}>
                       11h
                       <br />
-                      (Việt Nam)
+                      <span className="text-[13px] font-semibold">
+                        (việt nam)
+                      </span>
                     </th>
                     <th className={LAI_HEAD_TIME_CLASS}>
                       14h30
                       <br />
-                      (Việt Nam)
+                      <span className="text-[13px] font-semibold">
+                        (việt nam)
+                      </span>
                     </th>
                     <th className={LAI_HEAD_TIME_CLASS}>
                       17h30
                       <br />
-                      (Việt Nam)
+                      <span className="text-[13px] font-semibold">
+                        (việt nam)
+                      </span>
                     </th>
                   </>
                 ) : null}
