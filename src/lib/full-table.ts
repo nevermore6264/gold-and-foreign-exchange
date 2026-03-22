@@ -1,6 +1,6 @@
 /**
  * Bảng 60 cột (col_0 .. col_59). Nguồn:
- * - col_1-10: Mua/Bán Mạnh Hải (snapshot cache/manh-hai, xem MANH_HAI_COL)
+ * - col_1-10: Mua/Bán Mạnh Hải (file cache/manh-hai; nếu thiếu → backfill từ lịch sử CafeF từ ~2025-02-08, 1 giá/ngày × 4 khung giờ)
  * - col_12: DATE
  * - col_13-21: KITCO (XAU/USD) → investing / FreeGoldAPI
  * - col_22-30: Giá dầu → Investing.com crude-oil-historical-data (fallback Yahoo CL=F)
@@ -25,8 +25,14 @@ import { fetchDollarIndexHistoricalYahoo } from "./dollar";
 import { fetchXauUsdHistoricalYahoo } from "./xau";
 import { fetchBond10yHistoricalYahoo } from "./bond-10y";
 import { fetchSp500HistoricalYahoo } from "./sp500";
+import { fetchCafeFDomesticSjcByVnDateCached } from "./gold-cafef";
 import { MANH_HAI_COL } from "./manh-hai-columns";
-import { readManhHaiSnapshot, type ManhHaiSlot, type ManhHaiSnapshot } from "./manh-hai";
+import {
+  readManhHaiSnapshot,
+  mergeManhHaiSnapshotWithCafeFBackfill,
+  type ManhHaiSlot,
+  type ManhHaiSnapshot,
+} from "./manh-hai";
 
 const CONCURRENCY = 8;
 export const START_DATE = "2022-01-01";
@@ -168,7 +174,8 @@ export async function getFullTableRange(
   const [
     goldList,
     vcbRates,
-    manhHaiSnapshots,
+    fileManhHaiSnaps,
+    cafeDomesticByDate,
     oilYahoo,
     oilInvesting,
     dollarYahoo,
@@ -184,6 +191,7 @@ export async function getFullTableRange(
     // VCB theo ngày trong range (đủ cho 3 cột cuối)
     runInBatches(dates, (d) => fetchVietcombankUsdRatesByDate(d)),
     Promise.all(dates.map((d) => readManhHaiSnapshot(d))),
+    fetchCafeFDomesticSjcByVnDateCached(),
     // Market series: fetch theo window mở rộng để có prevClose cho ngày đầu kỳ
     fetchOilHistoricalYahoo(fetchFrom, to),
     fetchInvestingHistorical(PAIR_IDS.crudeOil, fetchFrom, to),
@@ -196,6 +204,10 @@ export async function getFullTableRange(
     fetchInvestingHistorical(PAIR_IDS.sp500, fetchFrom, to),
     fetchSp500HistoricalYahoo(fetchFrom, to),
   ]);
+
+  const manhHaiSnapshots = dates.map((d, i) =>
+    mergeManhHaiSnapshotWithCafeFBackfill(d, fileManhHaiSnaps[i], cafeDomesticByDate),
+  );
 
   // Gộp Investing + Yahoo theo ngày (Investing có giới hạn pointscount → tháng gần nhất có thể thiếu).
   const oil = recomputeChangePercent(mergeOhlcByDate(oilInvesting, oilYahoo));

@@ -2,12 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   fetchManhHaiCurrentQuote,
   getVietnamTodayIso,
+  mergeManhHaiSnapshotWithCafeFBackfill,
   readManhHaiSnapshot,
+  snapshotHasAnyPrice,
   slotMinutes,
   type ManhHaiSlot,
   vnNowMinutes,
   writeManhHaiSnapshot,
 } from "@/lib/manh-hai";
+import { fetchCafeFDomesticSjcByVnDateCached } from "@/lib/gold-cafef";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -21,11 +24,23 @@ export async function GET(request: NextRequest) {
       request.nextUrl.searchParams.get("keyword") || "Vàng miếng SJC";
 
     const nowMin = vnNowMinutes();
-    const snapshot = (await readManhHaiSnapshot(date)) ?? { date, slots: {} };
+    let snapshot = (await readManhHaiSnapshot(date)) ?? { date, slots: {} };
 
     const vnToday = getVietnamTodayIso();
-    // Chỉ cập nhật snapshot bằng giá **hiện tại** cho **hôm nay** (VN). Ngày cũ chỉ đọc file cache.
+    // Ngày cũ: đọc file; nếu rỗng thì backfill từ lịch sử CafeF (từ ~2025-02-08) rồi lưu cache.
     if (date !== vnToday) {
+      if (!snapshotHasAnyPrice(snapshot)) {
+        const cafeMap = await fetchCafeFDomesticSjcByVnDateCached();
+        const filled = mergeManhHaiSnapshotWithCafeFBackfill(
+          date,
+          snapshot,
+          cafeMap,
+        );
+        if (filled && snapshotHasAnyPrice(filled)) {
+          await writeManhHaiSnapshot(filled);
+          snapshot = filled;
+        }
+      }
       return NextResponse.json({
         date: snapshot.date,
         keyword,

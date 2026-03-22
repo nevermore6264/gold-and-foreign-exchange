@@ -5,7 +5,11 @@ import {
   generateAllDates,
   type FullTableRow,
 } from "@/lib/full-table";
-import { readManhHaiSnapshot } from "@/lib/manh-hai";
+import { fetchCafeFDomesticSjcByVnDateCached } from "@/lib/gold-cafef";
+import {
+  mergeManhHaiSnapshotWithCafeFBackfill,
+  readManhHaiSnapshot,
+} from "@/lib/manh-hai";
 import {
   readFullTableCache,
   writeFullTableCache,
@@ -25,11 +29,17 @@ export const maxDuration = 120;
 async function patchRowsWithManhHaiSnapshots(
   rows: FullTableRow[],
 ): Promise<FullTableRow[]> {
+  const cafeDomesticByDate = await fetchCafeFDomesticSjcByVnDateCached();
   return Promise.all(
     rows.map(async (r) => {
       const date = r.col_12;
       if (typeof date !== "string" || !date) return r;
-      const snap = await readManhHaiSnapshot(date);
+      const fileSnap = await readManhHaiSnapshot(date);
+      const snap = mergeManhHaiSnapshotWithCafeFBackfill(
+        date,
+        fileSnap,
+        cafeDomesticByDate,
+      );
       const next = { ...r };
       applyManhHaiSnapshotToRow(next, snap);
       return next;

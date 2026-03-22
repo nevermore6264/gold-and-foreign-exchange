@@ -6,12 +6,17 @@
  * - fetch giá hiện tại
  * - lưu snapshot theo ngày + khung giờ (9h/11h/14h30/17h30)
  * - đọc snapshot để hiển thị "quá khứ"
+ * - nếu không có file: từ ~2025-02-08 backfill 1 giá/ngày từ lịch sử Ajax CafeF (điền cả 4 khung giờ)
  */
 
 import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
 
-import { fetchCafeFGoldSjcPrices } from "./gold-cafef";
+import {
+  fetchCafeFGoldSjcPrices,
+  fetchCafeFDomesticSjcByVnDateCached,
+  type CafeFDomesticDailyQuote,
+} from "./gold-cafef";
 import { fetchVietnamNetGoldSjcPrices } from "./gold-vietnamnet";
 
 const SOURCE_URL = "https://baotinmanhhai.vn/gia-vang-hom-nay";
@@ -73,6 +78,71 @@ export async function readManhHaiSnapshot(dateIso: string): Promise<ManhHaiSnaps
   } catch {
     return null;
   }
+}
+
+const SLOTS_FOR_CHECK: ManhHaiSlot[] = ["09:00", "11:00", "14:30", "17:30"];
+
+/** Có ít nhất một khung giờ đã có giá mua hoặc bán. */
+export function snapshotHasAnyPrice(
+  snap: ManhHaiSnapshot | null | undefined,
+): boolean {
+  if (!snap?.slots) return false;
+  for (const s of SLOTS_FOR_CHECK) {
+    const q = snap.slots[s];
+    if (q != null && (q.buy != null || q.sell != null)) return true;
+  }
+  return false;
+}
+
+/**
+ * CafeF chỉ có 1 mức giá/ngày — nhân vào 4 khung giờ để bảng đủ cột;
+ * chênh lệch 9h↔17h30 = 0 (không có dữ liệu intraday lịch sử).
+ */
+export function buildSyntheticManhHaiSnapshotFromDailyPrice(
+  dateIso: string,
+  q: { buy: number; sell: number; productName: string },
+): ManhHaiSnapshot {
+  const capturedAt = `${dateIso}T23:59:59+07:00`;
+  const quote: ManhHaiQuote = {
+    buy: q.buy,
+    sell: q.sell,
+    capturedAt,
+    productName: q.productName,
+  };
+  return {
+    date: dateIso,
+    slots: {
+      "09:00": { ...quote },
+      "11:00": { ...quote },
+      "14:30": { ...quote },
+      "17:30": { ...quote },
+    },
+  };
+}
+
+/**
+ * Nếu không có file snapshot (hoặc rỗng) và ngày nằm trong khoảng CafeF có lịch sử,
+ * điền từ bản đồ giá trong nước theo ngày (Ajax CafeF).
+ */
+export function mergeManhHaiSnapshotWithCafeFBackfill(
+  dateIso: string,
+  fileSnap: ManhHaiSnapshot | null,
+  cafeByDate: Map<string, CafeFDomesticDailyQuote>,
+): ManhHaiSnapshot | null {
+  if (snapshotHasAnyPrice(fileSnap)) return fileSnap;
+  if (dateIso < DOMESTIC_GOLD_CAFEF_START) return fileSnap;
+  const q = cafeByDate.get(dateIso);
+  if (!q) return fileSnap;
+  return buildSyntheticManhHaiSnapshotFromDailyPrice(dateIso, q);
+}
+
+/** Dùng khi chỉ có async cache (API đơn lẻ). */
+export async function resolveManhHaiSnapshotWithCafeFBackfill(
+  dateIso: string,
+  fileSnap: ManhHaiSnapshot | null,
+): Promise<ManhHaiSnapshot | null> {
+  const map = await fetchCafeFDomesticSjcByVnDateCached();
+  return mergeManhHaiSnapshotWithCafeFBackfill(dateIso, fileSnap, map);
 }
 
 export async function writeManhHaiSnapshot(snapshot: ManhHaiSnapshot): Promise<void> {

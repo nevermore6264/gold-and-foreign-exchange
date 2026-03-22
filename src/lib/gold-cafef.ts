@@ -41,7 +41,120 @@ type CafeFGoldHistRow = {
   name?: string;
   buyPrice?: number;
   sellPrice?: number;
+  /** ISO từ API — map sang ngày lịch VN để backfill snapshot */
+  createdAt?: string;
 };
+
+/** Giá SJC trong nước 1 ngày (từ lịch sử Ajax CafeF). */
+export type CafeFDomesticDailyQuote = {
+  buy: number;
+  sell: number;
+  productName: string;
+};
+
+const CAFEF_HISTORY_URL_ALL =
+  "https://cafef.vn/du-lieu/Ajax/ajaxgoldpricehistory.ashx?index=all";
+
+function vnCalendarDateFromUtcMs(ms: number): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date(ms));
+  const get = (t: string) => parts.find((p) => p.type === t)?.value;
+  const y = get("year") ?? "1970";
+  const m = get("month") ?? "01";
+  const d = get("day") ?? "01";
+  return `${y}-${m}-${d}`;
+}
+
+/**
+ * Lịch sử giá vàng trong nước (SJC) theo ngày lịch Việt Nam.
+ * Nguồn: ajax `index=all` (khoảng từ ~2025-02-08 đến hiện tại).
+ * Mỗi ngày lấy bản ghi có `createdAt` muộn nhất trong ngày đó (VN).
+ */
+export async function fetchCafeFDomesticSjcByVnDate(): Promise<
+  Map<string, CafeFDomesticDailyQuote>
+> {
+  const best = new Map<
+    string,
+    CafeFDomesticDailyQuote & { _ts: number }
+  >();
+
+  try {
+    const res = await fetch(CAFEF_HISTORY_URL_ALL, {
+      cache: "no-store",
+      headers: {
+        ...DEFAULT_HEADERS,
+        Referer: CAFEF_REFERER_DESKTOP,
+      },
+    });
+    if (!res.ok) return new Map();
+    const json: unknown = await res.json();
+    const data = json as { Data?: { goldPriceWorldHistories?: CafeFGoldHistRow[] } };
+    const hist = data?.Data?.goldPriceWorldHistories;
+    if (!Array.isArray(hist) || hist.length === 0) return new Map();
+
+    for (const row of hist) {
+      const createdRaw = row.createdAt;
+      if (!createdRaw) continue;
+      const ts = Date.parse(createdRaw);
+      if (!Number.isFinite(ts)) continue;
+      const vnDay = vnCalendarDateFromUtcMs(ts);
+      const b = row.buyPrice;
+      const s = row.sellPrice;
+      if (typeof b !== "number" || typeof s !== "number") continue;
+      const vnd = cafeFPricesToVnd(b, s);
+      if (vnd.buy <= 0 || vnd.sell <= 0) continue;
+
+      const name = `${(row.name ?? "SJC").trim()} (CafeF lịch sử)`;
+      const prev = best.get(vnDay);
+      if (!prev || ts > prev._ts) {
+        best.set(vnDay, {
+          buy: vnd.buy,
+          sell: vnd.sell,
+          productName: name,
+          _ts: ts,
+        });
+      }
+    }
+  } catch {
+    return new Map();
+  }
+
+  const out = new Map<string, CafeFDomesticDailyQuote>();
+  for (const [day, v] of best) {
+    out.set(day, {
+      buy: v.buy,
+      sell: v.sell,
+      productName: v.productName,
+    });
+  }
+  return out;
+}
+
+let _cafeDomesticByDateCache: {
+  at: number;
+  map: Map<string, CafeFDomesticDailyQuote>;
+} | null = null;
+
+const CAFEF_DOMESTIC_MAP_TTL_MS = 60 * 60 * 1000;
+
+/** Cache ngắn để full-table / API không gọi Ajax liên tục. */
+export async function fetchCafeFDomesticSjcByVnDateCached(): Promise<
+  Map<string, CafeFDomesticDailyQuote>
+> {
+  if (
+    _cafeDomesticByDateCache &&
+    Date.now() - _cafeDomesticByDateCache.at < CAFEF_DOMESTIC_MAP_TTL_MS
+  ) {
+    return _cafeDomesticByDateCache.map;
+  }
+  const map = await fetchCafeFDomesticSjcByVnDate();
+  _cafeDomesticByDateCache = { at: Date.now(), map };
+  return map;
+}
 
 function cafeFPricesToVnd(buy: number, sell: number): { buy: number; sell: number } {
   return {
