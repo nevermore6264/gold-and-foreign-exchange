@@ -63,6 +63,28 @@ function formatVnd(v: string | number | null | undefined): string {
   }).format(n);
 }
 
+/** Chuẩn hóa ô ∑ TÀI SẢN: chỉ chữ số + dấu . phân nghìn khi blur / load LS */
+function formatTaiSanInputDisplay(raw: string): string {
+  const t = raw.trim();
+  if (!t) return "";
+  const noSep = t.replace(/\./g, "").replace(/\s/g, "");
+  if (!/^\d+$/.test(noSep)) return raw;
+  const n = Number(noSep);
+  if (!Number.isFinite(n) || n <= 0) return raw;
+  return new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(n);
+}
+
+/** Chuẩn hóa ô ∑ CHỈ VÀNG CŨ (cho phép 0) */
+function formatChiVangCuInputDisplay(raw: string): string {
+  const t = raw.trim();
+  if (!t) return "";
+  const noSep = t.replace(/\./g, "").replace(/\s/g, "");
+  if (!/^\d+$/.test(noSep)) return raw;
+  const n = Number(noSep);
+  if (!Number.isFinite(n) || n < 0) return raw;
+  return new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(n);
+}
+
 function getNumberToneClass(n: number | null): string {
   if (n == null || !Number.isFinite(n))
     return "text-stone-950 dark:text-stone-50 font-bold";
@@ -437,8 +459,8 @@ export default function Home() {
     try {
       const a = localStorage.getItem(LS_INPUT_TAI_SAN);
       const b = localStorage.getItem(LS_INPUT_CHI_VANG_CU);
-      if (a != null) setTotalTaiSan(a);
-      if (b != null) setTotalChiVangCu(b);
+      if (a != null) setTotalTaiSan(formatTaiSanInputDisplay(a));
+      if (b != null) setTotalChiVangCu(formatChiVangCuInputDisplay(b));
     } catch {
       // ignore
     }
@@ -904,6 +926,69 @@ export default function Home() {
           style={{ animationDelay: "80ms", animationFillMode: "forwards" }}
         >
           <div className="mt-4 flex flex-col sm:flex-row sm:items-end gap-3">
+            {/* Trái: xuất CSV + cột (cùng khu với bộ lọc) */}
+            <div className="flex flex-wrap items-center gap-2">
+              {isLoadingTable && (
+                <span className="inline-flex items-center gap-2 text-[14px] text-amber-700 dark:text-amber-300">
+                  <span className="inline-block h-3 w-3 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
+                  <span className="hidden sm:inline">Đang tải...</span>
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={handleDownloadCsv}
+                disabled={isLoadingTable || dateRows.length === 0}
+                className="h-9 shrink-0 rounded-xl border border-emerald-200/80 bg-emerald-50/90 px-3 text-[14px] font-semibold text-emerald-900 hover:bg-emerald-100/90 disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-800/50 dark:bg-emerald-950/40 dark:text-emerald-200 dark:hover:bg-emerald-900/50"
+              >
+                Tải CSV
+              </button>
+              <div className="relative z-30">
+                <button
+                  type="button"
+                  onClick={() => setColumnMenuOpen((o) => !o)}
+                  className="h-9 shrink-0 rounded-xl border border-amber-200/70 bg-white px-3 text-[14px] font-semibold text-amber-900 hover:bg-amber-50/80 dark:border-amber-800/45 dark:bg-stone-900 dark:text-amber-200 dark:hover:bg-amber-950/40"
+                >
+                  Ẩn / hiện cột
+                </button>
+                {columnMenuOpen ? (
+                  <div
+                    className="absolute left-0 sm:left-0 top-full z-40 mt-1.5 min-w-[280px] max-h-[min(70vh,420px)] overflow-y-auto rounded-xl border border-amber-200/80 bg-white p-3 shadow-xl dark:border-stone-600 dark:bg-stone-900"
+                    role="dialog"
+                    aria-label="Chọn nhóm cột hiển thị"
+                  >
+                    <p className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
+                      Nhóm cột
+                    </p>
+                    <div className="flex flex-col gap-1">
+                      {TOGGLEABLE_GROUPS.map((g) => (
+                        <label
+                          key={g}
+                          className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-stone-100 dark:hover:bg-stone-800"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={columnVisibility[g]}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setColumnVisibility((prev) => {
+                                const next = { ...prev, [g]: checked };
+                                if (!TOGGLEABLE_GROUPS.some((x) => next[x]))
+                                  return prev;
+                                return next;
+                              });
+                            }}
+                            className="h-4 w-4 rounded border-stone-300 text-amber-600 focus:ring-amber-500 dark:border-stone-600 dark:bg-stone-800"
+                          />
+                          <span className="text-[14px] text-stone-800 dark:text-stone-200">
+                            {GROUP_LABELS_VI[g]}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </div>
             <div className="flex items-center gap-2">
               <span className="text-[14px] font-semibold text-stone-600 dark:text-stone-400">
                 Lọc theo
@@ -1042,56 +1127,102 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Hai chỉ số nhập tay: trái / phải — nhãn trên, input dưới */}
-          <div className="mt-4 grid w-full max-w-lg grid-cols-2 gap-3 sm:max-w-xl">
-            <div className="min-w-0 overflow-hidden rounded-md border border-emerald-800/50 bg-white dark:border-emerald-700/45 dark:bg-stone-900">
-              <div className="border-b border-stone-200 bg-stone-100/90 px-2 py-1 text-center dark:border-stone-700 dark:bg-stone-800/60">
-                <span className="text-[14px] font-bold leading-tight text-stone-900 dark:text-stone-100">
-                  ∑ TÀI SẢN
+          {/* Hai chỉ số nhập tay — card dashboard, số có dấu phân nghìn khi blur */}
+          <div className="mt-5 grid w-full max-w-3xl grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
+            <div className="group relative min-w-0 overflow-hidden rounded-2xl border border-emerald-200/70 bg-white shadow-md shadow-emerald-900/[0.06] ring-1 ring-stone-900/[0.04] transition-[box-shadow,transform] duration-200 hover:shadow-lg hover:shadow-emerald-900/10 dark:border-emerald-800/45 dark:bg-stone-900 dark:shadow-black/40 dark:ring-white/[0.06] dark:hover:shadow-black/50">
+              <div
+                className="h-1 w-full bg-gradient-to-r from-emerald-600 via-teal-500 to-emerald-500 opacity-95 dark:from-emerald-500 dark:via-teal-400 dark:to-emerald-400"
+                aria-hidden
+              />
+              <div className="flex items-start justify-between gap-3 px-4 pb-1 pt-3.5">
+                <div className="min-w-0">
+                  <p className="text-[13px] font-extrabold uppercase tracking-wide text-emerald-900 dark:text-emerald-200">
+                    ∑ Tài sản
+                  </p>
+                  <p className="mt-1 text-[12px] leading-snug text-stone-500 dark:text-stone-400">
+                    Tổng giá trị VNĐ — dùng tính cột ∑ chỉ vàng
+                  </p>
+                </div>
+                <span className="shrink-0 rounded-lg border border-emerald-200/80 bg-emerald-50 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-emerald-800 dark:border-emerald-700/60 dark:bg-emerald-950/70 dark:text-emerald-300">
+                  VNĐ
                 </span>
               </div>
-              <input
-                type="text"
-                inputMode="decimal"
-                autoComplete="off"
-                placeholder="0"
-                value={totalTaiSan}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setTotalTaiSan(v);
-                  try {
-                    localStorage.setItem(LS_INPUT_TAI_SAN, v);
-                  } catch {
-                    /* ignore */
-                  }
-                }}
-                className="h-9 w-full border-0 bg-stone-50 px-2 py-1 text-right text-[14px] font-bold tabular-nums text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-1 focus:ring-amber-400/50 focus:ring-inset dark:bg-stone-900/80 dark:text-stone-100 dark:placeholder:text-stone-500"
-              />
+              <div className="px-3 pb-3.5 pt-1">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  placeholder="vd. 36.500.000.000"
+                  value={totalTaiSan}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setTotalTaiSan(v);
+                    try {
+                      localStorage.setItem(LS_INPUT_TAI_SAN, v);
+                    } catch {
+                      /* ignore */
+                    }
+                  }}
+                  onBlur={(e) => {
+                    const v = formatTaiSanInputDisplay(e.target.value);
+                    setTotalTaiSan(v);
+                    try {
+                      localStorage.setItem(LS_INPUT_TAI_SAN, v);
+                    } catch {
+                      /* ignore */
+                    }
+                  }}
+                  className="h-14 w-full rounded-xl border border-stone-200/90 bg-gradient-to-b from-stone-50/90 to-white px-3 py-2 text-right text-lg font-bold tabular-nums tracking-tight text-stone-900 shadow-inner shadow-stone-900/[0.03] placeholder:text-stone-400 placeholder:text-sm focus:border-emerald-400/70 focus:outline-none focus:ring-2 focus:ring-emerald-400/35 dark:border-stone-600 dark:from-stone-900 dark:to-stone-950 dark:text-stone-50 dark:placeholder:text-stone-500 dark:focus:border-emerald-600/50 dark:focus:ring-emerald-500/25"
+                />
+              </div>
             </div>
-            <div className="min-w-0 overflow-hidden rounded-md border border-emerald-800/50 bg-white dark:border-emerald-700/45 dark:bg-stone-900">
-              <div className="border-b border-stone-200 bg-stone-100/90 px-2 py-1 text-center dark:border-stone-700 dark:bg-stone-800/60">
-                <span className="text-[14px] font-bold leading-tight text-stone-900 dark:text-stone-100">
-                  <span className="block">∑ CHỈ</span>
-                  <span className="block">VÀNG CŨ</span>
+
+            <div className="group relative min-w-0 overflow-hidden rounded-2xl border border-amber-200/80 bg-white shadow-md shadow-amber-900/[0.07] ring-1 ring-stone-900/[0.04] transition-[box-shadow,transform] duration-200 hover:shadow-lg hover:shadow-amber-900/10 dark:border-amber-800/40 dark:bg-stone-900 dark:shadow-black/40 dark:ring-white/[0.06] dark:hover:shadow-black/50">
+              <div
+                className="h-1 w-full bg-gradient-to-r from-amber-600 via-orange-500 to-amber-500 opacity-95 dark:from-amber-500 dark:via-orange-400 dark:to-amber-400"
+                aria-hidden
+              />
+              <div className="flex items-start justify-between gap-3 px-4 pb-1 pt-3.5">
+                <div className="min-w-0">
+                  <p className="text-[13px] font-extrabold uppercase tracking-wide text-amber-900 dark:text-amber-200">
+                    ∑ Chỉ vàng cũ
+                  </p>
+                  <p className="mt-1 text-[12px] leading-snug text-stone-500 dark:text-stone-400">
+                    Số chỉ đã có — trừ khi tính “∑ chỉ vàng thêm”
+                  </p>
+                </div>
+                <span className="shrink-0 rounded-lg border border-amber-200/80 bg-amber-50 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/70 dark:text-amber-200">
+                  chỉ
                 </span>
               </div>
-              <input
-                type="text"
-                inputMode="decimal"
-                autoComplete="off"
-                placeholder="0"
-                value={totalChiVangCu}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setTotalChiVangCu(v);
-                  try {
-                    localStorage.setItem(LS_INPUT_CHI_VANG_CU, v);
-                  } catch {
-                    /* ignore */
-                  }
-                }}
-                className="h-9 w-full border-0 bg-stone-50 px-2 py-1 text-right text-[14px] font-bold tabular-nums text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-1 focus:ring-amber-400/50 focus:ring-inset dark:bg-stone-900/80 dark:text-stone-100 dark:placeholder:text-stone-500"
-              />
+              <div className="px-3 pb-3.5 pt-1">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  placeholder="vd. 1.148"
+                  value={totalChiVangCu}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setTotalChiVangCu(v);
+                    try {
+                      localStorage.setItem(LS_INPUT_CHI_VANG_CU, v);
+                    } catch {
+                      /* ignore */
+                    }
+                  }}
+                  onBlur={(e) => {
+                    const v = formatChiVangCuInputDisplay(e.target.value);
+                    setTotalChiVangCu(v);
+                    try {
+                      localStorage.setItem(LS_INPUT_CHI_VANG_CU, v);
+                    } catch {
+                      /* ignore */
+                    }
+                  }}
+                  className="h-14 w-full rounded-xl border border-stone-200/90 bg-gradient-to-b from-stone-50/90 to-white px-3 py-2 text-right text-lg font-bold tabular-nums tracking-tight text-stone-900 shadow-inner shadow-stone-900/[0.03] placeholder:text-stone-400 placeholder:text-sm focus:border-amber-400/70 focus:outline-none focus:ring-2 focus:ring-amber-400/35 dark:border-stone-600 dark:from-stone-900 dark:to-stone-950 dark:text-stone-50 dark:placeholder:text-stone-500 dark:focus:border-amber-600/50 dark:focus:ring-amber-500/25"
+                />
+              </div>
             </div>
           </div>
 
@@ -1157,72 +1288,10 @@ export default function Home() {
           className="relative rounded-2xl border border-amber-200/50 dark:border-amber-800/40 bg-gradient-to-br from-white via-amber-50/40 to-orange-50/50 dark:from-stone-900 dark:via-stone-900 dark:to-amber-950/30 shadow-xl shadow-amber-500/10 dark:shadow-black/40 ring-1 ring-white/60 dark:ring-stone-700/50 overflow-hidden opacity-0 animate-scale-in"
           style={{ animationDelay: "140ms", animationFillMode: "forwards" }}
         >
-          <div className="border-b border-amber-200/50 dark:border-amber-900/30 px-5 py-3.5 text-[14px] text-stone-500 dark:text-stone-400 bg-gradient-to-r from-amber-100/50 via-white/70 to-amber-50/40 dark:from-amber-950/30 dark:via-stone-900/50 dark:to-amber-950/20 backdrop-blur-sm flex flex-wrap items-center justify-between gap-3">
+          <div className="border-b border-amber-200/50 dark:border-amber-900/30 px-5 py-3 text-[14px] text-stone-500 dark:text-stone-400 bg-gradient-to-r from-amber-100/50 via-white/70 to-amber-50/40 dark:from-amber-950/30 dark:via-stone-900/50 dark:to-amber-950/20 backdrop-blur-sm">
             <span className="font-medium text-stone-700 dark:text-stone-300">
-              Tổng hợp vàng, tỷ giá & chỉ số thị trường
+              Bảng dữ liệu — vàng, tỷ giá &amp; chỉ số thị trường
             </span>
-            <div className="flex flex-wrap items-center gap-2 justify-end">
-              {isLoadingTable && (
-                <span className="inline-flex items-center gap-2 text-[14px] text-amber-700 dark:text-amber-300">
-                  <span className="inline-block h-3 w-3 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
-                  Đang tải...
-                </span>
-              )}
-              <button
-                type="button"
-                onClick={handleDownloadCsv}
-                disabled={isLoadingTable || dateRows.length === 0}
-                className="h-9 shrink-0 rounded-xl border border-emerald-200/80 bg-emerald-50/90 px-3 text-[14px] font-semibold text-emerald-900 hover:bg-emerald-100/90 disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-800/50 dark:bg-emerald-950/40 dark:text-emerald-200 dark:hover:bg-emerald-900/50"
-              >
-                Tải CSV
-              </button>
-              <div className="relative z-30">
-                <button
-                  type="button"
-                  onClick={() => setColumnMenuOpen((o) => !o)}
-                  className="h-9 shrink-0 rounded-xl border border-amber-200/70 bg-white px-3 text-[14px] font-semibold text-amber-900 hover:bg-amber-50/80 dark:border-amber-800/45 dark:bg-stone-900 dark:text-amber-200 dark:hover:bg-amber-950/40"
-                >
-                  Ẩn / hiện cột
-                </button>
-                {columnMenuOpen ? (
-                  <div
-                    className="absolute right-0 top-full mt-1.5 min-w-[280px] max-h-[min(70vh,420px)] overflow-y-auto rounded-xl border border-amber-200/80 bg-white p-3 shadow-xl dark:border-stone-600 dark:bg-stone-900"
-                    role="dialog"
-                    aria-label="Chọn nhóm cột hiển thị"
-                  >
-                    <p className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
-                      Nhóm cột (Thứ &amp; Ngày luôn hiện)
-                    </p>
-                    <div className="flex flex-col gap-1">
-                      {TOGGLEABLE_GROUPS.map((g) => (
-                        <label
-                          key={g}
-                          className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-stone-100 dark:hover:bg-stone-800"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={columnVisibility[g]}
-                            onChange={(e) => {
-                              const checked = e.target.checked;
-                              setColumnVisibility((prev) => {
-                                const next = { ...prev, [g]: checked };
-                                if (!TOGGLEABLE_GROUPS.some((x) => next[x]))
-                                  return prev;
-                                return next;
-                              });
-                            }}
-                            className="h-4 w-4 rounded border-stone-300 text-amber-600 focus:ring-amber-500 dark:border-stone-600 dark:bg-stone-800"
-                          />
-                          <span className="text-[14px] text-stone-800 dark:text-stone-200">
-                            {GROUP_LABELS_VI[g]}
-                          </span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            </div>
           </div>
           <div className="relative bg-gradient-to-br from-amber-50/50 via-white/30 to-stone-100/40 dark:from-stone-950/60 dark:via-stone-900/50 dark:to-stone-950/70 p-2 sm:p-2.5">
             <div className="scroll-table-premium overflow-auto max-h-[min(78vh,1200px)] rounded-xl border border-white/70 dark:border-stone-600/35 bg-white/45 dark:bg-stone-900/40 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.75),0_10px_40px_-16px_rgba(180,83,9,0.18)] dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06),0_12px_48px_-12px_rgba(0,0,0,0.55)] backdrop-blur-[3px]">
