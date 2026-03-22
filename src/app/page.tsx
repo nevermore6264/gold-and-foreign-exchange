@@ -90,7 +90,7 @@ function getNumberToneClass(n: number | null): string {
   if (n == null || !Number.isFinite(n))
     return "text-stone-950 dark:text-stone-50 font-bold";
   if (n < 0) return "text-red-600 dark:text-red-400 font-bold";
-  // Dương/trung tính: đen / chữ sáng (dark mode), in đậm
+  if (n > 0) return "text-green-600 dark:text-green-400 font-bold";
   return "text-stone-950 dark:text-stone-50 font-bold";
 }
 
@@ -134,9 +134,9 @@ function getMarketChangeToneClass(value: string): string {
 
 function getRegionBgClass(colIndex: number): string {
   // Background riêng cho từng nhóm dữ liệu để dễ phân biệt khi cuộn ngang.
-  // Mạnh Hải: col_1..col_10 — xanh dương nhạt (cùng tông header #BDD7EE)
+  // Mạnh Hải Mua/Bán: col_1..col_10 — nền trắng (body)
   if (colIndex >= 1 && colIndex <= 10)
-    return "bg-[#E8F4FC] dark:bg-sky-950/28 group-hover/row:bg-[#DDF0FA] dark:group-hover/row:bg-sky-900/38";
+    return "bg-white dark:bg-stone-950/35 group-hover/row:bg-[#fafafa] dark:group-hover/row:bg-stone-900/45";
   // Lãi (nếu bán ra): col_63..66 — xanh lá nhạt (Excel ~#e6f0db)
   if (colIndex >= 63 && colIndex <= 66)
     return "bg-[#e6f0db] dark:bg-emerald-950/35 group-hover/row:bg-[#dce8d0] dark:group-hover/row:bg-emerald-950/50";
@@ -157,9 +157,9 @@ function getRegionBgClass(colIndex: number): string {
     return "bg-[#e5e5e5] dark:bg-stone-800/45 group-hover/row:bg-[#dadada] dark:group-hover/row:bg-stone-800/65";
   // VCB: col_60 — tím
   if (colIndex === 60) return "bg-violet-200/50 dark:bg-violet-900/30";
-  // Cột nhập tay sau Bán Mạnh Hải (không có trong API cũ)
-  if (colIndex === 61) return "bg-rose-200/60 dark:bg-rose-900/30";
-  if (colIndex === 62) return "bg-emerald-200/60 dark:bg-emerald-900/30";
+  // ∑ chỉ vàng & ∑ chỉ vàng thêm — cùng nền xanh lá
+  if (colIndex === 61 || colIndex === 62)
+    return "bg-emerald-200/60 dark:bg-emerald-900/30";
 
   return "";
 }
@@ -184,8 +184,8 @@ function getRegionHeaderBgClass(colIndex: number): string {
   if (colIndex >= 49 && colIndex <= 57)
     return "bg-[#fde4dc] dark:bg-rose-950/40";
   if (colIndex === 60) return "bg-violet-300/75 dark:bg-violet-900/45";
-  if (colIndex === 61) return "bg-rose-200/80 dark:bg-rose-900/45";
-  if (colIndex === 62) return "bg-emerald-200/80 dark:bg-emerald-900/45";
+  if (colIndex === 61 || colIndex === 62)
+    return "bg-emerald-200/80 dark:bg-emerald-900/45";
   return "";
 }
 
@@ -1020,6 +1020,56 @@ export default function Home() {
       minimumFractionDigits: 0,
       maximumFractionDigits: 4,
     });
+  }
+
+  /** Giá trị số cột ∑ chỉ vàng (61) — để so sánh hàng. */
+  function chiVangIndexNumber(isoDate: string): number | null {
+    const taiSan = parseBigNumberInput(totalTaiSan);
+    const dong17h30Ban = manhHaiRawNumber(isoDate, MANH_HAI_COL.BAN_17H30);
+    if (taiSan == null || dong17h30Ban == null) return null;
+    return taiSan / dong17h30Ban;
+  }
+
+  /** Giá trị số cột ∑ chỉ vàng thêm (62). */
+  function chiVangThemNumber(isoDate: string): number | null {
+    const taiSan = parseBigNumberInput(totalTaiSan);
+    const chiCu = parseChiVangCuInput(totalChiVangCu);
+    const dong17h30Ban = manhHaiRawNumber(isoDate, MANH_HAI_COL.BAN_17H30);
+    if (taiSan == null || dong17h30Ban == null || chiCu == null) return null;
+    return taiSan / dong17h30Ban - chiCu;
+  }
+
+  /** So với hàng liền trên trong bảng: xanh tăng, đỏ giảm, đen nếu không đổi hoặc không so được. */
+  function toneClassCompareToRowAbove(
+    current: number | null,
+    prev: number | null,
+  ): string {
+    if (current == null) return "text-stone-950 dark:text-stone-50 font-bold";
+    if (prev == null) return "text-stone-950 dark:text-stone-50 font-bold";
+    if (current > prev) return "text-green-600 dark:text-green-400 font-bold";
+    if (current < prev) return "text-red-600 dark:text-red-400 font-bold";
+    return "text-stone-950 dark:text-stone-50 font-bold";
+  }
+
+  /**
+   * MUA 11h/14h30/17h30 và Bán 11h/14h30/17h30: so với mốc giờ ngay trước (cùng hàng).
+   * 9h giữ màu mặc định; CHÊNH LỆCH dùng tone từ getNumberToneClass trong manhHaiCellValue.
+   */
+  function manhHaiMoDongVsPrevTimeTone(
+    isoDate: string,
+    colIndex: number,
+  ): string | undefined {
+    if (colIndex >= 2 && colIndex <= 4) {
+      const cur = manhHaiRawNumber(isoDate, colIndex);
+      const prev = manhHaiRawNumber(isoDate, colIndex - 1);
+      return toneClassCompareToRowAbove(cur, prev);
+    }
+    if (colIndex >= 7 && colIndex <= 9) {
+      const cur = manhHaiRawNumber(isoDate, colIndex);
+      const prev = manhHaiRawNumber(isoDate, colIndex - 1);
+      return toneClassCompareToRowAbove(cur, prev);
+    }
+    return undefined;
   }
 
   /**
@@ -2544,7 +2594,7 @@ export default function Home() {
               </tr>
             </thead>
             <tbody>
-              {dateRows.map((row) => (
+              {dateRows.map((row, rowIdx) => (
                 <tr
                   key={row.isoDate}
                   className="group/row transition-colors duration-200 hover:bg-stone-100/50 dark:hover:bg-stone-800/30"
@@ -2618,8 +2668,13 @@ export default function Home() {
                         ) : j >= 1 && j <= 10 ? (
                           (() => {
                             const v = manhHaiCellValue(row.isoDate, j);
-                            return v.toneClass ? (
-                              <span className={v.toneClass}>{v.text}</span>
+                            const slotTone = manhHaiMoDongVsPrevTimeTone(
+                              row.isoDate,
+                              j,
+                            );
+                            const toneClass = slotTone ?? v.toneClass;
+                            return toneClass ? (
+                              <span className={toneClass}>{v.text}</span>
                             ) : (
                               v.text
                             );
@@ -2800,9 +2855,38 @@ export default function Home() {
                             );
                           })()
                         ) : j === 61 ? (
-                          chiVangIndexTaiSanOverDong17h30(row.isoDate)
+                          (() => {
+                            const text =
+                              chiVangIndexTaiSanOverDong17h30(row.isoDate);
+                            if (text === "–") return text;
+                            const n = chiVangIndexNumber(row.isoDate);
+                            const prevIso =
+                              rowIdx > 0
+                                ? dateRows[rowIdx - 1]!.isoDate
+                                : null;
+                            const prevN =
+                              prevIso != null
+                                ? chiVangIndexNumber(prevIso)
+                                : null;
+                            const cls = toneClassCompareToRowAbove(n, prevN);
+                            return <span className={cls}>{text}</span>;
+                          })()
                         ) : j === 62 ? (
-                          chiVangThemMinusChiCu(row.isoDate)
+                          (() => {
+                            const text = chiVangThemMinusChiCu(row.isoDate);
+                            if (text === "–") return text;
+                            const n = chiVangThemNumber(row.isoDate);
+                            const prevIso =
+                              rowIdx > 0
+                                ? dateRows[rowIdx - 1]!.isoDate
+                                : null;
+                            const prevN =
+                              prevIso != null
+                                ? chiVangThemNumber(prevIso)
+                                : null;
+                            const cls = toneClassCompareToRowAbove(n, prevN);
+                            return <span className={cls}>{text}</span>;
+                          })()
                         ) : j >= 58 && j <= 60 ? (
                           vcbCellValue(row.isoDate, j)
                         ) : (
