@@ -2642,28 +2642,28 @@ export default function Home() {
                     >
                       9h
                       <br />
-                      (Việt Nam)
+                      (US)
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
                     >
                       11h
                       <br />
-                      (Việt Nam)
+                      (US)
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
                     >
                       14h30
                       <br />
-                      (Việt Nam)
+                      (US)
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
                     >
                       17h30
                       <br />
-                      (Việt Nam)
+                      (US)
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
