@@ -48,7 +48,7 @@
 }
 
 html {
-  overflow-x: auto;
+  overflow-x: hidden;
   overflow-y: scroll;
   scrollbar-width: thin;
   scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
@@ -87,7 +87,8 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
-  min-width: min-content;
+  width: 100%;
+  overflow-x: hidden;
 }
 
 /* Animations */

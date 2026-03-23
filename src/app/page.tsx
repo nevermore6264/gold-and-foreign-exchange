@@ -256,6 +256,40 @@ const LS_INPUT_CHI_VANG_CU = "gia-vang-input-chi-vang-cu";
 const LS_INPUT_DAU_TU = "gia-vang-input-dau-tu";
 const LS_INPUT_CHI_VANG_DANG_CO = "gia-vang-input-chi-vang-dang-co";
 const LS_CELL_BG_COLORS = "gia-vang-cell-bg-colors";
+const LS_MANUAL_CARD_VISIBILITY = "gia-vang-manual-card-visibility-v1";
+
+type ManualCardGroup = "manualLeft" | "manualRight";
+
+const MANUAL_CARD_GROUPS: ManualCardGroup[] = ["manualLeft", "manualRight"];
+
+const DEFAULT_MANUAL_CARD_VISIBILITY: Record<ManualCardGroup, boolean> = {
+  manualLeft: true,
+  manualRight: true,
+};
+
+const MANUAL_CARD_LABELS_VI: Record<ManualCardGroup, string> = {
+  manualLeft: "Thẻ nhập tay bên trái (∑ Đầu tư + ∑ chỉ vàng đang có)",
+  manualRight: "Thẻ nhập tay bên phải (∑ Tài sản + ∑ chỉ vàng cũ)",
+};
+
+function parseManualCardVisibilityFromStorage(
+  raw: string | null,
+): Record<ManualCardGroup, boolean> {
+  const next = { ...DEFAULT_MANUAL_CARD_VISIBILITY };
+  if (!raw) return next;
+  try {
+    const o = JSON.parse(raw) as Record<string, boolean>;
+    for (const g of MANUAL_CARD_GROUPS) {
+      if (typeof o[g] === "boolean") next[g] = o[g];
+    }
+  } catch {
+    /* ignore */
+  }
+  if (!MANUAL_CARD_GROUPS.some((g) => next[g])) {
+    return { ...DEFAULT_MANUAL_CARD_VISIBILITY };
+  }
+  return next;
+}
 
 function parseCellBgColorsFromStorage(
   raw: string | null,
@@ -557,6 +591,20 @@ export default function Home() {
     }
   });
   const [columnMenuOpen, setColumnMenuOpen] = useState(false);
+  const [columnMenuQuery, setColumnMenuQuery] = useState("");
+  const [manualCardVisibility, setManualCardVisibility] = useState<
+    Record<ManualCardGroup, boolean>
+  >(() => {
+    if (typeof window === "undefined")
+      return { ...DEFAULT_MANUAL_CARD_VISIBILITY };
+    try {
+      return parseManualCardVisibilityFromStorage(
+        localStorage.getItem(LS_MANUAL_CARD_VISIBILITY),
+      );
+    } catch {
+      return { ...DEFAULT_MANUAL_CARD_VISIBILITY };
+    }
+  });
 
   const [cellBgColors, setCellBgColors] = useState<Record<string, string>>({});
   const [cellColorPicker, setCellColorPicker] = useState<{
@@ -609,10 +657,37 @@ export default function Home() {
     }
   }, [columnVisibility]);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        LS_MANUAL_CARD_VISIBILITY,
+        JSON.stringify(manualCardVisibility),
+      );
+    } catch {
+      /* ignore */
+    }
+  }, [manualCardVisibility]);
+
   const visibleJ = useMemo(
     () => TABLE_COL_ORDER.filter((j) => isColumnVisible(j, columnVisibility)),
     [columnVisibility],
   );
+
+  const filteredToggleableGroups = useMemo(() => {
+    const q = columnMenuQuery.trim().toLocaleLowerCase("vi");
+    if (!q) return TOGGLEABLE_GROUPS;
+    return TOGGLEABLE_GROUPS.filter((g) =>
+      GROUP_LABELS_VI[g].toLocaleLowerCase("vi").includes(q),
+    );
+  }, [columnMenuQuery]);
+
+  const filteredManualCardGroups = useMemo(() => {
+    const q = columnMenuQuery.trim().toLocaleLowerCase("vi");
+    if (!q) return MANUAL_CARD_GROUPS;
+    return MANUAL_CARD_GROUPS.filter((g) =>
+      MANUAL_CARD_LABELS_VI[g].toLocaleLowerCase("vi").includes(q),
+    );
+  }, [columnMenuQuery]);
 
   useEffect(() => {
     try {
@@ -1378,45 +1453,145 @@ export default function Home() {
               <div className="relative z-30">
                 <button
                   type="button"
-                  onClick={() => setColumnMenuOpen((o) => !o)}
-                  className="h-9 shrink-0 rounded-xl border border-amber-200/70 bg-white px-3 text-[14px] font-semibold text-amber-900 hover:bg-amber-50/80 dark:border-amber-800/45 dark:bg-stone-900 dark:text-amber-200 dark:hover:bg-amber-950/40"
+                  onClick={() =>
+                    setColumnMenuOpen((o) => {
+                      const next = !o;
+                      if (!next) setColumnMenuQuery("");
+                      return next;
+                    })
+                  }
+                  className={`inline-flex h-9 shrink-0 items-center gap-2 rounded-xl border px-3 text-[14px] font-semibold transition-colors ${
+                    columnMenuOpen
+                      ? "border-amber-300 bg-amber-100/90 text-amber-900 dark:border-amber-700 dark:bg-amber-900/35 dark:text-amber-100"
+                      : "border-amber-200/70 bg-white text-amber-900 hover:bg-amber-50/80 dark:border-amber-800/45 dark:bg-stone-900 dark:text-amber-200 dark:hover:bg-amber-950/40"
+                  }`}
+                  aria-expanded={columnMenuOpen}
+                  aria-haspopup="dialog"
                 >
-                  Ẩn / hiện cột
+                  <span className="text-[15px] leading-none">⚙</span>
+                  <span>Tùy chỉnh hiển thị</span>
+                  <span className="text-[12px] leading-none">
+                    {columnMenuOpen ? "▲" : "▼"}
+                  </span>
                 </button>
                 {columnMenuOpen ? (
                   <div
-                    className="absolute left-0 sm:left-0 top-full z-40 mt-1.5 min-w-[280px] max-h-[min(70vh,420px)] overflow-y-auto rounded-xl border border-amber-200/80 bg-white p-3 shadow-xl dark:border-stone-600 dark:bg-stone-900"
+                    className="scroll-table-premium absolute left-0 sm:left-0 top-full z-40 mt-1.5 min-w-[320px] max-h-[min(72vh,460px)] overflow-y-auto rounded-2xl border border-amber-200/80 bg-white/95 p-3 shadow-2xl backdrop-blur-sm dark:border-stone-600 dark:bg-stone-900/95"
                     role="dialog"
                     aria-label="Chọn nhóm cột hiển thị"
                   >
-                    <p className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
-                      Nhóm cột
-                    </p>
-                    <div className="flex flex-col gap-1">
-                      {TOGGLEABLE_GROUPS.map((g) => (
-                        <label
-                          key={g}
-                          className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-stone-100 dark:hover:bg-stone-800"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={columnVisibility[g]}
-                            onChange={(e) => {
-                              const checked = e.target.checked;
-                              setColumnVisibility((prev) => {
-                                const next = { ...prev, [g]: checked };
-                                if (!TOGGLEABLE_GROUPS.some((x) => next[x]))
-                                  return prev;
-                                return next;
-                              });
-                            }}
-                            className="h-4 w-4 rounded border-stone-300 text-amber-600 focus:ring-amber-500 dark:border-stone-600 dark:bg-stone-800"
-                          />
-                          <span className="text-[14px] text-stone-800 dark:text-stone-200">
-                            {GROUP_LABELS_VI[g]}
-                          </span>
-                        </label>
-                      ))}
+                    <div className="mb-3 flex items-start justify-between gap-3 px-1">
+                      <div>
+                        <p className="text-[14px] font-extrabold text-stone-900 dark:text-stone-100">
+                          Tùy chỉnh hiển thị
+                        </p>
+                        <p className="mt-0.5 text-[12px] text-stone-500 dark:text-stone-400">
+                          Chọn nhanh phần muốn xem trên màn hình
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        className="rounded-md border border-stone-200 px-2 py-1 text-[12px] font-semibold text-stone-600 hover:bg-stone-100 dark:border-stone-700 dark:text-stone-300 dark:hover:bg-stone-800"
+                        onClick={() => {
+                          setColumnMenuOpen(false);
+                          setColumnMenuQuery("");
+                        }}
+                      >
+                        Đóng
+                      </button>
+                    </div>
+
+                    <div className="mb-2 px-1">
+                      <input
+                        type="text"
+                        value={columnMenuQuery}
+                        onChange={(e) => setColumnMenuQuery(e.target.value)}
+                        placeholder="Tìm nhanh nhóm hiển thị..."
+                        className="h-9 w-full rounded-lg border border-stone-200/90 bg-white px-3 text-[13px] text-stone-800 outline-none focus:border-amber-300 focus:ring-2 focus:ring-amber-200/70 dark:border-stone-700 dark:bg-stone-950 dark:text-stone-100 dark:focus:border-amber-700 dark:focus:ring-amber-900/45"
+                      />
+                    </div>
+
+                    <div className="rounded-xl border border-amber-200/80 bg-amber-50/60 p-2 dark:border-amber-800/50 dark:bg-amber-950/25">
+                      <p className="mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-300">
+                        Nhóm cột
+                      </p>
+                      <div className="flex flex-col gap-1">
+                        {filteredToggleableGroups.map((g) => (
+                          <label
+                            key={g}
+                            className="flex cursor-pointer items-center justify-between gap-3 rounded-lg px-2 py-1.5 hover:bg-white/80 dark:hover:bg-stone-800/70"
+                          >
+                            <span className="text-[14px] text-stone-800 dark:text-stone-200">
+                              {GROUP_LABELS_VI[g]}
+                            </span>
+                            <span className="relative inline-flex shrink-0 items-center">
+                              <input
+                                type="checkbox"
+                                checked={columnVisibility[g]}
+                                onChange={(e) => {
+                                  const checked = e.target.checked;
+                                  setColumnVisibility((prev) => {
+                                    const next = { ...prev, [g]: checked };
+                                    if (!TOGGLEABLE_GROUPS.some((x) => next[x]))
+                                      return prev;
+                                    return next;
+                                  });
+                                }}
+                                className="peer sr-only"
+                              />
+                              <span className="h-5 w-9 rounded-full bg-stone-300 transition-colors peer-checked:bg-amber-500 dark:bg-stone-600 dark:peer-checked:bg-amber-500" />
+                              <span className="pointer-events-none absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform peer-checked:translate-x-4" />
+                            </span>
+                          </label>
+                        ))}
+                        {filteredToggleableGroups.length === 0 ? (
+                          <p className="px-2 py-1 text-[12px] text-stone-500 dark:text-stone-400">
+                            Không tìm thấy nhóm cột phù hợp.
+                          </p>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <div className="mt-2 rounded-xl border border-blue-200/80 bg-blue-50/60 p-2 dark:border-blue-800/50 dark:bg-blue-950/20">
+                      <p className="mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-wide text-blue-800 dark:text-blue-300">
+                        Ô nhập số
+                      </p>
+                      <div className="flex flex-col gap-1">
+                        {filteredManualCardGroups.map((g) => (
+                          <label
+                            key={g}
+                            className="flex cursor-pointer items-center justify-between gap-3 rounded-lg px-2 py-1.5 hover:bg-white/80 dark:hover:bg-stone-800/70"
+                          >
+                            <span className="text-[14px] text-stone-800 dark:text-stone-200">
+                              {MANUAL_CARD_LABELS_VI[g]}
+                            </span>
+                            <span className="relative inline-flex shrink-0 items-center">
+                              <input
+                                type="checkbox"
+                                checked={manualCardVisibility[g]}
+                                onChange={(e) => {
+                                  const checked = e.target.checked;
+                                  setManualCardVisibility((prev) => {
+                                    const next = { ...prev, [g]: checked };
+                                    if (!MANUAL_CARD_GROUPS.some((x) => next[x])) {
+                                      return prev;
+                                    }
+                                    return next;
+                                  });
+                                }}
+                                className="peer sr-only"
+                              />
+                              <span className="h-5 w-9 rounded-full bg-stone-300 transition-colors peer-checked:bg-blue-500 dark:bg-stone-600 dark:peer-checked:bg-blue-500" />
+                              <span className="pointer-events-none absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform peer-checked:translate-x-4" />
+                            </span>
+                          </label>
+                        ))}
+                        {filteredManualCardGroups.length === 0 ? (
+                          <p className="px-2 py-1 text-[12px] text-stone-500 dark:text-stone-400">
+                            Không tìm thấy ô nhập số phù hợp.
+                          </p>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
                 ) : null}
@@ -1616,7 +1791,8 @@ export default function Home() {
           <div className="mt-5 w-full max-w-4xl">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
               {/* 1 — Σ Đầu tư */}
-              <div className="group relative min-w-0 overflow-hidden rounded-2xl border border-blue-200/80 bg-white shadow-md shadow-blue-900/[0.05] ring-1 ring-stone-900/[0.04] transition-[box-shadow] duration-200 hover:shadow-lg dark:border-blue-800/40 dark:bg-stone-900 dark:ring-white/[0.06]">
+              {manualCardVisibility.manualLeft ? (
+                <div className="group relative min-w-0 overflow-hidden rounded-2xl border border-blue-200/80 bg-white shadow-md shadow-blue-900/[0.05] ring-1 ring-stone-900/[0.04] transition-[box-shadow] duration-200 hover:shadow-lg dark:border-blue-800/40 dark:bg-stone-900 dark:ring-white/[0.06]">
                 <div
                   className="h-1 w-full bg-gradient-to-r from-blue-600 via-sky-500 to-blue-500 opacity-95 dark:from-blue-500 dark:via-sky-400 dark:to-blue-400"
                   aria-hidden
@@ -1662,10 +1838,12 @@ export default function Home() {
                     className="h-12 w-full rounded-xl border border-stone-200/90 bg-gradient-to-b from-stone-50/90 to-white px-2.5 py-1.5 text-right text-base font-bold tabular-nums text-stone-900 shadow-inner focus:border-blue-400/70 focus:outline-none focus:ring-2 focus:ring-blue-400/30 dark:border-stone-600 dark:from-stone-900 dark:to-stone-950 dark:text-stone-50 dark:focus:border-blue-600/50 dark:focus:ring-blue-500/25"
                   />
                 </div>
-              </div>
+                </div>
+              ) : null}
 
               {/* 2 — Σ Tài sản (dùng trong công thức cột bảng) */}
-              <div className="group relative min-w-0 overflow-hidden rounded-2xl border border-emerald-200/70 bg-white shadow-md shadow-emerald-900/[0.06] ring-1 ring-stone-900/[0.04] transition-[box-shadow] duration-200 hover:shadow-lg dark:border-emerald-800/45 dark:bg-stone-900 dark:ring-white/[0.06]">
+              {manualCardVisibility.manualRight ? (
+                <div className="group relative min-w-0 overflow-hidden rounded-2xl border border-emerald-200/70 bg-white shadow-md shadow-emerald-900/[0.06] ring-1 ring-stone-900/[0.04] transition-[box-shadow] duration-200 hover:shadow-lg dark:border-emerald-800/45 dark:bg-stone-900 dark:ring-white/[0.06]">
                 <div
                   className="h-1 w-full bg-gradient-to-r from-emerald-600 via-teal-500 to-emerald-500 opacity-95 dark:from-emerald-500 dark:via-teal-400 dark:to-emerald-400"
                   aria-hidden
@@ -1711,10 +1889,12 @@ export default function Home() {
                     className="h-12 w-full rounded-xl border border-stone-200/90 bg-gradient-to-b from-stone-50/90 to-white px-2.5 py-1.5 text-right text-base font-bold tabular-nums text-stone-900 shadow-inner focus:border-emerald-400/70 focus:outline-none focus:ring-2 focus:ring-emerald-400/35 dark:border-stone-600 dark:from-stone-900 dark:to-stone-950 dark:text-stone-50 dark:focus:border-emerald-600/50 dark:focus:ring-emerald-500/25"
                   />
                 </div>
-              </div>
+                </div>
+              ) : null}
 
               {/* 3 — Σ chỉ vàng đang có */}
-              <div className="group relative min-w-0 overflow-hidden rounded-2xl border border-violet-200/80 bg-white shadow-md shadow-violet-900/[0.06] ring-1 ring-stone-900/[0.04] transition-[box-shadow] duration-200 hover:shadow-lg dark:border-violet-800/40 dark:bg-stone-900 dark:ring-white/[0.06]">
+              {manualCardVisibility.manualLeft ? (
+                <div className="group relative min-w-0 overflow-hidden rounded-2xl border border-violet-200/80 bg-white shadow-md shadow-violet-900/[0.06] ring-1 ring-stone-900/[0.04] transition-[box-shadow] duration-200 hover:shadow-lg dark:border-violet-800/40 dark:bg-stone-900 dark:ring-white/[0.06]">
                 <div
                   className="h-1 w-full bg-gradient-to-r from-violet-600 via-purple-500 to-violet-500 opacity-95 dark:from-violet-500 dark:via-purple-400 dark:to-violet-400"
                   aria-hidden
@@ -1760,10 +1940,12 @@ export default function Home() {
                     className="h-12 w-full rounded-xl border border-stone-200/90 bg-gradient-to-b from-stone-50/90 to-white px-2.5 py-1.5 text-right text-base font-bold tabular-nums text-stone-900 shadow-inner focus:border-violet-400/70 focus:outline-none focus:ring-2 focus:ring-violet-400/35 dark:border-stone-600 dark:from-stone-900 dark:to-stone-950 dark:text-stone-50 dark:focus:border-violet-600/50 dark:focus:ring-violet-500/25"
                   />
                 </div>
-              </div>
+                </div>
+              ) : null}
 
               {/* 4 — Σ chỉ vàng cũ (dùng trong công thức cột bảng) */}
-              <div className="group relative min-w-0 overflow-hidden rounded-2xl border border-amber-200/80 bg-white shadow-md shadow-amber-900/[0.07] ring-1 ring-stone-900/[0.04] transition-[box-shadow] duration-200 hover:shadow-lg dark:border-amber-800/40 dark:bg-stone-900 dark:ring-white/[0.06]">
+              {manualCardVisibility.manualRight ? (
+                <div className="group relative min-w-0 overflow-hidden rounded-2xl border border-amber-200/80 bg-white shadow-md shadow-amber-900/[0.07] ring-1 ring-stone-900/[0.04] transition-[box-shadow] duration-200 hover:shadow-lg dark:border-amber-800/40 dark:bg-stone-900 dark:ring-white/[0.06]">
                 <div
                   className="h-1 w-full bg-gradient-to-r from-amber-600 via-orange-500 to-amber-500 opacity-95 dark:from-amber-500 dark:via-orange-400 dark:to-amber-400"
                   aria-hidden
@@ -1809,7 +1991,8 @@ export default function Home() {
                     className="h-12 w-full rounded-xl border border-stone-200/90 bg-gradient-to-b from-stone-50/90 to-white px-2.5 py-1.5 text-right text-base font-bold tabular-nums text-stone-900 shadow-inner focus:border-amber-400/70 focus:outline-none focus:ring-2 focus:ring-amber-400/35 dark:border-stone-600 dark:from-stone-900 dark:to-stone-950 dark:text-stone-50 dark:focus:border-amber-600/50 dark:focus:ring-amber-500/25"
                   />
                 </div>
-              </div>
+                </div>
+              ) : null}
             </div>
           </div>
 
