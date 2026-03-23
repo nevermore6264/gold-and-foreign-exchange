@@ -137,8 +137,8 @@ function getRegionBgClass(colIndex: number): string {
   // Mạnh Hải Mua/Bán: col_1..col_10 — nền trắng (body)
   if (colIndex >= 1 && colIndex <= 10)
     return "bg-white dark:bg-stone-950/35 group-hover/row:bg-[#fafafa] dark:group-hover/row:bg-stone-900/45";
-  // Lãi (nếu bán ra): col_63..66 — xanh lá nhạt (Excel ~#e6f0db)
-  if (colIndex >= 63 && colIndex <= 66)
+  // Lãi (nếu bán ra): col_67..70 — xanh lá nhạt (Excel ~#e6f0db)
+  if (colIndex >= 67 && colIndex <= 70)
     return "bg-[#e6f0db] dark:bg-emerald-950/35 group-hover/row:bg-[#dce8d0] dark:group-hover/row:bg-emerald-950/50";
   // KITCO - GIÁ VÀNG THẾ GIỚI: col_13..col_21 — nền xám nhạt (giống Excel)
   if (colIndex >= 13 && colIndex <= 21)
@@ -157,8 +157,11 @@ function getRegionBgClass(colIndex: number): string {
     return "bg-[#e5e5e5] dark:bg-stone-800/45 group-hover/row:bg-[#dadada] dark:group-hover/row:bg-stone-800/65";
   // VCB: col_60 — tím
   if (colIndex === 60) return "bg-violet-200/50 dark:bg-violet-900/30";
+  // CHÊNH LỆCH (trong nước / thế giới): col_62..65 — vàng nhạt (như Excel)
+  if (colIndex >= 62 && colIndex <= 65)
+    return "bg-[#fff9c4] dark:bg-amber-950/25 group-hover/row:bg-[#fff59d] dark:group-hover/row:bg-amber-950/40";
   // ∑ chỉ vàng & ∑ chỉ vàng thêm — cùng nền xanh lá
-  if (colIndex === 61 || colIndex === 62)
+  if (colIndex === 61 || colIndex === 66)
     return "bg-emerald-200/60 dark:bg-emerald-900/30";
 
   return "";
@@ -167,7 +170,7 @@ function getRegionBgClass(colIndex: number): string {
 function getRegionHeaderBgClass(colIndex: number): string {
   // Đậm hơn body để nhìn rõ ở header.
   if (colIndex >= 1 && colIndex <= 10) return "bg-[#C8E3F5] dark:bg-sky-900/48";
-  if (colIndex >= 63 && colIndex <= 66)
+  if (colIndex >= 67 && colIndex <= 70)
     return "bg-[#d4e8c8] dark:bg-emerald-900/50";
   // KITCO: header đào / hồng nhạt (nhóm “MỞ / ĐÓNG / …”)
   if (colIndex >= 13 && colIndex <= 21)
@@ -184,7 +187,9 @@ function getRegionHeaderBgClass(colIndex: number): string {
   if (colIndex >= 49 && colIndex <= 57)
     return "bg-[#fde4dc] dark:bg-rose-950/40";
   if (colIndex === 60) return "bg-violet-300/75 dark:bg-violet-900/45";
-  if (colIndex === 61 || colIndex === 62)
+  if (colIndex >= 62 && colIndex <= 65)
+    return "bg-[#fff59d] dark:bg-amber-950/45";
+  if (colIndex === 61 || colIndex === 66)
     return "bg-emerald-200/80 dark:bg-emerald-900/45";
   return "";
 }
@@ -1004,7 +1009,7 @@ export default function Home() {
   }
 
   /**
-   * col_62 "∑ chỉ vàng thêm" = ∑ chỉ vàng − ∑ CHỈ VÀNG CŨ
+   * col_66 "∑ chỉ vàng thêm" = ∑ chỉ vàng − ∑ CHỈ VÀNG CŨ
    * (= cùng số với col_61 trừ ô nhập ∑ CHỈ VÀNG CŨ)
    */
   function chiVangThemMinusChiCu(isoDate: string): string {
@@ -1030,13 +1035,39 @@ export default function Home() {
     return taiSan / dong17h30Ban;
   }
 
-  /** Giá trị số cột ∑ chỉ vàng thêm (62). */
+  /** Giá trị số cột ∑ chỉ vàng thêm (66). */
   function chiVangThemNumber(isoDate: string): number | null {
     const taiSan = parseBigNumberInput(totalTaiSan);
     const chiCu = parseChiVangCuInput(totalChiVangCu);
     const dong17h30Ban = manhHaiRawNumber(isoDate, MANH_HAI_COL.BAN_17H30);
     if (taiSan == null || dong17h30Ban == null || chiCu == null) return null;
     return taiSan / dong17h30Ban - chiCu;
+  }
+
+  /** Cột CHÊNH LỆCH (trong nước / thế giới) 62–65: MUA − (KITCO/8.2945)×∑chỉ vàng đang có — khớp Excel $BP$6. */
+  const CHENH_LECH_TRONG_THE_GIOI_DENOM = 8.2945;
+
+  function parseNumberFromDisplayedKitco(s: string): number | null {
+    const t = s.trim();
+    if (t === "–" || t === "") return null;
+    const x = t.replace("%", "").trim().replace(/\s/g, "");
+    const n = parseFloat(x.replace(/,/g, ""));
+    return Number.isFinite(n) ? n : null;
+  }
+
+  function chenhLechTrongNuocTheGioiNumber(
+    isoDate: string,
+    slotIdx: 0 | 1 | 2 | 3,
+  ): number | null {
+    const muaCols = [1, 2, 3, 4] as const;
+    const kitcoCols = [14, 15, 16, 17] as const;
+    const chi = parseChiVangCuInput(chiVangDangCo);
+    const mua = manhHaiRawNumber(isoDate, muaCols[slotIdx]);
+    const kitcoStr = kitcoCellValue(isoDate, kitcoCols[slotIdx]);
+    const kitco = parseNumberFromDisplayedKitco(kitcoStr);
+    if (chi == null || mua == null || kitco == null) return null;
+    const v = mua - (kitco / CHENH_LECH_TRONG_THE_GIOI_DENOM) * chi;
+    return Number.isFinite(v) ? v : null;
   }
 
   /** So với hàng liền trên trong bảng: xanh tăng, đỏ giảm, đen nếu không đổi hoặc không so được. */
@@ -1079,7 +1110,7 @@ export default function Home() {
    */
   function laiNeuBanRa(
     isoDate: string,
-    colJ: 63 | 64 | 65 | 66,
+    colJ: 67 | 68 | 69 | 70,
   ): { text: string; toneClass?: string } {
     const muaCols = [
       MANH_HAI_COL.MUA_9H,
@@ -1093,7 +1124,7 @@ export default function Home() {
       MANH_HAI_COL.BAN_14H30,
       MANH_HAI_COL.BAN_17H30,
     ] as const;
-    const slotIdx = colJ - 63;
+    const slotIdx = colJ - 67;
     const dauTu = parseBigNumberInput(totalDauTu);
     const chi = parseChiVangCuInput(chiVangDangCo);
     const giaMua = manhHaiRawNumber(isoDate, muaCols[slotIdx]!);
@@ -1118,8 +1149,8 @@ export default function Home() {
     if (j === 11) return row.weekdayLabel;
     if (j === 12) return row.dateLabel;
     if (j >= 1 && j <= 10) return manhHaiCellValue(isoDate, j).text;
-    if (j >= 63 && j <= 66)
-      return laiNeuBanRa(isoDate, j as 63 | 64 | 65 | 66).text;
+    if (j >= 67 && j <= 70)
+      return laiNeuBanRa(isoDate, j as 67 | 68 | 69 | 70).text;
     if (j === 21) return formatChangeWithPlus(kitcoCellValue(isoDate, j));
     if (j === 30)
       return formatChangeWithPlus(marketTimedCellValue(isoDate, j, "oil"));
@@ -1138,7 +1169,14 @@ export default function Home() {
     if (j >= 40 && j <= 47) return marketTimedCellValue(isoDate, j, "bond10y");
     if (j >= 49 && j <= 56) return marketTimedCellValue(isoDate, j, "sp500");
     if (j === 61) return chiVangIndexTaiSanOverDong17h30(isoDate);
-    if (j === 62) return chiVangThemMinusChiCu(isoDate);
+    if (j >= 62 && j <= 65) {
+      const n = chenhLechTrongNuocTheGioiNumber(
+        isoDate,
+        (j - 62) as 0 | 1 | 2 | 3,
+      );
+      return n == null ? "–" : formatVnd(n);
+    }
+    if (j === 66) return chiVangThemMinusChiCu(isoDate);
     if (j === 60) return vcbCellValue(isoDate, j);
     return "–";
   }
@@ -1868,8 +1906,14 @@ export default function Home() {
                       <span className="block">vàng</span>
                     </th>
                     <th
+                      colSpan={4}
+                      className={`border border-black dark:border-stone-200 border-l-0 px-2 py-2 text-[14px] font-bold uppercase tracking-wide text-stone-900 dark:text-stone-100 ${getRegionHeaderBgClass(62)}`}
+                    >
+                      CHÊNH LỆCH
+                    </th>
+                    <th
                       rowSpan={3}
-                      className={`border border-black dark:border-stone-200 border-l-0 px-1.5 py-2 w-[4.5rem] min-w-[4.5rem] text-[14px] font-bold leading-tight text-stone-900 dark:text-stone-100 ${getRegionHeaderBgClass(62)}`}
+                      className={`border border-black dark:border-stone-200 border-l-0 px-1.5 py-2 w-[4.5rem] min-w-[4.5rem] text-[14px] font-bold leading-tight text-stone-900 dark:text-stone-100 ${getRegionHeaderBgClass(66)}`}
                     >
                       <span className="block">∑</span>
                       <span className="block">chỉ vàng</span>
@@ -1957,6 +2001,14 @@ export default function Home() {
                   </>
                 ) : null}
                 {/* Thứ, Ngày đã rowSpan=3 ở dòng 1 nên bỏ qua ở dòng 2 */}
+                {columnVisibility.sumCols ? (
+                  <th
+                    colSpan={4}
+                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-2 text-[14px] font-bold text-center text-stone-900 dark:text-stone-100 ${getRegionHeaderBgClass(62)}`}
+                  >
+                    (trong nước / thế giới)
+                  </th>
+                ) : null}
                 {columnVisibility.kitco ? (
                   <>
                     {/* KITCO (9 cột) */}
@@ -2315,6 +2367,38 @@ export default function Home() {
                   </>
                 ) : null}
                 {/* Thứ, Ngày đã rowSpan=3 ở dòng 1 */}
+                {columnVisibility.sumCols ? (
+                  <>
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(62)}`}
+                    >
+                      9h
+                      <br />
+                      (Việt Nam)
+                    </th>
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(62)}`}
+                    >
+                      11h
+                      <br />
+                      (Việt Nam)
+                    </th>
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(62)}`}
+                    >
+                      14h30
+                      <br />
+                      (Việt Nam)
+                    </th>
+                    <th
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(62)}`}
+                    >
+                      17h30
+                      <br />
+                      (Việt Nam)
+                    </th>
+                  </>
+                ) : null}
                 {columnVisibility.kitco ? (
                   <>
                     {/* KITCO (9 cột) */}
@@ -2652,7 +2736,7 @@ export default function Home() {
                               ? `sticky left-0 z-20 border-r border-b border-black dark:border-stone-200 px-1.5 py-2 text-right text-[13px] font-bold w-16 max-w-16 truncate tabular-nums text-stone-950 dark:text-stone-100 bg-orange-50 dark:bg-orange-950/30 group-hover/row:bg-orange-100/90 dark:group-hover/row:bg-orange-950/45 shadow-[4px_0_10px_-6px_rgba(0,0,0,0.15)] dark:shadow-[4px_0_10px_-6px_rgba(0,0,0,0.5)] ${TD_CELL_FX}`
                               : j === 12
                                 ? `sticky left-16 z-[19] border-r border-b border-black dark:border-stone-200 px-2 py-2 text-center text-[14px] font-bold w-32 max-w-32 truncate tabular-nums text-red-600 dark:text-red-400 bg-sky-100 dark:bg-sky-950/45 group-hover/row:bg-sky-200/85 dark:group-hover/row:bg-sky-900/50 shadow-[4px_0_10px_-6px_rgba(0,0,0,0.12)] dark:shadow-[4px_0_10px_-6px_rgba(0,0,0,0.45)] ${TD_CELL_FX}`
-                                : j === 61 || j === 62
+                                : j >= 61 && j <= 66
                                   ? `border-r border-b border-black dark:border-stone-200 px-2 py-2 text-[14px] font-bold max-w-[110px] truncate tabular-nums text-stone-950 dark:text-stone-50 text-center ${getRegionBgClass(j)} ${TD_CELL_FX}`
                                   : `border-r border-b border-black dark:border-stone-200 px-2 py-2 text-[14px] font-bold max-w-[130px] truncate tabular-nums text-stone-950 dark:text-stone-50 ${getRegionBgClass(j)} ${TD_CELL_FX}`
                         }
@@ -2679,11 +2763,11 @@ export default function Home() {
                               v.text
                             );
                           })()
-                        ) : j >= 63 && j <= 66 ? (
+                        ) : j >= 67 && j <= 70 ? (
                           (() => {
                             const v = laiNeuBanRa(
                               row.isoDate,
-                              j as 63 | 64 | 65 | 66,
+                              j as 67 | 68 | 69 | 70,
                             );
                             return v.toneClass ? (
                               <span className={v.toneClass}>{v.text}</span>
@@ -2871,7 +2955,26 @@ export default function Home() {
                             const cls = toneClassCompareToRowAbove(n, prevN);
                             return <span className={cls}>{text}</span>;
                           })()
-                        ) : j === 62 ? (
+                        ) : j >= 62 && j <= 65 ? (
+                          (() => {
+                            const slot = (j - 62) as 0 | 1 | 2 | 3;
+                            const n = chenhLechTrongNuocTheGioiNumber(
+                              row.isoDate,
+                              slot,
+                            );
+                            const text = n == null ? "–" : formatVnd(n);
+                            if (text === "–") return text;
+                            const prevN =
+                              slot > 0
+                                ? chenhLechTrongNuocTheGioiNumber(
+                                    row.isoDate,
+                                    (slot - 1) as 0 | 1 | 2 | 3,
+                                  )
+                                : null;
+                            const cls = toneClassCompareToRowAbove(n, prevN);
+                            return <span className={cls}>{text}</span>;
+                          })()
+                        ) : j === 66 ? (
                           (() => {
                             const text = chiVangThemMinusChiCu(row.isoDate);
                             if (text === "–") return text;
