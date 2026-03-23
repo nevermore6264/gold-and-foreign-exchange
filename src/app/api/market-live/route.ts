@@ -10,68 +10,66 @@ type LiveQuote = {
   updatedAt: string;
 };
 
+function liveQuoteFromYahoo(q: unknown): LiveQuote {
+  const now = new Date().toISOString();
+  if (!q || typeof q !== "object") {
+    return { updatedAt: now };
+  }
+  const o = q as {
+    regularMarketPrice?: number;
+    regularMarketChangePercent?: number;
+  };
+  return {
+    price:
+      typeof o.regularMarketPrice === "number"
+        ? o.regularMarketPrice
+        : undefined,
+    changePercent:
+      typeof o.regularMarketChangePercent === "number"
+        ? o.regularMarketChangePercent
+        : undefined,
+    updatedAt: now,
+  };
+}
+
 export async function GET() {
   try {
     const yahooFinance = new YahooFinance();
 
-    const [oil, dxy] = await Promise.all([
-      yahooFinance.quote("CL=F"),
-      yahooFinance.quote("DX-Y.NYB"),
-    ]);
-
-    const oilLive: LiveQuote = {
-      price:
-        typeof oil?.regularMarketPrice === "number"
-          ? oil.regularMarketPrice
-          : undefined,
-      changePercent:
-        typeof oil?.regularMarketChangePercent === "number"
-          ? oil.regularMarketChangePercent
-          : undefined,
-      updatedAt: new Date().toISOString(),
+    const quoteSafe = async (symbol: string) => {
+      try {
+        return await yahooFinance.quote(symbol);
+      } catch (e) {
+        console.error(`market-live quote ${symbol}:`, e);
+        return null;
+      }
     };
 
-    const dxyLive: LiveQuote = {
-      price:
-        typeof dxy?.regularMarketPrice === "number"
-          ? dxy.regularMarketPrice
-          : undefined,
-      changePercent:
-        typeof dxy?.regularMarketChangePercent === "number"
-          ? dxy.regularMarketChangePercent
-          : undefined,
-      updatedAt: new Date().toISOString(),
-    };
-
-    const [tnx, sp] = await Promise.all([
-      yahooFinance.quote("^TNX"),
-      yahooFinance.quote("^GSPC"),
+    const [oil, dxy, tnx, sp] = await Promise.all([
+      quoteSafe("CL=F"),
+      quoteSafe("DX-Y.NYB"),
+      quoteSafe("^TNX"),
+      quoteSafe("^GSPC"),
     ]);
+
+    const oilLive = liveQuoteFromYahoo(oil);
+
+    const dxyLive = liveQuoteFromYahoo(dxy);
 
     // ^TNX is in percent*10 (e.g. 4.30% -> ~43). Scale về % để khớp historal.
+    const tnxBase = liveQuoteFromYahoo(tnx);
+    const tnxO = tnx as {
+      regularMarketPrice?: number;
+    } | null;
     const tnxLive: LiveQuote = {
+      ...tnxBase,
       price:
-        typeof tnx?.regularMarketPrice === "number"
-          ? tnx.regularMarketPrice / 10
+        tnxO && typeof tnxO.regularMarketPrice === "number"
+          ? tnxO.regularMarketPrice / 10
           : undefined,
-      changePercent:
-        typeof tnx?.regularMarketChangePercent === "number"
-          ? tnx.regularMarketChangePercent
-          : undefined,
-      updatedAt: new Date().toISOString(),
     };
 
-    const spLive: LiveQuote = {
-      price:
-        typeof sp?.regularMarketPrice === "number"
-          ? sp.regularMarketPrice
-          : undefined,
-      changePercent:
-        typeof sp?.regularMarketChangePercent === "number"
-          ? sp.regularMarketChangePercent
-          : undefined,
-      updatedAt: new Date().toISOString(),
-    };
+    const spLive = liveQuoteFromYahoo(sp);
 
     return NextResponse.json({
       oil: oilLive,

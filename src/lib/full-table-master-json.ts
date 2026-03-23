@@ -13,7 +13,7 @@ const MASTER_PATH = path.join(getAppCacheRoot(), "full-table-dataset.json");
 /**
  * Tăng khi đổi cách gộp OHLC / generate ngày — bỏ qua master cũ để build lại dữ liệu thị trường.
  */
-export const MARKET_SCHEMA_VERSION = 2;
+export const MARKET_SCHEMA_VERSION = 3;
 
 /** Cùng shape với FullTableRow trong full-table.ts */
 export type MasterTableRow = Record<string, string | number | null>;

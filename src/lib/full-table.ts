@@ -211,8 +211,10 @@ export async function getFullTableRange(
 
   // Gộp Investing + Yahoo theo ngày (Investing có giới hạn pointscount → tháng gần nhất có thể thiếu).
   const oil = recomputeChangePercent(mergeOhlcByDate(oilInvesting, oilYahoo));
+  // Dollar: ưu tiên Yahoo trùng ngày — API Investing hay bị Cloudflare / trả rỗng trên serverless,
+  // trong khi DX-Y.NYB (Yahoo) thường ổn định hơn.
   const dollar = recomputeChangePercent(
-    mergeOhlcByDate(dollarInvesting, dollarYahoo),
+    mergeOhlcByDate(dollarYahoo, dollarInvesting),
   );
   const bondData = recomputeChangePercent(mergeOhlcByDate(bond, bondYahoo));
   const xauCombined = recomputeChangePercent(
