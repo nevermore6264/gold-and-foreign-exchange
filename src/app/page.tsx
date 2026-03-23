@@ -1044,7 +1044,9 @@ export default function Home() {
     return taiSan / dong17h30Ban - chiCu;
   }
 
-  /** Cột CHÊNH LỆCH (trong nước / thế giới) 62–65: MUA − (KITCO/8.2945)×∑chỉ vàng đang có — khớp Excel $BP$6. */
+  /** Cột CHÊNH LỆCH (trong nước / thế giới) 62–65:
+   *  = BÁN mạnh hải theo khung giờ - (KITCO - Giá vàng thế giới / 8.2945) * Tỉ giá VCB (bán).
+   */
   const CHENH_LECH_TRONG_THE_GIOI_DENOM = 8.2945;
 
   function parseNumberFromDisplayedKitco(s: string): number | null {
@@ -1059,14 +1061,30 @@ export default function Home() {
     isoDate: string,
     slotIdx: 0 | 1 | 2 | 3,
   ): number | null {
-    const muaCols = [1, 2, 3, 4] as const;
-    const kitcoCols = [14, 15, 16, 17] as const;
-    const chi = parseChiVangCuInput(chiVangDangCo);
-    const mua = manhHaiRawNumber(isoDate, muaCols[slotIdx]);
+    // 0..3 ứng với (9h, 11h, 14h30, 17h30)
+    const banCols = [6, 7, 8, 9] as const; // MANH_HAI_COL.BAN_*
+    const kitcoCols = [14, 15, 16, 17] as const; // KITCO 9h/11h/14h30/17h30
+
+    const ban = manhHaiRawNumber(isoDate, banCols[slotIdx]);
+
     const kitcoStr = kitcoCellValue(isoDate, kitcoCols[slotIdx]);
     const kitco = parseNumberFromDisplayedKitco(kitcoStr);
-    if (chi == null || mua == null || kitco == null) return null;
-    const v = mua - (kitco / CHENH_LECH_TRONG_THE_GIOI_DENOM) * chi;
+
+    const base = fullRowsByDate[isoDate];
+    const rawVcb = base ? base[`col_60`] : null;
+    const vcb =
+      rawVcb == null
+        ? null
+        : typeof rawVcb === "number"
+          ? rawVcb
+          : (() => {
+              const n = parseFloat(String(rawVcb).replace(/,/g, "").trim());
+              return Number.isFinite(n) ? n : null;
+            })();
+
+    if (ban == null || kitco == null || vcb == null) return null;
+
+    const v = ban - (kitco / CHENH_LECH_TRONG_THE_GIOI_DENOM) * vcb;
     return Number.isFinite(v) ? v : null;
   }
 
