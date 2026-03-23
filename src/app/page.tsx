@@ -64,6 +64,40 @@ function formatVnd(v: string | number | null | undefined): string {
   }).format(n);
 }
 
+function formatMarketNumberByColumn(
+  value: string | number | null | undefined,
+  colIndex: number,
+): string {
+  if (value === null || value === undefined) return "–";
+  const n =
+    typeof value === "number"
+      ? value
+      : parseFloat(String(value).replace(/,/g, "").trim());
+  if (!Number.isFinite(n)) return "–";
+
+  // KITCO và US10Y: giữ 3 số lẻ.
+  if ((colIndex >= 13 && colIndex <= 20) || (colIndex >= 40 && colIndex <= 47))
+    return new Intl.NumberFormat("en-US", {
+      minimumFractionDigits: 3,
+      maximumFractionDigits: 3,
+    }).format(n);
+
+  // Dầu và Dollar Index: 2 số lẻ.
+  if ((colIndex >= 22 && colIndex <= 29) || (colIndex >= 31 && colIndex <= 38))
+    return new Intl.NumberFormat("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(n);
+
+  // S&P 500: không số lẻ, có phân tách nghìn.
+  if (colIndex >= 49 && colIndex <= 56)
+    return new Intl.NumberFormat("vi-VN", {
+      maximumFractionDigits: 0,
+    }).format(n);
+
+  return formatCellValue(value);
+}
+
 /** Chuẩn hóa ô ∑ TÀI SẢN: chỉ chữ số + dấu . phân nghìn khi blur / load LS */
 function formatTaiSanInputDisplay(raw: string): string {
   const t = raw.trim();
@@ -883,18 +917,15 @@ export default function Home() {
 
     // Only overlay realtime for "today in Vietnam"
     const vnNow = getVietnamNowParts();
-    if (isoDate !== vnNow.isoDate) return formatCellValue(baseVal);
+    if (isoDate !== vnNow.isoDate)
+      return formatMarketNumberByColumn(baseVal, colIndex);
 
-    const slotMinutes = [0, 9 * 60, 11 * 60, 14 * 60 + 30, 17 * 60 + 30];
-    const currentSlot =
-      slotMinutes.filter((m) => vnNow.minutes >= m).length - 1;
-
-    // KITCO open slots are col_13..col_17 (0h,9h,11h,14h30,17h30)
+    // Giữ các cột khung giờ VN để tương thích layout, nhưng giá trị OPEN của thị trường
+    // không phụ thuộc mốc 0h/9h/11h/14h30/17h30 VN.
+    // Nếu có live thì điền cùng một giá OPEN cho toàn bộ cụm MỞ.
     if (colIndex >= 13 && colIndex <= 17) {
-      const slot = colIndex - 13;
-      if (kitcoLiveMid == null) return formatCellValue(baseVal);
-      if (currentSlot >= slot) return formatCellValue(kitcoLiveMid);
-      return "–";
+      if (kitcoLiveMid == null) return formatMarketNumberByColumn(baseVal, colIndex);
+      return formatMarketNumberByColumn(kitcoLiveMid, colIndex);
     }
 
     // KITCO change% is col_21
@@ -905,7 +936,7 @@ export default function Home() {
       return formatCellValue(baseVal);
     }
 
-    return formatCellValue(baseVal);
+    return formatMarketNumberByColumn(baseVal, colIndex);
   }
 
   function marketTimedCellValue(
@@ -917,7 +948,8 @@ export default function Home() {
     const baseVal = base ? base[`col_${colIndex}`] : null;
 
     const vnNow = getVietnamNowParts();
-    if (isoDate !== vnNow.isoDate) return formatCellValue(baseVal);
+    if (isoDate !== vnNow.isoDate)
+      return formatMarketNumberByColumn(baseVal, colIndex);
 
     const live =
       kind === "oil"
@@ -929,10 +961,6 @@ export default function Home() {
             : marketLive?.sp500;
     const livePrice = live?.price;
     const liveChangePercent = live?.changePercent;
-
-    const slotMinutes = [0, 9 * 60, 11 * 60, 14 * 60 + 30, 17 * 60 + 30];
-    const currentSlot =
-      slotMinutes.filter((m) => vnNow.minutes >= m).length - 1;
 
     const start =
       kind === "oil"
@@ -951,12 +979,12 @@ export default function Home() {
             ? 48
             : 57;
 
-    // open slots are start..start+4 (0h,9h,11h,14h30,17h30)
+    // Giữ khung cột VN nhưng giá OPEN/PRICE lấy theo phiên Mỹ (feed live),
+    // không khóa theo giờ VN.
     if (colIndex >= start && colIndex <= start + 4) {
-      const slot = colIndex - start;
-      if (typeof livePrice !== "number") return formatCellValue(baseVal);
-      if (currentSlot >= slot) return formatCellValue(livePrice);
-      return "–";
+      if (typeof livePrice !== "number")
+        return formatMarketNumberByColumn(baseVal, colIndex);
+      return formatMarketNumberByColumn(livePrice, colIndex);
     }
 
     // change% is the last col of the group
@@ -969,7 +997,7 @@ export default function Home() {
       return formatCellValue(baseVal);
     }
 
-    return formatCellValue(baseVal);
+    return formatMarketNumberByColumn(baseVal, colIndex);
   }
 
   function vcbCellValue(isoDate: string, colIndex: number): string {
@@ -1450,7 +1478,7 @@ export default function Home() {
               >
                 Tải CSV
               </button>
-              <div className="relative z-30">
+              <div className="relative z-[260]">
                 <button
                   type="button"
                   onClick={() =>
@@ -1474,19 +1502,27 @@ export default function Home() {
                     {columnMenuOpen ? "▲" : "▼"}
                   </span>
                 </button>
-                {columnMenuOpen ? (
-                  <div
-                    className="scroll-table-premium absolute left-0 sm:left-0 top-full z-40 mt-1.5 min-w-[320px] max-h-[min(72vh,460px)] overflow-y-auto rounded-2xl border border-amber-200/80 bg-white/95 p-3 shadow-2xl backdrop-blur-sm dark:border-stone-600 dark:bg-stone-900/95"
-                    role="dialog"
-                    aria-label="Chọn nhóm cột hiển thị"
-                  >
+                {columnMenuOpen
+                  ? createPortal(
+                      <>
+                        <button
+                          type="button"
+                          aria-label="Đóng tùy chỉnh hiển thị"
+                          className="fixed inset-0 z-[298] bg-black/25 backdrop-blur-[1px]"
+                          onMouseDown={() => {
+                            setColumnMenuOpen(false);
+                            setColumnMenuQuery("");
+                          }}
+                        />
+                        <div
+                          className="scroll-table-premium fixed left-1/2 top-1/2 z-[299] w-[min(92vw,560px)] max-h-[min(78vh,560px)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-amber-200/80 bg-white/95 p-3 shadow-2xl backdrop-blur-sm dark:border-stone-600 dark:bg-stone-900/95"
+                          role="dialog"
+                          aria-label="Chọn nhóm cột hiển thị"
+                        >
                     <div className="mb-3 flex items-start justify-between gap-3 px-1">
                       <div>
                         <p className="text-[14px] font-extrabold text-stone-900 dark:text-stone-100">
                           Tùy chỉnh hiển thị
-                        </p>
-                        <p className="mt-0.5 text-[12px] text-stone-500 dark:text-stone-400">
-                          Chọn nhanh phần muốn xem trên màn hình
                         </p>
                       </div>
                       <button
@@ -1499,16 +1535,6 @@ export default function Home() {
                       >
                         Đóng
                       </button>
-                    </div>
-
-                    <div className="mb-2 px-1">
-                      <input
-                        type="text"
-                        value={columnMenuQuery}
-                        onChange={(e) => setColumnMenuQuery(e.target.value)}
-                        placeholder="Tìm nhanh nhóm hiển thị..."
-                        className="h-9 w-full rounded-lg border border-stone-200/90 bg-white px-3 text-[13px] text-stone-800 outline-none focus:border-amber-300 focus:ring-2 focus:ring-amber-200/70 dark:border-stone-700 dark:bg-stone-950 dark:text-stone-100 dark:focus:border-amber-700 dark:focus:ring-amber-900/45"
-                      />
                     </div>
 
                     <div className="rounded-xl border border-amber-200/80 bg-amber-50/60 p-2 dark:border-amber-800/50 dark:bg-amber-950/25">
@@ -1593,8 +1619,11 @@ export default function Home() {
                         ) : null}
                       </div>
                     </div>
-                  </div>
-                ) : null}
+                        </div>
+                      </>,
+                      document.body,
+                    )
+                  : null}
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -2298,7 +2327,7 @@ export default function Home() {
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
                     >
-                      ĐÓNG
+                      PRICE
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
@@ -2352,7 +2381,7 @@ export default function Home() {
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
                     >
-                      ĐÓNG
+                      PRICE
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
@@ -2406,7 +2435,7 @@ export default function Home() {
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
                     >
-                      ĐÓNG
+                      PRICE
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
@@ -2605,7 +2634,7 @@ export default function Home() {
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
                     >
-                      0h <br />
+                      OPEN <br />
                       (Kitco)
                     </th>
                     <th
@@ -2639,7 +2668,7 @@ export default function Home() {
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
                     >
-                      24h <br />
+                      PRICE <br />
                       (Kitco)
                     </th>
                     <th
@@ -2659,42 +2688,42 @@ export default function Home() {
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
                     >
-                      0h
-                      <br /> (Investing)
+                      OPEN
+                      <br /> (US)
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
                     >
                       9h
                       <br />
-                      (Việt Nam)
+                      (US)
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
                     >
                       11h
                       <br />
-                      (Việt Nam)
+                      (US)
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
                     >
                       14h30
                       <br />
-                      (Việt Nam)
+                      (US)
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
                     >
                       17h30
                       <br />
-                      (Việt Nam)
+                      (US)
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
                     >
-                      24h
-                      <br /> (Investing)
+                      PRICE
+                      <br /> (US)
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
@@ -2713,42 +2742,42 @@ export default function Home() {
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
                     >
-                      0h
-                      <br /> (Investing)
+                      OPEN
+                      <br /> (US)
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
                     >
                       9h
                       <br />
-                      (Việt Nam)
+                      (US)
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
                     >
                       11h
                       <br />
-                      (Việt Nam)
+                      (US)
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
                     >
                       14h30
                       <br />
-                      (Việt Nam)
+                      (US)
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
                     >
                       17h30
                       <br />
-                      (Việt Nam)
+                      (US)
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
                     >
-                      24h
-                      <br /> (Investing)
+                      PRICE
+                      <br /> (US)
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
@@ -2767,42 +2796,42 @@ export default function Home() {
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
                     >
-                      0h <br />
-                      (Investing)
+                      OPEN <br />
+                      (US)
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
                     >
                       9h
                       <br />
-                      (Việt Nam)
+                      (US)
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
                     >
                       11h
                       <br />
-                      (Việt Nam)
+                      (US)
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
                     >
                       14h30
                       <br />
-                      (Việt Nam)
+                      (US)
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
                     >
                       17h30
                       <br />
-                      (Việt Nam)
+                      (US)
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
                     >
-                      24h
-                      <br /> (Investing)
+                      PRICE
+                      <br /> (US)
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
@@ -2821,8 +2850,8 @@ export default function Home() {
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
                     >
-                      0h <br />
-                      (Investing)
+                      OPEN <br />
+                      (US)
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
@@ -2855,8 +2884,8 @@ export default function Home() {
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
                     >
-                      24h
-                      <br /> (Investing)
+                      PRICE
+                      <br /> (US)
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
