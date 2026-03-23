@@ -1872,8 +1872,7 @@ export default function Home() {
         </section>
 
         <div
-          className="scroll-table-premium overflow-auto max-h-[min(78vh,1200px)] rounded-xl border border-stone-200/90 dark:border-stone-600/40 bg-white dark:bg-stone-900 opacity-0 animate-scale-in"
-          style={{ animationDelay: "140ms", animationFillMode: "forwards" }}
+          className="scroll-table-premium overflow-auto max-h-[min(78vh,1200px)] rounded-xl border border-stone-200/90 dark:border-stone-600/40 bg-white dark:bg-stone-900"
         >
           <table className="w-full min-w-max border-separate border-spacing-0 text-left text-[14px]">
             {/* z-50: luôn nằm trên ô sticky Thứ/Ngày ở tbody (z-20/19) khi cuộn dọc — tránh bị hàng dữ liệu đè header */}
@@ -1882,13 +1881,13 @@ export default function Home() {
               <tr>
                 <th
                   rowSpan={3}
-                  className="sticky left-0 top-0 z-[102] border-b border-r border-black dark:border-stone-200 px-1.5 py-2 w-16 min-w-16 text-[13px] font-bold uppercase tracking-wide text-stone-950 dark:text-stone-100 whitespace-nowrap bg-rose-100 dark:bg-rose-950/55 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.12)] dark:shadow-[4px_0_12px_-4px_rgba(0,0,0,0.45)]"
+                  className="sticky left-0 top-0 z-[102] border-b border-r border-black dark:border-stone-200 px-1.5 py-2 w-16 min-w-16 text-[13px] font-bold uppercase tracking-wide text-stone-950 dark:text-stone-100 whitespace-nowrap bg-rose-100 dark:bg-rose-950 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.12)] dark:shadow-[4px_0_12px_-4px_rgba(0,0,0,0.45)]"
                 >
                   Thứ
                 </th>
                 <th
                   rowSpan={3}
-                  className="sticky left-16 top-0 z-[101] border-b border-r border-black dark:border-stone-200 px-2 py-2 w-32 min-w-32 text-[14px] font-bold uppercase tracking-wide text-stone-950 dark:text-sky-100 whitespace-nowrap bg-sky-100 dark:bg-sky-900/60 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.1)] dark:shadow-[4px_0_12px_-4px_rgba(0,0,0,0.4)]"
+                  className="sticky left-16 top-0 z-[101] border-b border-r border-black dark:border-stone-200 px-2 py-2 w-32 min-w-32 text-[14px] font-bold uppercase tracking-wide text-stone-950 dark:text-sky-100 whitespace-nowrap bg-sky-100 dark:bg-sky-900 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.1)] dark:shadow-[4px_0_12px_-4px_rgba(0,0,0,0.4)]"
                 >
                   Ngày
                 </th>
@@ -1924,18 +1923,18 @@ export default function Home() {
                       <span className="block">vàng</span>
                     </th>
                     <th
-                      colSpan={4}
-                      className={`border border-black dark:border-stone-200 border-l-0 px-2 py-2 text-[14px] font-bold uppercase tracking-wide text-stone-900 dark:text-stone-100 ${getRegionHeaderBgClass(62)}`}
-                    >
-                      CHÊNH LỆCH
-                    </th>
-                    <th
                       rowSpan={3}
                       className={`border border-black dark:border-stone-200 border-l-0 px-1.5 py-2 w-[4.5rem] min-w-[4.5rem] text-[14px] font-bold leading-tight text-stone-900 dark:text-stone-100 ${getRegionHeaderBgClass(66)}`}
                     >
                       <span className="block">∑</span>
                       <span className="block">chỉ vàng</span>
                       <span className="block">thêm</span>
+                    </th>
+                    <th
+                      colSpan={4}
+                      className={`border border-black dark:border-stone-200 border-l-0 px-2 py-2 text-[14px] font-bold uppercase tracking-wide text-stone-900 dark:text-stone-100 ${getRegionHeaderBgClass(62)}`}
+                    >
+                      CHÊNH LỆCH
                     </th>
                   </>
                 ) : null}
@@ -2751,9 +2750,9 @@ export default function Home() {
                           j === 0
                             ? "border-0 px-0 py-0 w-0 max-w-0 overflow-hidden"
                             : j === 11
-                              ? `sticky left-0 z-20 border-r border-b border-black dark:border-stone-200 px-1.5 py-2 text-right text-[13px] font-bold w-16 max-w-16 truncate tabular-nums text-stone-950 dark:text-stone-100 bg-orange-50 dark:bg-orange-950/30 group-hover/row:bg-orange-100/90 dark:group-hover/row:bg-orange-950/45 shadow-[4px_0_10px_-6px_rgba(0,0,0,0.15)] dark:shadow-[4px_0_10px_-6px_rgba(0,0,0,0.5)] ${TD_CELL_FX}`
+                              ? `sticky left-0 z-20 border-r border-b border-black dark:border-stone-200 px-1.5 py-2 text-right text-[13px] font-bold w-16 max-w-16 truncate tabular-nums text-stone-950 dark:text-stone-100 bg-orange-50 dark:bg-orange-950 group-hover/row:bg-orange-100 dark:group-hover/row:bg-orange-900 shadow-[4px_0_10px_-6px_rgba(0,0,0,0.15)] dark:shadow-[4px_0_10px_-6px_rgba(0,0,0,0.5)] ${TD_CELL_FX}`
                               : j === 12
-                                ? `sticky left-16 z-[19] border-r border-b border-black dark:border-stone-200 px-2 py-2 text-center text-[14px] font-bold w-32 max-w-32 truncate tabular-nums text-red-600 dark:text-red-400 bg-sky-100 dark:bg-sky-950/45 group-hover/row:bg-sky-200/85 dark:group-hover/row:bg-sky-900/50 shadow-[4px_0_10px_-6px_rgba(0,0,0,0.12)] dark:shadow-[4px_0_10px_-6px_rgba(0,0,0,0.45)] ${TD_CELL_FX}`
+                                ? `sticky left-16 z-[19] border-r border-b border-black dark:border-stone-200 px-2 py-2 text-center text-[14px] font-bold w-32 max-w-32 truncate tabular-nums text-red-600 dark:text-red-400 bg-sky-100 dark:bg-sky-950 group-hover/row:bg-sky-200 dark:group-hover/row:bg-sky-900 shadow-[4px_0_10px_-6px_rgba(0,0,0,0.12)] dark:shadow-[4px_0_10px_-6px_rgba(0,0,0,0.45)] ${TD_CELL_FX}`
                                 : j >= 61 && j <= 66
                                   ? `border-r border-b border-black dark:border-stone-200 px-2 py-2 text-[14px] font-bold max-w-[110px] truncate tabular-nums text-stone-950 dark:text-stone-50 text-center ${getRegionBgClass(j)} ${TD_CELL_FX}`
                                   : `border-r border-b border-black dark:border-stone-200 px-2 py-2 text-[14px] font-bold max-w-[130px] truncate tabular-nums text-stone-950 dark:text-stone-50 ${getRegionBgClass(j)} ${TD_CELL_FX}`
