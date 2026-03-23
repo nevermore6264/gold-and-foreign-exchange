@@ -7,7 +7,9 @@ import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
 import type { FullTableRow } from "./full-table";
 
-const CACHE_DIR = path.join(process.cwd(), "cache", "full-table");
+import { getAppCacheRoot } from "./cache-dir";
+
+const CACHE_DIR = path.join(getAppCacheRoot(), "full-table");
 // Bump cache version when date-key logic changes (timezone, formats, etc.)
 const CACHE_VERSION = "v10";
 /** Cache coi như hết hạn sau 24 giờ (ms). Set 0 = không bao giờ hết hạn. */

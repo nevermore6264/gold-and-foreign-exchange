@@ -87,8 +87,12 @@ export async function GET(request: NextRequest) {
 
     const data = await getFullTableRange(from, to);
     await writeFullTableCache(from, to, data);
-    // Merge vào master để lần sau có thể đọc thẳng không cần fetch API ngoài
-    await mergeRowsIntoFullTableMaster(data.rows);
+    // Merge vào master — trên Vercel phải ghi /tmp; nếu vẫn lỗi thì vẫn trả JSON.
+    try {
+      await mergeRowsIntoFullTableMaster(data.rows);
+    } catch (mergeErr) {
+      console.error("mergeRowsIntoFullTableMaster:", mergeErr);
+    }
     return NextResponse.json(data);
   } catch (e) {
     console.error("Full table API error:", e);

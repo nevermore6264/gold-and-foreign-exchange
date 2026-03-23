@@ -6,7 +6,9 @@
 import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
 
-const MASTER_PATH = path.join(process.cwd(), "cache", "full-table-dataset.json");
+import { getAppCacheRoot } from "./cache-dir";
+
+const MASTER_PATH = path.join(getAppCacheRoot(), "full-table-dataset.json");
 
 /**
  * Tăng khi đổi cách gộp OHLC / generate ngày — bỏ qua master cũ để build lại dữ liệu thị trường.

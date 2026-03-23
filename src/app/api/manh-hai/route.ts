@@ -37,7 +37,11 @@ export async function GET(request: NextRequest) {
           cafeMap,
         );
         if (filled && snapshotHasAnyPrice(filled)) {
-          await writeManhHaiSnapshot(filled);
+          try {
+            await writeManhHaiSnapshot(filled);
+          } catch (w) {
+            console.warn("writeManhHaiSnapshot (backfill):", w);
+          }
           snapshot = filled;
         }
       }
@@ -68,7 +72,11 @@ export async function GET(request: NextRequest) {
           productName: q.productName,
         };
       }
-      await writeManhHaiSnapshot(snapshot);
+      try {
+        await writeManhHaiSnapshot(snapshot);
+      } catch (w) {
+        console.warn("writeManhHaiSnapshot (live):", w);
+      }
     }
 
     return NextResponse.json({

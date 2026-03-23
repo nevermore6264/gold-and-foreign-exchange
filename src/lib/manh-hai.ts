@@ -18,6 +18,7 @@ import {
   type CafeFDomesticDailyQuote,
 } from "./gold-cafef";
 import { fetchVietnamNetGoldSjcPrices } from "./gold-vietnamnet";
+import { getAppCacheRoot } from "./cache-dir";
 
 const SOURCE_URL = "https://baotinmanhhai.vn/gia-vang-hom-nay";
 
@@ -26,7 +27,7 @@ const SOURCE_URL = "https://baotinmanhhai.vn/gia-vang-hom-nay";
  * Luôn fallback https://baotinmanhhai.vn nếu nguồn trên không parse được bảng.
  */
 export const DOMESTIC_GOLD_CAFEF_START = "2025-02-08";
-const CACHE_DIR = path.join(process.cwd(), "cache", "manh-hai");
+const CACHE_DIR = path.join(getAppCacheRoot(), "manh-hai");
 
 export type ManhHaiSlot = "09:00" | "11:00" | "14:30" | "17:30";
 
