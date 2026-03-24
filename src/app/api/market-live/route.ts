@@ -7,6 +7,8 @@ export const revalidate = 0;
 type LiveQuote = {
   price?: number;
   changePercent?: number;
+  /** Giá MỞ phiên regular (US) — COMEX GC=F */
+  regularMarketOpen?: number;
   updatedAt: string;
 };
 
@@ -18,6 +20,7 @@ function liveQuoteFromYahoo(q: unknown): LiveQuote {
   const o = q as {
     regularMarketPrice?: number;
     regularMarketChangePercent?: number;
+    regularMarketOpen?: number;
   };
   return {
     price:
@@ -27,6 +30,10 @@ function liveQuoteFromYahoo(q: unknown): LiveQuote {
     changePercent:
       typeof o.regularMarketChangePercent === "number"
         ? o.regularMarketChangePercent
+        : undefined,
+    regularMarketOpen:
+      typeof o.regularMarketOpen === "number"
+        ? o.regularMarketOpen
         : undefined,
     updatedAt: now,
   };
@@ -45,11 +52,12 @@ export async function GET() {
       }
     };
 
-    const [oil, dxy, tnx, sp] = await Promise.all([
+    const [oil, dxy, tnx, sp, gc] = await Promise.all([
       quoteSafe("CL=F"),
       quoteSafe("DX-Y.NYB"),
       quoteSafe("^TNX"),
       quoteSafe("^GSPC"),
+      quoteSafe("GC=F"),
     ]);
 
     const oilLive = liveQuoteFromYahoo(oil);
@@ -70,12 +78,14 @@ export async function GET() {
     };
 
     const spLive = liveQuoteFromYahoo(sp);
+    const goldGcLive = liveQuoteFromYahoo(gc);
 
     return NextResponse.json({
       oil: oilLive,
       dollarIndex: dxyLive,
       bond10y: tnxLive,
       sp500: spLive,
+      goldGc: goldGcLive,
     });
   } catch (e) {
     console.error("Market live API error:", e);

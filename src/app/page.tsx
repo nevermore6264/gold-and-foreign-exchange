@@ -40,6 +40,13 @@ type MarketLiveResponse = {
   dollarIndex?: { price?: number; changePercent?: number; updatedAt: string };
   bond10y?: { price?: number; changePercent?: number; updatedAt: string };
   sp500?: { price?: number; changePercent?: number; updatedAt: string };
+  /** COMEX GC=F — MỞ/PRICE theo phiên Mỹ */
+  goldGc?: {
+    price?: number;
+    changePercent?: number;
+    regularMarketOpen?: number;
+    updatedAt: string;
+  };
 };
 
 function toIsoDateLocal(d: Date): string {
@@ -920,13 +927,16 @@ export default function Home() {
     if (isoDate !== vnNow.isoDate)
       return formatMarketNumberByColumn(baseVal, colIndex);
 
-    // Giữ các cột khung giờ VN để tương thích layout, nhưng giá trị OPEN của thị trường
-    // không phụ thuộc mốc 0h/9h/11h/14h30/17h30 VN.
-    // Nếu có live thì điền cùng một giá OPEN cho toàn bộ cụm MỞ.
-    if (colIndex >= 13 && colIndex <= 17) {
-      if (kitcoLiveMid == null) return formatMarketNumberByColumn(baseVal, colIndex);
-      return formatMarketNumberByColumn(kitcoLiveMid, colIndex);
+    // MỞ (US): Yahoo GC=F regularMarketOpen — khớp phiên COMEX, không dùng spot Investing/Kitco
+    if (colIndex === 13) {
+      const o = marketLive?.goldGc?.regularMarketOpen;
+      if (typeof o === "number" && Number.isFinite(o))
+        return formatMarketNumberByColumn(o, colIndex);
     }
+
+    // ĐÓNG (US): có thể là giá gần nhất từ Kitco khi đang trong phiên
+    if (colIndex === 18 && kitcoLiveMid != null)
+      return formatMarketNumberByColumn(kitcoLiveMid, colIndex);
 
     // KITCO change% is col_21
     if (colIndex === 21) {
@@ -2634,42 +2644,40 @@ export default function Home() {
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
                     >
-                      OPEN <br />
-                      (Kitco)
+                      (US)
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
                     >
                       9h
                       <br />
-                      (US)
+                      (Việt Nam)
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
                     >
                       11h
                       <br />
-                      (US)
+                      (Việt Nam)
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
                     >
                       14h30
                       <br />
-                      (US)
+                      (Việt Nam)
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
                     >
                       17h30
                       <br />
-                      (US)
+                      (Việt Nam)
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
                     >
-                      PRICE <br />
-                      (Kitco)
+                      (US)
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}

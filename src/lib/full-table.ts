@@ -2,7 +2,8 @@
  * Bảng 60 cột (col_0 .. col_59). Nguồn:
  * - col_1-10: Mua/Bán Mạnh Hải (file cache/manh-hai; nếu thiếu → backfill từ lịch sử CafeF từ ~2025-02-08, 1 giá/ngày × 4 khung giờ)
  * - col_12: DATE
- * - col_13-21: KITCO (XAU/USD) → investing / FreeGoldAPI
+ * - col_13-21: KITCO (GC=F / XAU): MỞ·ĐÓNG·Cao·Thấp·% từ OHLC ngày;
+ *   4 cột 9h/11h/14h30/17h30 (giờ VN) → mẫu nến 1h Yahoo tại các mốc đó
  * - col_22-30: Giá dầu → Investing.com crude-oil-historical-data (fallback Yahoo CL=F)
  * - col_31-39: Dollar index → Investing.com usdollar-historical-data (fallback Yahoo DX-Y.NYB)
  * - col_40-48: Trái phiếu US 10Y → investing.com
@@ -23,6 +24,7 @@ import {
 import { fetchOilHistoricalYahoo } from "./oil";
 import { fetchDollarIndexHistoricalYahoo } from "./dollar";
 import { fetchXauUsdHistoricalYahoo } from "./xau";
+import { fetchGoldGcVnSlotsByDateRange } from "./gold-gc-vn-slots";
 import { fetchBond10yHistoricalYahoo } from "./bond-10y";
 import { fetchSp500HistoricalYahoo } from "./sp500";
 import { fetchCafeFDomesticSjcByVnDateCached } from "./gold-cafef";
@@ -209,6 +211,13 @@ export async function getFullTableRange(
     mergeManhHaiSnapshotWithCafeFBackfill(d, fileManhHaiSnaps[i], cafeDomesticByDate),
   );
 
+  const vnRangeStart = dates[0] ?? from;
+  const vnRangeEnd = dates[dates.length - 1] ?? to;
+  const goldGcVnSlots =
+    dates.length > 0
+      ? await fetchGoldGcVnSlotsByDateRange(vnRangeStart, vnRangeEnd)
+      : new Map();
+
   // Gộp Investing + Yahoo theo ngày (Investing có giới hạn pointscount → tháng gần nhất có thể thiếu).
   const oil = recomputeChangePercent(mergeOhlcByDate(oilInvesting, oilYahoo));
   // Dollar: ưu tiên Yahoo trùng ngày — API Investing hay bị Cloudflare / trả rỗng trên serverless,
@@ -217,8 +226,9 @@ export async function getFullTableRange(
     mergeOhlcByDate(dollarYahoo, dollarInvesting),
   );
   const bondData = recomputeChangePercent(mergeOhlcByDate(bond, bondYahoo));
+  // Vàng: ưu tiên Yahoo GC=F (COMEX, mở/đóng theo phiên Mỹ) — Investing XAU spot có thể lệch mốc MỞ.
   const xauCombined = recomputeChangePercent(
-    mergeOhlcByDate(xauUsd, xauUsdYahoo as OHLCRow[]),
+    mergeOhlcByDate(xauUsdYahoo as OHLCRow[], xauUsd),
   );
   const spData = recomputeChangePercent(mergeOhlcByDate(sp500, sp500Yahoo));
 
@@ -292,16 +302,23 @@ export async function getFullTableRange(
       kitcoChange = null;
     }
 
+    const vnSl = goldGcVnSlots.get(date);
+    const fb = kitcoOpen;
+    const k14 = vnSl?.col14 ?? fb;
+    const k15 = vnSl?.col15 ?? fb;
+    const k16 = vnSl?.col16 ?? fb;
+    const k17 = vnSl?.col17 ?? fb;
+
     const row: FullTableRow = {};
     for (let j = 0; j < 61; j++) row[`col_${j}`] = null;
     applyManhHaiSnapshotToRow(row, manhHaiSnap);
 
     row.col_12 = date;
     row.col_13 = kitcoOpen;
-    row.col_14 = kitcoOpen;
-    row.col_15 = kitcoOpen;
-    row.col_16 = kitcoOpen;
-    row.col_17 = kitcoOpen;
+    row.col_14 = k14;
+    row.col_15 = k15;
+    row.col_16 = k16;
+    row.col_17 = k17;
     row.col_18 = kitcoClose;
     row.col_19 = kitcoHigh;
     row.col_20 = kitcoLow;
