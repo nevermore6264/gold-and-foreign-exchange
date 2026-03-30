@@ -27,6 +27,11 @@ import * as XLSX from "xlsx";
  * Phần render / load dữ liệu sẽ làm sau.
  */
 
+/** Cột Thứ chỉ hiển thị CN / 2–7 — hẹp hơn chia đều với các cột dữ liệu. */
+const WEEKDAY_COL_WIDTH_PCT = 2.2;
+const WEEKDAY_COL_MIN_PX = 34;
+const DATA_COL_MIN_PX = 120;
+
 type FullTableRow = Record<string, string | number | null>;
 
 type MarketLiveResponse = {
@@ -213,11 +218,7 @@ function getRegionBgClass(colIndex: number): string {
   if (colIndex >= 1 && colIndex <= 10)
     return "bg-white dark:bg-stone-950/35 group-hover/row:bg-[#fafafa] dark:group-hover/row:bg-stone-900/45";
   // Lãi (nếu bán ra) + ∑ chỉ vàng + ∑ chỉ vàng thêm — cùng nền xanh lá nhạt (Excel ~#e6f0db)
-  if (
-    (colIndex >= 67 && colIndex <= 70) ||
-    colIndex === 61 ||
-    colIndex === 66
-  )
+  if ((colIndex >= 67 && colIndex <= 70) || colIndex === 61 || colIndex === 66)
     return "bg-[#e6f0db] dark:bg-emerald-950/35 group-hover/row:bg-[#dce8d0] dark:group-hover/row:bg-emerald-950/50";
   // KITCO - GIÁ VÀNG THẾ GIỚI: col_13..col_21 — nền xám nhạt (giống Excel)
   if (colIndex >= 13 && colIndex <= 21)
@@ -246,11 +247,7 @@ function getRegionBgClass(colIndex: number): string {
 function getRegionHeaderBgClass(colIndex: number): string {
   // Đậm hơn body để nhìn rõ ở header.
   if (colIndex >= 1 && colIndex <= 10) return "bg-[#C8E3F5] dark:bg-sky-900/48";
-  if (
-    (colIndex >= 67 && colIndex <= 70) ||
-    colIndex === 61 ||
-    colIndex === 66
-  )
+  if ((colIndex >= 67 && colIndex <= 70) || colIndex === 61 || colIndex === 66)
     return "bg-[#d4e8c8] dark:bg-emerald-900/50";
   // KITCO: header đào / hồng nhạt (nhóm “MỞ / ĐÓNG / …”)
   if (colIndex >= 13 && colIndex <= 21)
@@ -311,12 +308,6 @@ function formatChangeWithPlus(value: string): string {
   if (!Number.isFinite(num)) return trimmed;
   if (num > 0 && !trimmed.startsWith("+")) return `+${trimmed}`;
   return trimmed;
-}
-
-function escapeCsvCell(value: string): string {
-  const s = String(value ?? "");
-  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-  return s;
 }
 
 function clampIsoToTodayInVietnam(isoDate: string): string {
@@ -748,6 +739,20 @@ export default function Home() {
   const visibleJ = useMemo(
     () => TABLE_COL_ORDER.filter((j) => isColumnVisible(j, columnVisibility)),
     [columnVisibility],
+  );
+
+  const otherColWidthPct = useMemo(
+    () =>
+      visibleJ.length > 1
+        ? (100 - WEEKDAY_COL_WIDTH_PCT) / (visibleJ.length - 1)
+        : 100,
+    [visibleJ.length],
+  );
+
+  const tableMinWidthPx = useMemo(
+    () =>
+      WEEKDAY_COL_MIN_PX + Math.max(0, visibleJ.length - 1) * DATA_COL_MIN_PX,
+    [visibleJ.length],
   );
 
   const filteredToggleableGroups = useMemo(() => {
@@ -1222,10 +1227,29 @@ export default function Home() {
   ): string {
     if (current == null) return "text-stone-950 dark:text-stone-50 font-bold";
     if (prev == null) return "text-stone-950 dark:text-stone-50 font-bold";
-    if (current > prev) return "text-green-600 dark:text-green-400 font-bold";
-    if (current < prev) return "text-red-600 dark:text-red-400 font-bold";
+    // "Không tăng không giảm": coi như bằng nhau nếu chênh lệch rất nhỏ
+    const EPS = 1e-9;
+    if (Math.abs(current - prev) <= EPS)
+      return "text-stone-950 dark:text-stone-50 font-bold";
+    if (current > prev)
+      return "text-green-600 dark:text-green-400 font-bold";
+    if (current < prev)
+      return "text-red-600 dark:text-red-400 font-bold";
     return "text-stone-950 dark:text-stone-50 font-bold";
   }
+
+  /** Trong cùng một ngày (cùng hàng): so với ô giá liền trước — dùng cho khung giờ / ĐÓNG vs mốc trước. */
+  function toneClassIntradayVsPrev(
+    currentStr: string,
+    prevStr: string,
+  ): string {
+    const cur = parseNumberFromDisplayedKitco(currentStr);
+    const prev = parseNumberFromDisplayedKitco(prevStr);
+    return toneClassCompareToRowAbove(cur, prev);
+  }
+
+  const neutralPriceClass =
+    "text-stone-950 dark:text-stone-50 font-bold" as const;
 
   /**
    * MUA/Bán giá (1–4, 6–9): tone so với ngày liền trước (cùng cột).
@@ -1354,50 +1378,74 @@ export default function Home() {
         getMarketChangeToneClass(rawCh),
       );
     }
-    if (j >= 13 && j <= 20) {
-      const tone = getMarketChangeToneClass(kitcoCellValue(isoDate, 21));
-      return formatRedCellAccountingStyle(kitcoCellValue(isoDate, j), tone);
-    }
-    if (j >= 22 && j <= 29) {
-      const ch = marketTimedCellValue(isoDate, 30, "oil");
-      const tone = getMarketChangeToneClass(formatChangeWithPlus(ch));
+    if (j === 13) return kitcoCellValue(isoDate, j);
+    if (j >= 14 && j <= 17) return kitcoCellValue(isoDate, j);
+    if (j === 18) {
+      const v = kitcoCellValue(isoDate, 18);
+      const prev = kitcoCellValue(isoDate, 13);
       return formatRedCellAccountingStyle(
-        marketTimedCellValue(isoDate, j, "oil"),
-        tone,
+        v,
+        toneClassIntradayVsPrev(v, prev),
       );
     }
-    if (j >= 31 && j <= 38) {
-      const ch = marketTimedCellValue(isoDate, 39, "dollarIndex");
-      const tone = getMarketChangeToneClass(formatChangeWithPlus(ch));
-      return formatRedCellAccountingStyle(
-        marketTimedCellValue(isoDate, j, "dollarIndex"),
-        tone,
-      );
+    if (j === 19 || j === 20) return kitcoCellValue(isoDate, j);
+    if (j === 22) return marketTimedCellValue(isoDate, j, "oil");
+    if (j >= 23 && j <= 26) {
+      const v = marketTimedCellValue(isoDate, j, "oil");
+      const prev = marketTimedCellValue(isoDate, j - 1, "oil");
+      return formatRedCellAccountingStyle(v, toneClassIntradayVsPrev(v, prev));
     }
-    if (j >= 40 && j <= 47) {
-      const ch = marketTimedCellValue(isoDate, 48, "bond10y");
-      const tone = getMarketChangeToneClass(formatChangeWithPlus(ch));
-      return formatRedCellAccountingStyle(
-        marketTimedCellValue(isoDate, j, "bond10y"),
-        tone,
-      );
+    if (j === 27) {
+      const v = marketTimedCellValue(isoDate, 27, "oil");
+      const prev = marketTimedCellValue(isoDate, 26, "oil");
+      return formatRedCellAccountingStyle(v, toneClassIntradayVsPrev(v, prev));
     }
-    if (j >= 49 && j <= 56) {
-      const ch = marketTimedCellValue(isoDate, 57, "sp500");
-      const tone = getMarketChangeToneClass(formatChangeWithPlus(ch));
-      return formatRedCellAccountingStyle(
-        marketTimedCellValue(isoDate, j, "sp500"),
-        tone,
-      );
+    if (j === 28 || j === 29) return marketTimedCellValue(isoDate, j, "oil");
+    if (j === 31) return marketTimedCellValue(isoDate, j, "dollarIndex");
+    if (j >= 32 && j <= 35) {
+      const v = marketTimedCellValue(isoDate, j, "dollarIndex");
+      const prev = marketTimedCellValue(isoDate, j - 1, "dollarIndex");
+      return formatRedCellAccountingStyle(v, toneClassIntradayVsPrev(v, prev));
     }
+    if (j === 36) {
+      const v = marketTimedCellValue(isoDate, 36, "dollarIndex");
+      const prev = marketTimedCellValue(isoDate, 35, "dollarIndex");
+      return formatRedCellAccountingStyle(v, toneClassIntradayVsPrev(v, prev));
+    }
+    if (j === 37 || j === 38)
+      return marketTimedCellValue(isoDate, j, "dollarIndex");
+    if (j === 40) return marketTimedCellValue(isoDate, j, "bond10y");
+    if (j >= 41 && j <= 44) {
+      const v = marketTimedCellValue(isoDate, j, "bond10y");
+      const prev = marketTimedCellValue(isoDate, j - 1, "bond10y");
+      return formatRedCellAccountingStyle(v, toneClassIntradayVsPrev(v, prev));
+    }
+    if (j === 45) {
+      const v = marketTimedCellValue(isoDate, 45, "bond10y");
+      const prev = marketTimedCellValue(isoDate, 44, "bond10y");
+      return formatRedCellAccountingStyle(v, toneClassIntradayVsPrev(v, prev));
+    }
+    if (j === 46 || j === 47)
+      return marketTimedCellValue(isoDate, j, "bond10y");
+    if (j === 49) return marketTimedCellValue(isoDate, j, "sp500");
+    if (j >= 50 && j <= 53) {
+      const v = marketTimedCellValue(isoDate, j, "sp500");
+      const prev = marketTimedCellValue(isoDate, j - 1, "sp500");
+      return formatRedCellAccountingStyle(v, toneClassIntradayVsPrev(v, prev));
+    }
+    if (j === 54) {
+      const v = marketTimedCellValue(isoDate, 54, "sp500");
+      const prev = marketTimedCellValue(isoDate, 53, "sp500");
+      return formatRedCellAccountingStyle(v, toneClassIntradayVsPrev(v, prev));
+    }
+    if (j === 55 || j === 56) return marketTimedCellValue(isoDate, j, "sp500");
     if (j === 61) {
       const text = chiVangIndexTaiSanOverDong17h30(isoDate);
       if (text === "–") return text;
       const n = chiVangIndexNumber(isoDate);
       const rowIdx = dateRows.findIndex((r) => r.isoDate === isoDate);
       const prevIso = rowIdx > 0 ? dateRows[rowIdx - 1]?.isoDate : null;
-      const prevN =
-        prevIso != null ? chiVangIndexNumber(prevIso) : null;
+      const prevN = prevIso != null ? chiVangIndexNumber(prevIso) : null;
       return formatRedCellAccountingStyle(
         text,
         toneClassCompareToRowAbove(n, prevN),
@@ -1425,8 +1473,7 @@ export default function Home() {
       const n = chiVangThemNumber(isoDate);
       const rowIdx = dateRows.findIndex((r) => r.isoDate === isoDate);
       const prevIso = rowIdx > 0 ? dateRows[rowIdx - 1]?.isoDate : null;
-      const prevN =
-        prevIso != null ? chiVangThemNumber(prevIso) : null;
+      const prevN = prevIso != null ? chiVangThemNumber(prevIso) : null;
       return formatRedCellAccountingStyle(
         text,
         toneClassCompareToRowAbove(n, prevN),
@@ -1434,27 +1481,6 @@ export default function Home() {
     }
     if (j === 60) return vcbCellValue(isoDate, j);
     return "–";
-  }
-
-  function handleDownloadCsv() {
-    const cols = visibleJ.filter((c) => c !== 0);
-    if (cols.length === 0) return;
-    const head = cols.map((jj) => CSV_COL_LABELS[jj] ?? `col_${jj}`).join(",");
-    const body = dateRows.map((row) =>
-      cols.map((jj) => escapeCsvCell(exportCellPlainText(row, jj))).join(","),
-    );
-    const bom = "\uFEFF";
-    const csv = bom + [head, ...body].join("\r\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `gia-vang-${from}_${to}.csv`;
-    a.rel = "noopener";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
   }
 
   function handleDownloadXlsx() {
@@ -1621,18 +1647,6 @@ export default function Home() {
               <div className="inline-flex h-9 shrink-0 overflow-hidden rounded-xl border border-emerald-200/80 dark:border-emerald-800/50">
                 <button
                   type="button"
-                  onClick={handleDownloadCsv}
-                  disabled={isLoadingTable || dateRows.length === 0}
-                  className="border-0 bg-emerald-50/90 px-3 text-[14px] font-semibold text-emerald-900 hover:bg-emerald-100/90 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-emerald-950/40 dark:text-emerald-200 dark:hover:bg-emerald-900/50"
-                >
-                  Tải CSV
-                </button>
-                <span
-                  className="w-px shrink-0 bg-emerald-200/90 dark:bg-emerald-700/60"
-                  aria-hidden
-                />
-                <button
-                  type="button"
                   onClick={handleDownloadXlsx}
                   disabled={isLoadingTable || dateRows.length === 0}
                   className="border-0 bg-emerald-50/90 px-3 text-[14px] font-semibold text-emerald-900 hover:bg-emerald-100/90 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-emerald-950/40 dark:text-emerald-200 dark:hover:bg-emerald-900/50"
@@ -1681,106 +1695,120 @@ export default function Home() {
                           role="dialog"
                           aria-label="Chọn nhóm cột hiển thị"
                         >
-                    <div className="mb-3 flex items-start justify-between gap-3 px-1">
-                      <div>
-                        <p className="text-[14px] font-extrabold text-stone-900 dark:text-stone-100">
-                          Tùy chỉnh hiển thị
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        className="rounded-md border border-stone-200 px-2 py-1 text-[12px] font-semibold text-stone-600 hover:bg-stone-100 dark:border-stone-700 dark:text-stone-300 dark:hover:bg-stone-800"
-                        onClick={() => {
-                          setColumnMenuOpen(false);
-                          setColumnMenuQuery("");
-                        }}
-                      >
-                        Đóng
-                      </button>
-                    </div>
+                          <div className="mb-3 flex items-start justify-between gap-3 px-1">
+                            <div>
+                              <p className="text-[14px] font-extrabold text-stone-900 dark:text-stone-100">
+                                Tùy chỉnh hiển thị
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              className="rounded-md border border-stone-200 px-2 py-1 text-[12px] font-semibold text-stone-600 hover:bg-stone-100 dark:border-stone-700 dark:text-stone-300 dark:hover:bg-stone-800"
+                              onClick={() => {
+                                setColumnMenuOpen(false);
+                                setColumnMenuQuery("");
+                              }}
+                            >
+                              Đóng
+                            </button>
+                          </div>
 
-                    <div className="rounded-xl border border-amber-200/80 bg-amber-50/60 p-2 dark:border-amber-800/50 dark:bg-amber-950/25">
-                      <p className="mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-300">
-                        Nhóm cột
-                      </p>
-                      <div className="flex flex-col gap-1">
-                        {filteredToggleableGroups.map((g) => (
-                          <label
-                            key={g}
-                            className="flex cursor-pointer items-center justify-between gap-3 rounded-lg px-2 py-1.5 hover:bg-white/80 dark:hover:bg-stone-800/70"
-                          >
-                            <span className="text-[14px] text-stone-800 dark:text-stone-200">
-                              {GROUP_LABELS_VI[g]}
-                            </span>
-                            <span className="relative inline-flex shrink-0 items-center">
-                              <input
-                                type="checkbox"
-                                checked={columnVisibility[g]}
-                                onChange={(e) => {
-                                  const checked = e.target.checked;
-                                  setColumnVisibility((prev) => {
-                                    const next = { ...prev, [g]: checked };
-                                    if (!TOGGLEABLE_GROUPS.some((x) => next[x]))
-                                      return prev;
-                                    return next;
-                                  });
-                                }}
-                                className="peer sr-only"
-                              />
-                              <span className="h-5 w-9 rounded-full bg-stone-300 transition-colors peer-checked:bg-amber-500 dark:bg-stone-600 dark:peer-checked:bg-amber-500" />
-                              <span className="pointer-events-none absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform peer-checked:translate-x-4" />
-                            </span>
-                          </label>
-                        ))}
-                        {filteredToggleableGroups.length === 0 ? (
-                          <p className="px-2 py-1 text-[12px] text-stone-500 dark:text-stone-400">
-                            Không tìm thấy nhóm cột phù hợp.
-                          </p>
-                        ) : null}
-                      </div>
-                    </div>
+                          <div className="rounded-xl border border-amber-200/80 bg-amber-50/60 p-2 dark:border-amber-800/50 dark:bg-amber-950/25">
+                            <p className="mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-300">
+                              Nhóm cột
+                            </p>
+                            <div className="flex flex-col gap-1">
+                              {filteredToggleableGroups.map((g) => (
+                                <label
+                                  key={g}
+                                  className="flex cursor-pointer items-center justify-between gap-3 rounded-lg px-2 py-1.5 hover:bg-white/80 dark:hover:bg-stone-800/70"
+                                >
+                                  <span className="text-[14px] text-stone-800 dark:text-stone-200">
+                                    {GROUP_LABELS_VI[g]}
+                                  </span>
+                                  <span className="relative inline-flex shrink-0 items-center">
+                                    <input
+                                      type="checkbox"
+                                      checked={columnVisibility[g]}
+                                      onChange={(e) => {
+                                        const checked = e.target.checked;
+                                        setColumnVisibility((prev) => {
+                                          const next = {
+                                            ...prev,
+                                            [g]: checked,
+                                          };
+                                          if (
+                                            !TOGGLEABLE_GROUPS.some(
+                                              (x) => next[x],
+                                            )
+                                          )
+                                            return prev;
+                                          return next;
+                                        });
+                                      }}
+                                      className="peer sr-only"
+                                    />
+                                    <span className="h-5 w-9 rounded-full bg-stone-300 transition-colors peer-checked:bg-amber-500 dark:bg-stone-600 dark:peer-checked:bg-amber-500" />
+                                    <span className="pointer-events-none absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform peer-checked:translate-x-4" />
+                                  </span>
+                                </label>
+                              ))}
+                              {filteredToggleableGroups.length === 0 ? (
+                                <p className="px-2 py-1 text-[12px] text-stone-500 dark:text-stone-400">
+                                  Không tìm thấy nhóm cột phù hợp.
+                                </p>
+                              ) : null}
+                            </div>
+                          </div>
 
-                    <div className="mt-2 rounded-xl border border-blue-200/80 bg-blue-50/60 p-2 dark:border-blue-800/50 dark:bg-blue-950/20">
-                      <p className="mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-wide text-blue-800 dark:text-blue-300">
-                        Ô nhập số
-                      </p>
-                      <div className="flex flex-col gap-1">
-                        {filteredManualCardGroups.map((g) => (
-                          <label
-                            key={g}
-                            className="flex cursor-pointer items-center justify-between gap-3 rounded-lg px-2 py-1.5 hover:bg-white/80 dark:hover:bg-stone-800/70"
-                          >
-                            <span className="text-[14px] text-stone-800 dark:text-stone-200">
-                              {MANUAL_CARD_LABELS_VI[g]}
-                            </span>
-                            <span className="relative inline-flex shrink-0 items-center">
-                              <input
-                                type="checkbox"
-                                checked={manualCardVisibility[g]}
-                                onChange={(e) => {
-                                  const checked = e.target.checked;
-                                  setManualCardVisibility((prev) => {
-                                    const next = { ...prev, [g]: checked };
-                                    if (!MANUAL_CARD_GROUPS.some((x) => next[x])) {
-                                      return prev;
-                                    }
-                                    return next;
-                                  });
-                                }}
-                                className="peer sr-only"
-                              />
-                              <span className="h-5 w-9 rounded-full bg-stone-300 transition-colors peer-checked:bg-blue-500 dark:bg-stone-600 dark:peer-checked:bg-blue-500" />
-                              <span className="pointer-events-none absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform peer-checked:translate-x-4" />
-                            </span>
-                          </label>
-                        ))}
-                        {filteredManualCardGroups.length === 0 ? (
-                          <p className="px-2 py-1 text-[12px] text-stone-500 dark:text-stone-400">
-                            Không tìm thấy ô nhập số phù hợp.
-                          </p>
-                        ) : null}
-                      </div>
-                    </div>
+                          <div className="mt-2 rounded-xl border border-blue-200/80 bg-blue-50/60 p-2 dark:border-blue-800/50 dark:bg-blue-950/20">
+                            <p className="mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-wide text-blue-800 dark:text-blue-300">
+                              Ô nhập số
+                            </p>
+                            <div className="flex flex-col gap-1">
+                              {filteredManualCardGroups.map((g) => (
+                                <label
+                                  key={g}
+                                  className="flex cursor-pointer items-center justify-between gap-3 rounded-lg px-2 py-1.5 hover:bg-white/80 dark:hover:bg-stone-800/70"
+                                >
+                                  <span className="text-[14px] text-stone-800 dark:text-stone-200">
+                                    {MANUAL_CARD_LABELS_VI[g]}
+                                  </span>
+                                  <span className="relative inline-flex shrink-0 items-center">
+                                    <input
+                                      type="checkbox"
+                                      checked={manualCardVisibility[g]}
+                                      onChange={(e) => {
+                                        const checked = e.target.checked;
+                                        setManualCardVisibility((prev) => {
+                                          const next = {
+                                            ...prev,
+                                            [g]: checked,
+                                          };
+                                          if (
+                                            !MANUAL_CARD_GROUPS.some(
+                                              (x) => next[x],
+                                            )
+                                          ) {
+                                            return prev;
+                                          }
+                                          return next;
+                                        });
+                                      }}
+                                      className="peer sr-only"
+                                    />
+                                    <span className="h-5 w-9 rounded-full bg-stone-300 transition-colors peer-checked:bg-blue-500 dark:bg-stone-600 dark:peer-checked:bg-blue-500" />
+                                    <span className="pointer-events-none absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform peer-checked:translate-x-4" />
+                                  </span>
+                                </label>
+                              ))}
+                              {filteredManualCardGroups.length === 0 ? (
+                                <p className="px-2 py-1 text-[12px] text-stone-500 dark:text-stone-400">
+                                  Không tìm thấy ô nhập số phù hợp.
+                                </p>
+                              ) : null}
+                            </div>
+                          </div>
                         </div>
                       </>,
                       document.body,
@@ -1984,204 +2012,204 @@ export default function Home() {
               {/* 1 — Σ Đầu tư */}
               {manualCardVisibility.manualLeft ? (
                 <div className="group relative min-w-0 overflow-hidden rounded-2xl border border-blue-200/80 bg-white shadow-md shadow-blue-900/[0.05] ring-1 ring-stone-900/[0.04] transition-[box-shadow] duration-200 hover:shadow-lg dark:border-blue-800/40 dark:bg-stone-900 dark:ring-white/[0.06]">
-                <div
-                  className="h-1 w-full bg-gradient-to-r from-blue-600 via-sky-500 to-blue-500 opacity-95 dark:from-blue-500 dark:via-sky-400 dark:to-blue-400"
-                  aria-hidden
-                />
-                <div className="flex items-start justify-between gap-2 px-3 pb-0.5 pt-2.5 sm:px-4">
-                  <div className="min-w-0">
-                    <p className="text-[12px] font-extrabold uppercase tracking-wide text-blue-900 dark:text-blue-200">
-                      ∑ Đầu tư
-                    </p>
-                    <p className="mt-0.5 text-[11px] leading-snug text-stone-500 dark:text-stone-400">
-                      Vốn / giá trị đầu tư (VNĐ)
-                    </p>
-                  </div>
-                  <span className="shrink-0 rounded-md border border-blue-200/80 bg-blue-50 px-2 py-0.5 text-[10px] font-bold uppercase text-blue-800 dark:border-blue-800/60 dark:bg-blue-950/60 dark:text-blue-200">
-                    VNĐ
-                  </span>
-                </div>
-                <div className="px-3 pb-3 pt-1 sm:px-4">
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete="off"
-                    placeholder="vd. 30.000.000.000"
-                    value={totalDauTu}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      setTotalDauTu(v);
-                      try {
-                        localStorage.setItem(LS_INPUT_DAU_TU, v);
-                      } catch {
-                        /* ignore */
-                      }
-                    }}
-                    onBlur={(e) => {
-                      const v = formatTaiSanInputDisplay(e.target.value);
-                      setTotalDauTu(v);
-                      try {
-                        localStorage.setItem(LS_INPUT_DAU_TU, v);
-                      } catch {
-                        /* ignore */
-                      }
-                    }}
-                    className="h-12 w-full rounded-xl border border-stone-200/90 bg-gradient-to-b from-stone-50/90 to-white px-2.5 py-1.5 text-right text-base font-bold tabular-nums text-stone-900 shadow-inner focus:border-blue-400/70 focus:outline-none focus:ring-2 focus:ring-blue-400/30 dark:border-stone-600 dark:from-stone-900 dark:to-stone-950 dark:text-stone-50 dark:focus:border-blue-600/50 dark:focus:ring-blue-500/25"
+                  <div
+                    className="h-1 w-full bg-gradient-to-r from-blue-600 via-sky-500 to-blue-500 opacity-95 dark:from-blue-500 dark:via-sky-400 dark:to-blue-400"
+                    aria-hidden
                   />
-                </div>
+                  <div className="flex items-start justify-between gap-2 px-3 pb-0.5 pt-2.5 sm:px-4">
+                    <div className="min-w-0">
+                      <p className="text-[12px] font-extrabold uppercase tracking-wide text-blue-900 dark:text-blue-200">
+                        ∑ Đầu tư
+                      </p>
+                      <p className="mt-0.5 text-[11px] leading-snug text-stone-500 dark:text-stone-400">
+                        Vốn / giá trị đầu tư (VNĐ)
+                      </p>
+                    </div>
+                    <span className="shrink-0 rounded-md border border-blue-200/80 bg-blue-50 px-2 py-0.5 text-[10px] font-bold uppercase text-blue-800 dark:border-blue-800/60 dark:bg-blue-950/60 dark:text-blue-200">
+                      VNĐ
+                    </span>
+                  </div>
+                  <div className="px-3 pb-3 pt-1 sm:px-4">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      placeholder="vd. 30.000.000.000"
+                      value={totalDauTu}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setTotalDauTu(v);
+                        try {
+                          localStorage.setItem(LS_INPUT_DAU_TU, v);
+                        } catch {
+                          /* ignore */
+                        }
+                      }}
+                      onBlur={(e) => {
+                        const v = formatTaiSanInputDisplay(e.target.value);
+                        setTotalDauTu(v);
+                        try {
+                          localStorage.setItem(LS_INPUT_DAU_TU, v);
+                        } catch {
+                          /* ignore */
+                        }
+                      }}
+                      className="h-12 w-full rounded-xl border border-stone-200/90 bg-gradient-to-b from-stone-50/90 to-white px-2.5 py-1.5 text-right text-base font-bold tabular-nums text-stone-900 shadow-inner focus:border-blue-400/70 focus:outline-none focus:ring-2 focus:ring-blue-400/30 dark:border-stone-600 dark:from-stone-900 dark:to-stone-950 dark:text-stone-50 dark:focus:border-blue-600/50 dark:focus:ring-blue-500/25"
+                    />
+                  </div>
                 </div>
               ) : null}
 
               {/* 2 — Σ Tài sản (dùng trong công thức cột bảng) */}
               {manualCardVisibility.manualRight ? (
                 <div className="group relative min-w-0 overflow-hidden rounded-2xl border border-emerald-200/70 bg-white shadow-md shadow-emerald-900/[0.06] ring-1 ring-stone-900/[0.04] transition-[box-shadow] duration-200 hover:shadow-lg dark:border-emerald-800/45 dark:bg-stone-900 dark:ring-white/[0.06]">
-                <div
-                  className="h-1 w-full bg-gradient-to-r from-emerald-600 via-teal-500 to-emerald-500 opacity-95 dark:from-emerald-500 dark:via-teal-400 dark:to-emerald-400"
-                  aria-hidden
-                />
-                <div className="flex items-start justify-between gap-2 px-3 pb-0.5 pt-2.5 sm:px-4">
-                  <div className="min-w-0">
-                    <p className="text-[12px] font-extrabold uppercase tracking-wide text-emerald-900 dark:text-emerald-200">
-                      ∑ Tài sản
-                    </p>
-                    <p className="mt-0.5 text-[11px] leading-snug text-stone-500 dark:text-stone-400">
-                      Dùng tính cột ∑ chỉ vàng trong bảng
-                    </p>
-                  </div>
-                  <span className="shrink-0 rounded-md border border-emerald-200/80 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold uppercase text-emerald-800 dark:border-emerald-700/60 dark:bg-emerald-950/70 dark:text-emerald-300">
-                    VNĐ
-                  </span>
-                </div>
-                <div className="px-3 pb-3 pt-1 sm:px-4">
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete="off"
-                    placeholder="vd. 36.500.000.000"
-                    value={totalTaiSan}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      setTotalTaiSan(v);
-                      try {
-                        localStorage.setItem(LS_INPUT_TAI_SAN, v);
-                      } catch {
-                        /* ignore */
-                      }
-                    }}
-                    onBlur={(e) => {
-                      const v = formatTaiSanInputDisplay(e.target.value);
-                      setTotalTaiSan(v);
-                      try {
-                        localStorage.setItem(LS_INPUT_TAI_SAN, v);
-                      } catch {
-                        /* ignore */
-                      }
-                    }}
-                    className="h-12 w-full rounded-xl border border-stone-200/90 bg-gradient-to-b from-stone-50/90 to-white px-2.5 py-1.5 text-right text-base font-bold tabular-nums text-stone-900 shadow-inner focus:border-emerald-400/70 focus:outline-none focus:ring-2 focus:ring-emerald-400/35 dark:border-stone-600 dark:from-stone-900 dark:to-stone-950 dark:text-stone-50 dark:focus:border-emerald-600/50 dark:focus:ring-emerald-500/25"
+                  <div
+                    className="h-1 w-full bg-gradient-to-r from-emerald-600 via-teal-500 to-emerald-500 opacity-95 dark:from-emerald-500 dark:via-teal-400 dark:to-emerald-400"
+                    aria-hidden
                   />
-                </div>
+                  <div className="flex items-start justify-between gap-2 px-3 pb-0.5 pt-2.5 sm:px-4">
+                    <div className="min-w-0">
+                      <p className="text-[12px] font-extrabold uppercase tracking-wide text-emerald-900 dark:text-emerald-200">
+                        ∑ Tài sản
+                      </p>
+                      <p className="mt-0.5 text-[11px] leading-snug text-stone-500 dark:text-stone-400">
+                        Dùng tính cột ∑ chỉ vàng trong bảng
+                      </p>
+                    </div>
+                    <span className="shrink-0 rounded-md border border-emerald-200/80 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold uppercase text-emerald-800 dark:border-emerald-700/60 dark:bg-emerald-950/70 dark:text-emerald-300">
+                      VNĐ
+                    </span>
+                  </div>
+                  <div className="px-3 pb-3 pt-1 sm:px-4">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      placeholder="vd. 36.500.000.000"
+                      value={totalTaiSan}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setTotalTaiSan(v);
+                        try {
+                          localStorage.setItem(LS_INPUT_TAI_SAN, v);
+                        } catch {
+                          /* ignore */
+                        }
+                      }}
+                      onBlur={(e) => {
+                        const v = formatTaiSanInputDisplay(e.target.value);
+                        setTotalTaiSan(v);
+                        try {
+                          localStorage.setItem(LS_INPUT_TAI_SAN, v);
+                        } catch {
+                          /* ignore */
+                        }
+                      }}
+                      className="h-12 w-full rounded-xl border border-stone-200/90 bg-gradient-to-b from-stone-50/90 to-white px-2.5 py-1.5 text-right text-base font-bold tabular-nums text-stone-900 shadow-inner focus:border-emerald-400/70 focus:outline-none focus:ring-2 focus:ring-emerald-400/35 dark:border-stone-600 dark:from-stone-900 dark:to-stone-950 dark:text-stone-50 dark:focus:border-emerald-600/50 dark:focus:ring-emerald-500/25"
+                    />
+                  </div>
                 </div>
               ) : null}
 
               {/* 3 — Σ chỉ vàng đang có */}
               {manualCardVisibility.manualLeft ? (
                 <div className="group relative min-w-0 overflow-hidden rounded-2xl border border-violet-200/80 bg-white shadow-md shadow-violet-900/[0.06] ring-1 ring-stone-900/[0.04] transition-[box-shadow] duration-200 hover:shadow-lg dark:border-violet-800/40 dark:bg-stone-900 dark:ring-white/[0.06]">
-                <div
-                  className="h-1 w-full bg-gradient-to-r from-violet-600 via-purple-500 to-violet-500 opacity-95 dark:from-violet-500 dark:via-purple-400 dark:to-violet-400"
-                  aria-hidden
-                />
-                <div className="flex items-start justify-between gap-2 px-3 pb-0.5 pt-2.5 sm:px-4">
-                  <div className="min-w-0">
-                    <p className="text-[12px] font-extrabold uppercase tracking-wide text-violet-900 dark:text-violet-200">
-                      ∑ chỉ vàng đang có
-                    </p>
-                    <p className="mt-0.5 text-[11px] leading-snug text-stone-500 dark:text-stone-400">
-                      Số chỉ hiện đang nắm giữ
-                    </p>
-                  </div>
-                  <span className="shrink-0 rounded-md border border-violet-200/80 bg-violet-50 px-2 py-0.5 text-[10px] font-bold uppercase text-violet-900 dark:border-violet-700/60 dark:bg-violet-950/70 dark:text-violet-200">
-                    chỉ
-                  </span>
-                </div>
-                <div className="px-3 pb-3 pt-1 sm:px-4">
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete="off"
-                    placeholder="vd. 1.920"
-                    value={chiVangDangCo}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      setChiVangDangCo(v);
-                      try {
-                        localStorage.setItem(LS_INPUT_CHI_VANG_DANG_CO, v);
-                      } catch {
-                        /* ignore */
-                      }
-                    }}
-                    onBlur={(e) => {
-                      const v = formatChiVangCuInputDisplay(e.target.value);
-                      setChiVangDangCo(v);
-                      try {
-                        localStorage.setItem(LS_INPUT_CHI_VANG_DANG_CO, v);
-                      } catch {
-                        /* ignore */
-                      }
-                    }}
-                    className="h-12 w-full rounded-xl border border-stone-200/90 bg-gradient-to-b from-stone-50/90 to-white px-2.5 py-1.5 text-right text-base font-bold tabular-nums text-stone-900 shadow-inner focus:border-violet-400/70 focus:outline-none focus:ring-2 focus:ring-violet-400/35 dark:border-stone-600 dark:from-stone-900 dark:to-stone-950 dark:text-stone-50 dark:focus:border-violet-600/50 dark:focus:ring-violet-500/25"
+                  <div
+                    className="h-1 w-full bg-gradient-to-r from-violet-600 via-purple-500 to-violet-500 opacity-95 dark:from-violet-500 dark:via-purple-400 dark:to-violet-400"
+                    aria-hidden
                   />
-                </div>
+                  <div className="flex items-start justify-between gap-2 px-3 pb-0.5 pt-2.5 sm:px-4">
+                    <div className="min-w-0">
+                      <p className="text-[12px] font-extrabold uppercase tracking-wide text-violet-900 dark:text-violet-200">
+                        ∑ chỉ vàng đang có
+                      </p>
+                      <p className="mt-0.5 text-[11px] leading-snug text-stone-500 dark:text-stone-400">
+                        Số chỉ hiện đang nắm giữ
+                      </p>
+                    </div>
+                    <span className="shrink-0 rounded-md border border-violet-200/80 bg-violet-50 px-2 py-0.5 text-[10px] font-bold uppercase text-violet-900 dark:border-violet-700/60 dark:bg-violet-950/70 dark:text-violet-200">
+                      chỉ
+                    </span>
+                  </div>
+                  <div className="px-3 pb-3 pt-1 sm:px-4">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      placeholder="vd. 1.920"
+                      value={chiVangDangCo}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setChiVangDangCo(v);
+                        try {
+                          localStorage.setItem(LS_INPUT_CHI_VANG_DANG_CO, v);
+                        } catch {
+                          /* ignore */
+                        }
+                      }}
+                      onBlur={(e) => {
+                        const v = formatChiVangCuInputDisplay(e.target.value);
+                        setChiVangDangCo(v);
+                        try {
+                          localStorage.setItem(LS_INPUT_CHI_VANG_DANG_CO, v);
+                        } catch {
+                          /* ignore */
+                        }
+                      }}
+                      className="h-12 w-full rounded-xl border border-stone-200/90 bg-gradient-to-b from-stone-50/90 to-white px-2.5 py-1.5 text-right text-base font-bold tabular-nums text-stone-900 shadow-inner focus:border-violet-400/70 focus:outline-none focus:ring-2 focus:ring-violet-400/35 dark:border-stone-600 dark:from-stone-900 dark:to-stone-950 dark:text-stone-50 dark:focus:border-violet-600/50 dark:focus:ring-violet-500/25"
+                    />
+                  </div>
                 </div>
               ) : null}
 
               {/* 4 — Σ chỉ vàng cũ (dùng trong công thức cột bảng) */}
               {manualCardVisibility.manualRight ? (
                 <div className="group relative min-w-0 overflow-hidden rounded-2xl border border-amber-200/80 bg-white shadow-md shadow-amber-900/[0.07] ring-1 ring-stone-900/[0.04] transition-[box-shadow] duration-200 hover:shadow-lg dark:border-amber-800/40 dark:bg-stone-900 dark:ring-white/[0.06]">
-                <div
-                  className="h-1 w-full bg-gradient-to-r from-amber-600 via-orange-500 to-amber-500 opacity-95 dark:from-amber-500 dark:via-orange-400 dark:to-amber-400"
-                  aria-hidden
-                />
-                <div className="flex items-start justify-between gap-2 px-3 pb-0.5 pt-2.5 sm:px-4">
-                  <div className="min-w-0">
-                    <p className="text-[12px] font-extrabold uppercase tracking-wide text-amber-900 dark:text-amber-200">
-                      ∑ Chỉ vàng cũ
-                    </p>
-                    <p className="mt-0.5 text-[11px] leading-snug text-stone-500 dark:text-stone-400">
-                      Trừ khi tính “∑ chỉ vàng thêm”
-                    </p>
-                  </div>
-                  <span className="shrink-0 rounded-md border border-amber-200/80 bg-amber-50 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/70 dark:text-amber-200">
-                    chỉ
-                  </span>
-                </div>
-                <div className="px-3 pb-3 pt-1 sm:px-4">
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete="off"
-                    placeholder="vd. 1.148"
-                    value={totalChiVangCu}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      setTotalChiVangCu(v);
-                      try {
-                        localStorage.setItem(LS_INPUT_CHI_VANG_CU, v);
-                      } catch {
-                        /* ignore */
-                      }
-                    }}
-                    onBlur={(e) => {
-                      const v = formatChiVangCuInputDisplay(e.target.value);
-                      setTotalChiVangCu(v);
-                      try {
-                        localStorage.setItem(LS_INPUT_CHI_VANG_CU, v);
-                      } catch {
-                        /* ignore */
-                      }
-                    }}
-                    className="h-12 w-full rounded-xl border border-stone-200/90 bg-gradient-to-b from-stone-50/90 to-white px-2.5 py-1.5 text-right text-base font-bold tabular-nums text-stone-900 shadow-inner focus:border-amber-400/70 focus:outline-none focus:ring-2 focus:ring-amber-400/35 dark:border-stone-600 dark:from-stone-900 dark:to-stone-950 dark:text-stone-50 dark:focus:border-amber-600/50 dark:focus:ring-amber-500/25"
+                  <div
+                    className="h-1 w-full bg-gradient-to-r from-amber-600 via-orange-500 to-amber-500 opacity-95 dark:from-amber-500 dark:via-orange-400 dark:to-amber-400"
+                    aria-hidden
                   />
-                </div>
+                  <div className="flex items-start justify-between gap-2 px-3 pb-0.5 pt-2.5 sm:px-4">
+                    <div className="min-w-0">
+                      <p className="text-[12px] font-extrabold uppercase tracking-wide text-amber-900 dark:text-amber-200">
+                        ∑ Chỉ vàng cũ
+                      </p>
+                      <p className="mt-0.5 text-[11px] leading-snug text-stone-500 dark:text-stone-400">
+                        Trừ khi tính “∑ chỉ vàng thêm”
+                      </p>
+                    </div>
+                    <span className="shrink-0 rounded-md border border-amber-200/80 bg-amber-50 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/70 dark:text-amber-200">
+                      chỉ
+                    </span>
+                  </div>
+                  <div className="px-3 pb-3 pt-1 sm:px-4">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      placeholder="vd. 1.148"
+                      value={totalChiVangCu}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setTotalChiVangCu(v);
+                        try {
+                          localStorage.setItem(LS_INPUT_CHI_VANG_CU, v);
+                        } catch {
+                          /* ignore */
+                        }
+                      }}
+                      onBlur={(e) => {
+                        const v = formatChiVangCuInputDisplay(e.target.value);
+                        setTotalChiVangCu(v);
+                        try {
+                          localStorage.setItem(LS_INPUT_CHI_VANG_CU, v);
+                        } catch {
+                          /* ignore */
+                        }
+                      }}
+                      className="h-12 w-full rounded-xl border border-stone-200/90 bg-gradient-to-b from-stone-50/90 to-white px-2.5 py-1.5 text-right text-base font-bold tabular-nums text-stone-900 shadow-inner focus:border-amber-400/70 focus:outline-none focus:ring-2 focus:ring-amber-400/35 dark:border-stone-600 dark:from-stone-900 dark:to-stone-950 dark:text-stone-50 dark:focus:border-amber-600/50 dark:focus:ring-amber-500/25"
+                    />
+                  </div>
                 </div>
               ) : null}
             </div>
@@ -2245,39 +2273,40 @@ export default function Home() {
           </div>
         </section>
 
-        <div
-          className="scroll-table-premium overflow-auto max-h-[min(78vh,1200px)] rounded-xl border-2 border-solid border-black bg-white dark:border-stone-200 dark:bg-stone-900"
-        >
+        <div className="scroll-table-premium overflow-auto max-h-[min(78vh,1200px)] rounded-xl border-2 border-solid border-black bg-white dark:border-stone-200 dark:bg-stone-900">
           <table
             className="table-fixed w-full border-separate border-spacing-0 text-center text-base"
-            style={{ minWidth: `${visibleJ.length * 124}px` }}
+            style={{ minWidth: `${tableMinWidthPx}px` }}
           >
             <colgroup>
               {visibleJ.map((j) => (
                 <col
                   key={j}
                   style={{
-                    width: `${100 / visibleJ.length}%`,
-                    minWidth: 120,
+                    width:
+                      j === 11
+                        ? `${WEEKDAY_COL_WIDTH_PCT}%`
+                        : `${otherColWidthPct}%`,
+                    minWidth: j === 11 ? WEEKDAY_COL_MIN_PX : DATA_COL_MIN_PX,
                   }}
                 />
               ))}
             </colgroup>
             {/* z-50: luôn nằm trên ô sticky Thứ/Ngày ở tbody (z-20/19) khi cuộn dọc — tránh bị hàng dữ liệu đè header */}
             <thead className="sticky top-0 z-50 bg-amber-100/90 dark:bg-amber-900/30 backdrop-blur-sm text-center [&_th]:!text-base [&_th]:font-bold [&_th]:!border-black [&_th]:dark:!border-stone-200 [&_th]:transition-[filter,box-shadow] [&_th]:duration-200 [&_th]:hover:brightness-[1.04] dark:[&_th]:hover:brightness-110">
-              {/* Dòng 1: nhóm lớn + STT + Thứ/Ngày (rowSpan) */}
+              {/* Dòng 1: STT + Thứ (hẹp) / Ngày (rộng) */}
               <tr>
                 <th
                   rowSpan={3}
-                  className="sticky left-0 top-0 z-[102] min-w-0 border-b border-r border-black dark:border-stone-200 px-2 py-2.5 text-base font-bold uppercase tracking-wide text-stone-950 dark:text-stone-100 whitespace-nowrap bg-rose-100 dark:bg-rose-950 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.12)] dark:shadow-[4px_0_12px_-4px_rgba(0,0,0,0.45)]"
+                  className="sticky left-0 top-0 z-[102] min-w-0 max-w-[3rem] border-b border-r border-black dark:border-stone-200 px-1 py-2 text-sm font-bold uppercase tracking-wide text-stone-950 dark:text-stone-100 whitespace-nowrap bg-rose-100 dark:bg-rose-950 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.12)] dark:shadow-[4px_0_12px_-4px_rgba(0,0,0,0.45)]"
                 >
                   Thứ
                 </th>
                 <th
                   rowSpan={3}
-                  className="sticky top-0 z-[101] min-w-0 border-b border-r border-black dark:border-stone-200 px-2 py-2.5 text-base font-bold uppercase tracking-wide text-stone-950 dark:text-sky-100 whitespace-nowrap bg-sky-100 dark:bg-sky-900 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.1)] dark:shadow-[4px_0_12px_-4px_rgba(0,0,0,0.4)]"
+                  className="sticky top-0 z-[101] min-w-0 border-b border-r border-black dark:border-stone-200 px-2 py-2.5 text-base font-bold uppercase tracking-wide text-stone-950 dark:text-stone-100 whitespace-nowrap bg-sky-100 dark:bg-sky-900 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.1)] dark:shadow-[4px_0_12px_-4px_rgba(0,0,0,0.4)]"
                   style={{
-                    left: `calc(100% / ${visibleJ.length})`,
+                    left: `${WEEKDAY_COL_WIDTH_PCT}%`,
                   }}
                 >
                   Ngày
@@ -2871,8 +2900,7 @@ export default function Home() {
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
                     >
-                      OPEN
-                      <br /> (US)
+                      (US)
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
@@ -2905,8 +2933,7 @@ export default function Home() {
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
                     >
-                      PRICE
-                      <br /> (US)
+                      (US)
                     </th>
                   </>
                 ) : null}
@@ -2916,8 +2943,7 @@ export default function Home() {
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
                     >
-                      OPEN
-                      <br /> (US)
+                      (US)
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
@@ -2961,7 +2987,6 @@ export default function Home() {
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
                     >
-                      OPEN <br />
                       (US)
                     </th>
                     <th
@@ -2995,8 +3020,7 @@ export default function Home() {
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
                     >
-                      PRICE
-                      <br /> (US)
+                      (US)
                     </th>
                   </>
                 ) : null}
@@ -3040,8 +3064,7 @@ export default function Home() {
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
                     >
-                      PRICE
-                      <br /> (US)
+                      (US)
                     </th>
                   </>
                 ) : null}
@@ -3074,7 +3097,7 @@ export default function Home() {
                             : {}),
                           ...(j === 12
                             ? {
-                                left: `calc(100% / ${visibleJ.length})`,
+                                left: `${WEEKDAY_COL_WIDTH_PCT}%`,
                               }
                             : {}),
                         }}
@@ -3115,9 +3138,9 @@ export default function Home() {
                           j === 0
                             ? "border-0 px-0 py-0 w-0 max-w-0 overflow-hidden"
                             : j === 11
-                              ? `sticky left-0 z-20 border-r border-b border-black dark:border-stone-200 px-2 py-2.5 text-center font-bold tabular-nums leading-snug text-balance text-stone-950 dark:text-stone-100 bg-orange-50 dark:bg-orange-950 group-hover/row:bg-orange-100 dark:group-hover/row:bg-orange-900 shadow-[4px_0_10px_-6px_rgba(0,0,0,0.15)] dark:shadow-[4px_0_10px_-6px_rgba(0,0,0,0.5)] ${TD_CELL_FX}`
+                              ? `sticky left-0 z-20 min-w-0 max-w-[3rem] border-r border-b border-black dark:border-stone-200 px-1 py-2 text-center text-sm font-bold tabular-nums leading-snug text-balance text-stone-950 dark:text-stone-100 bg-orange-50 dark:bg-orange-950 group-hover/row:bg-orange-100 dark:group-hover/row:bg-orange-900 shadow-[4px_0_10px_-6px_rgba(0,0,0,0.15)] dark:shadow-[4px_0_10px_-6px_rgba(0,0,0,0.5)] ${TD_CELL_FX}`
                               : j === 12
-                                ? `sticky z-[19] border-r border-b border-black dark:border-stone-200 px-2 py-2.5 text-center font-bold tabular-nums leading-snug text-balance text-red-600 dark:text-red-400 bg-sky-100 dark:bg-sky-950 group-hover/row:bg-sky-200 dark:group-hover/row:bg-sky-900 shadow-[4px_0_10px_-6px_rgba(0,0,0,0.12)] dark:shadow-[4px_0_10px_-6px_rgba(0,0,0,0.45)] ${TD_CELL_FX}`
+                                ? `sticky z-[19] min-w-0 border-r border-b border-black dark:border-stone-200 px-2 py-2.5 text-center font-bold tabular-nums leading-snug text-balance text-stone-950 dark:text-stone-100 bg-sky-100 dark:bg-sky-950 group-hover/row:bg-sky-200 dark:group-hover/row:bg-sky-900 shadow-[4px_0_10px_-6px_rgba(0,0,0,0.12)] dark:shadow-[4px_0_10px_-6px_rgba(0,0,0,0.45)] ${TD_CELL_FX}`
                                 : j >= 61 && j <= 66
                                   ? `border-r border-b border-black dark:border-stone-200 px-2.5 py-2.5 text-center font-bold tabular-nums leading-snug whitespace-normal break-words text-stone-950 dark:text-stone-50 ${getRegionBgClass(j)} ${TD_CELL_FX}`
                                   : `border-r border-b border-black dark:border-stone-200 px-2.5 py-2.5 text-center font-bold tabular-nums leading-snug whitespace-normal break-words text-stone-950 dark:text-stone-50 ${getRegionBgClass(j)} ${TD_CELL_FX}`
@@ -3238,134 +3261,327 @@ export default function Home() {
                             );
                             return <span className={tone}>{text}</span>;
                           })()
-                        ) : j >= 13 && j <= 17 ? (
+                        ) : j === 13 ? (
                           (() => {
                             const v = kitcoCellValue(row.isoDate, j);
-                            const ch = kitcoCellValue(row.isoDate, 21);
-                            const tone = getMarketChangeToneClass(ch);
                             return v === "–" ? (
                               v
                             ) : (
-                              <span className={tone}>
-                                {formatRedCellAccountingStyle(v, tone)}
-                              </span>
+                              <span className={neutralPriceClass}>{v}</span>
                             );
                           })()
-                        ) : j >= 18 && j <= 20 ? (
+                        ) : j >= 14 && j <= 17 ? (
                           (() => {
                             const v = kitcoCellValue(row.isoDate, j);
-                            const ch = kitcoCellValue(row.isoDate, 21);
-                            const tone = getMarketChangeToneClass(ch);
                             return v === "–" ? (
                               v
                             ) : (
-                              <span className={tone}>
-                                {formatRedCellAccountingStyle(v, tone)}
+                              <span className={neutralPriceClass}>{v}</span>
+                            );
+                          })()
+                        ) : j === 18 ? (
+                          (() => {
+                            const v = kitcoCellValue(row.isoDate, 18);
+                            const prevV = kitcoCellValue(row.isoDate, 13);
+                            const cls = toneClassIntradayVsPrev(v, prevV);
+                            return v === "–" ? (
+                              v
+                            ) : (
+                              <span className={cls}>
+                                {formatRedCellAccountingStyle(v, cls)}
                               </span>
                             );
                           })()
-                        ) : j >= 22 && j <= 29 ? (
+                        ) : j === 19 || j === 20 ? (
+                          (() => {
+                            const v = kitcoCellValue(row.isoDate, j);
+                            return v === "–" ? (
+                              v
+                            ) : (
+                              <span className={neutralPriceClass}>{v}</span>
+                            );
+                          })()
+                        ) : j === 22 ? (
                           (() => {
                             const v = marketTimedCellValue(
                               row.isoDate,
                               j,
                               "oil",
                             );
-                            const ch = marketTimedCellValue(
+                            return v === "–" ? (
+                              v
+                            ) : (
+                              <span className={neutralPriceClass}>{v}</span>
+                            );
+                          })()
+                        ) : j >= 23 && j <= 26 ? (
+                          (() => {
+                            const v = marketTimedCellValue(
                               row.isoDate,
-                              30,
+                              j,
                               "oil",
                             );
-                            const tone = getMarketChangeToneClass(
-                              formatChangeWithPlus(ch),
+                            const prevV = marketTimedCellValue(
+                              row.isoDate,
+                              j - 1,
+                              "oil",
+                            );
+                            const cls = toneClassIntradayVsPrev(v, prevV);
+                            return v === "–" ? (
+                              v
+                            ) : (
+                              <span className={cls}>
+                                {formatRedCellAccountingStyle(v, cls)}
+                              </span>
+                            );
+                          })()
+                        ) : j === 27 ? (
+                          (() => {
+                            const v = marketTimedCellValue(
+                              row.isoDate,
+                              27,
+                              "oil",
+                            );
+                            const prevV = marketTimedCellValue(
+                              row.isoDate,
+                              26,
+                              "oil",
+                            );
+                            const cls = toneClassIntradayVsPrev(v, prevV);
+                            return v === "–" ? (
+                              v
+                            ) : (
+                              <span className={cls}>
+                                {formatRedCellAccountingStyle(v, cls)}
+                              </span>
+                            );
+                          })()
+                        ) : j === 28 || j === 29 ? (
+                          (() => {
+                            const v = marketTimedCellValue(
+                              row.isoDate,
+                              j,
+                              "oil",
                             );
                             return v === "–" ? (
                               v
                             ) : (
-                              <span className={tone}>
-                                {formatRedCellAccountingStyle(v, tone)}
-                              </span>
+                              <span className={neutralPriceClass}>{v}</span>
                             );
                           })()
-                        ) : j >= 31 && j <= 38 ? (
+                        ) : j === 31 ? (
                           (() => {
                             const v = marketTimedCellValue(
                               row.isoDate,
                               j,
                               "dollarIndex",
                             );
-                            const ch = marketTimedCellValue(
+                            return v === "–" ? (
+                              v
+                            ) : (
+                              <span className={neutralPriceClass}>{v}</span>
+                            );
+                          })()
+                        ) : j >= 32 && j <= 35 ? (
+                          (() => {
+                            const v = marketTimedCellValue(
                               row.isoDate,
-                              39,
+                              j,
                               "dollarIndex",
                             );
-                            const tone = getMarketChangeToneClass(
-                              formatChangeWithPlus(ch),
+                            const prevV = marketTimedCellValue(
+                              row.isoDate,
+                              j - 1,
+                              "dollarIndex",
+                            );
+                            const cls = toneClassIntradayVsPrev(v, prevV);
+                            return v === "–" ? (
+                              v
+                            ) : (
+                              <span className={cls}>
+                                {formatRedCellAccountingStyle(v, cls)}
+                              </span>
+                            );
+                          })()
+                        ) : j === 36 ? (
+                          (() => {
+                            const v = marketTimedCellValue(
+                              row.isoDate,
+                              36,
+                              "dollarIndex",
+                            );
+                            const prevV = marketTimedCellValue(
+                              row.isoDate,
+                              35,
+                              "dollarIndex",
+                            );
+                            const cls = toneClassIntradayVsPrev(v, prevV);
+                            return v === "–" ? (
+                              v
+                            ) : (
+                              <span className={cls}>
+                                {formatRedCellAccountingStyle(v, cls)}
+                              </span>
+                            );
+                          })()
+                        ) : j === 37 || j === 38 ? (
+                          (() => {
+                            const v = marketTimedCellValue(
+                              row.isoDate,
+                              j,
+                              "dollarIndex",
                             );
                             return v === "–" ? (
                               v
                             ) : (
-                              <span className={tone}>
-                                {formatRedCellAccountingStyle(v, tone)}
-                              </span>
+                              <span className={neutralPriceClass}>{v}</span>
                             );
                           })()
-                        ) : j >= 40 && j <= 47 ? (
+                        ) : j === 40 ? (
                           (() => {
                             const v = marketTimedCellValue(
                               row.isoDate,
                               j,
                               "bond10y",
                             );
-                            const ch = marketTimedCellValue(
+                            return v === "–" ? (
+                              v
+                            ) : (
+                              <span className={neutralPriceClass}>{v}</span>
+                            );
+                          })()
+                        ) : j >= 41 && j <= 44 ? (
+                          (() => {
+                            const v = marketTimedCellValue(
                               row.isoDate,
-                              48,
+                              j,
                               "bond10y",
                             );
-                            const tone = getMarketChangeToneClass(
-                              formatChangeWithPlus(ch),
+                            const prevV = marketTimedCellValue(
+                              row.isoDate,
+                              j - 1,
+                              "bond10y",
+                            );
+                            const cls = toneClassIntradayVsPrev(v, prevV);
+                            return v === "–" ? (
+                              v
+                            ) : (
+                              <span className={cls}>
+                                {formatRedCellAccountingStyle(v, cls)}
+                              </span>
+                            );
+                          })()
+                        ) : j === 45 ? (
+                          (() => {
+                            const v = marketTimedCellValue(
+                              row.isoDate,
+                              45,
+                              "bond10y",
+                            );
+                            const prevV = marketTimedCellValue(
+                              row.isoDate,
+                              44,
+                              "bond10y",
+                            );
+                            const cls = toneClassIntradayVsPrev(v, prevV);
+                            return v === "–" ? (
+                              v
+                            ) : (
+                              <span className={cls}>
+                                {formatRedCellAccountingStyle(v, cls)}
+                              </span>
+                            );
+                          })()
+                        ) : j === 46 || j === 47 ? (
+                          (() => {
+                            const v = marketTimedCellValue(
+                              row.isoDate,
+                              j,
+                              "bond10y",
                             );
                             return v === "–" ? (
                               v
                             ) : (
-                              <span className={tone}>
-                                {formatRedCellAccountingStyle(v, tone)}
-                              </span>
+                              <span className={neutralPriceClass}>{v}</span>
                             );
                           })()
-                        ) : j >= 49 && j <= 56 ? (
+                        ) : j === 49 ? (
                           (() => {
                             const v = marketTimedCellValue(
                               row.isoDate,
                               j,
                               "sp500",
                             );
-                            const ch = marketTimedCellValue(
+                            return v === "–" ? (
+                              v
+                            ) : (
+                              <span className={neutralPriceClass}>{v}</span>
+                            );
+                          })()
+                        ) : j >= 50 && j <= 53 ? (
+                          (() => {
+                            const v = marketTimedCellValue(
                               row.isoDate,
-                              57,
+                              j,
                               "sp500",
                             );
-                            const tone = getMarketChangeToneClass(
-                              formatChangeWithPlus(ch),
+                            const prevV = marketTimedCellValue(
+                              row.isoDate,
+                              j - 1,
+                              "sp500",
+                            );
+                            const cls = toneClassIntradayVsPrev(v, prevV);
+                            return v === "–" ? (
+                              v
+                            ) : (
+                              <span className={cls}>
+                                {formatRedCellAccountingStyle(v, cls)}
+                              </span>
+                            );
+                          })()
+                        ) : j === 54 ? (
+                          (() => {
+                            const v = marketTimedCellValue(
+                              row.isoDate,
+                              54,
+                              "sp500",
+                            );
+                            const prevV = marketTimedCellValue(
+                              row.isoDate,
+                              53,
+                              "sp500",
+                            );
+                            const cls = toneClassIntradayVsPrev(v, prevV);
+                            return v === "–" ? (
+                              v
+                            ) : (
+                              <span className={cls}>
+                                {formatRedCellAccountingStyle(v, cls)}
+                              </span>
+                            );
+                          })()
+                        ) : j === 55 || j === 56 ? (
+                          (() => {
+                            const v = marketTimedCellValue(
+                              row.isoDate,
+                              j,
+                              "sp500",
                             );
                             return v === "–" ? (
                               v
                             ) : (
-                              <span className={tone}>
-                                {formatRedCellAccountingStyle(v, tone)}
-                              </span>
+                              <span className={neutralPriceClass}>{v}</span>
                             );
                           })()
                         ) : j === 61 ? (
                           (() => {
-                            const text =
-                              chiVangIndexTaiSanOverDong17h30(row.isoDate);
+                            const text = chiVangIndexTaiSanOverDong17h30(
+                              row.isoDate,
+                            );
                             if (text === "–") return text;
                             const n = chiVangIndexNumber(row.isoDate);
                             const prevIso =
-                              rowIdx > 0
-                                ? dateRows[rowIdx - 1]!.isoDate
-                                : null;
+                              rowIdx > 0 ? dateRows[rowIdx - 1]!.isoDate : null;
                             const prevN =
                               prevIso != null
                                 ? chiVangIndexNumber(prevIso)
@@ -3406,9 +3622,7 @@ export default function Home() {
                             if (text === "–") return text;
                             const n = chiVangThemNumber(row.isoDate);
                             const prevIso =
-                              rowIdx > 0
-                                ? dateRows[rowIdx - 1]!.isoDate
-                                : null;
+                              rowIdx > 0 ? dateRows[rowIdx - 1]!.isoDate : null;
                             const prevN =
                               prevIso != null
                                 ? chiVangThemNumber(prevIso)
