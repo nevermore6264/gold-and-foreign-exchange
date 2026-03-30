@@ -2314,17 +2314,20 @@ export default function Home() {
                       ĐÓNG
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                      rowSpan={2}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap align-middle text-center ${getRegionHeaderBgClass(13)}`}
                     >
                       CAO
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                      rowSpan={2}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap align-middle text-center ${getRegionHeaderBgClass(13)}`}
                     >
                       THẤP
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                      rowSpan={2}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap align-middle text-center ${getRegionHeaderBgClass(13)}`}
                     >
                       THAY ĐỔI
                     </th>
@@ -2368,17 +2371,20 @@ export default function Home() {
                       PRICE
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                      rowSpan={2}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap align-middle text-center ${getRegionHeaderBgClass(22)}`}
                     >
                       CAO
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                      rowSpan={2}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap align-middle text-center ${getRegionHeaderBgClass(22)}`}
                     >
                       THẤP
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                      rowSpan={2}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap align-middle text-center ${getRegionHeaderBgClass(22)}`}
                     >
                       THAY ĐỔI
                     </th>
@@ -2422,17 +2428,20 @@ export default function Home() {
                       PRICE
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                      rowSpan={2}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap align-middle text-center ${getRegionHeaderBgClass(31)}`}
                     >
                       CAO
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                      rowSpan={2}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap align-middle text-center ${getRegionHeaderBgClass(31)}`}
                     >
                       THẤP
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                      rowSpan={2}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap align-middle text-center ${getRegionHeaderBgClass(31)}`}
                     >
                       THAY ĐỔI
                     </th>
@@ -2476,17 +2485,20 @@ export default function Home() {
                       PRICE
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                      rowSpan={2}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap align-middle text-center ${getRegionHeaderBgClass(40)}`}
                     >
                       CAO
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                      rowSpan={2}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap align-middle text-center ${getRegionHeaderBgClass(40)}`}
                     >
                       THẤP
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                      rowSpan={2}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap align-middle text-center ${getRegionHeaderBgClass(40)}`}
                     >
                       THAY ĐỔI
                     </th>
@@ -2530,17 +2542,20 @@ export default function Home() {
                       ĐÓNG
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                      rowSpan={2}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap align-middle text-center ${getRegionHeaderBgClass(49)}`}
                     >
                       CAO
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                      rowSpan={2}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap align-middle text-center ${getRegionHeaderBgClass(49)}`}
                     >
                       THẤP
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                      rowSpan={2}
+                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap align-middle text-center ${getRegionHeaderBgClass(49)}`}
                     >
                       THAY ĐỔI
                     </th>
@@ -2707,15 +2722,6 @@ export default function Home() {
                     >
                       (US)
                     </th>
-                    <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
-                    />
-                    <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
-                    />
-                    <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
-                    />
                   </>
                 ) : null}
                 {columnVisibility.oil ? (
@@ -2761,15 +2767,6 @@ export default function Home() {
                       PRICE
                       <br /> (US)
                     </th>
-                    <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
-                    />
-                    <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
-                    />
-                    <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
-                    />
                   </>
                 ) : null}
                 {columnVisibility.dollar ? (
@@ -2815,15 +2812,6 @@ export default function Home() {
                       PRICE
                       <br /> (US)
                     </th>
-                    <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
-                    />
-                    <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
-                    />
-                    <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
-                    />
                   </>
                 ) : null}
                 {columnVisibility.bond ? (
@@ -2869,15 +2857,6 @@ export default function Home() {
                       PRICE
                       <br /> (US)
                     </th>
-                    <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
-                    />
-                    <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
-                    />
-                    <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
-                    />
                   </>
                 ) : null}
                 {columnVisibility.sp500 ? (
@@ -2923,15 +2902,6 @@ export default function Home() {
                       PRICE
                       <br /> (US)
                     </th>
-                    <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
-                    />
-                    <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
-                    />
-                    <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
-                    />
                   </>
                 ) : null}
                 {columnVisibility.vcb ? (
