@@ -200,6 +200,7 @@ body {
   scrollbar-gutter: stable;
   scrollbar-width: thin;
   scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+  overscroll-behavior: contain;
 }
 
 .scroll-table-premium::-webkit-scrollbar {

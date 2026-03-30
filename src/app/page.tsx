@@ -28,7 +28,7 @@ import * as XLSX from "xlsx";
  */
 
 /** Cột Thứ chỉ hiển thị CN / 2–7 — hẹp hơn chia đều với các cột dữ liệu. */
-const WEEKDAY_COL_WIDTH_PX = 34;
+const WEEKDAY_COL_WIDTH_PX = 54;
 const DATE_COL_WIDTH_PX = 140;
 const DATA_COL_MIN_PX = 120;
 
@@ -1225,10 +1225,8 @@ export default function Home() {
     const EPS = 1e-9;
     if (Math.abs(current - prev) <= EPS)
       return "text-stone-950 dark:text-stone-50 font-bold";
-    if (current > prev)
-      return "text-green-600 dark:text-green-400 font-bold";
-    if (current < prev)
-      return "text-red-600 dark:text-red-400 font-bold";
+    if (current > prev) return "text-green-600 dark:text-green-400 font-bold";
+    if (current < prev) return "text-red-600 dark:text-red-400 font-bold";
     return "text-stone-950 dark:text-stone-50 font-bold";
   }
 
@@ -1377,10 +1375,7 @@ export default function Home() {
     if (j === 18) {
       const v = kitcoCellValue(isoDate, 18);
       const prev = kitcoCellValue(isoDate, 13);
-      return formatRedCellAccountingStyle(
-        v,
-        toneClassIntradayVsPrev(v, prev),
-      );
+      return formatRedCellAccountingStyle(v, toneClassIntradayVsPrev(v, prev));
     }
     if (j === 19 || j === 20) return kitcoCellValue(isoDate, j);
     if (j === 22) return marketTimedCellValue(isoDate, j, "oil");
@@ -1688,6 +1683,12 @@ export default function Home() {
                           className="scroll-table-premium fixed left-1/2 top-1/2 z-[299] w-[min(92vw,560px)] max-h-[min(78vh,560px)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-amber-200/80 bg-white/95 p-3 shadow-2xl backdrop-blur-sm dark:border-stone-600 dark:bg-stone-900/95"
                           role="dialog"
                           aria-label="Chọn nhóm cột hiển thị"
+                          onWheel={(e) => {
+                            // Khi popup đang mở, chặn wheel lan sang vùng bảng lớn phía sau.
+                            e.stopPropagation();
+                            e.preventDefault();
+                            e.currentTarget.scrollTop += e.deltaY;
+                          }}
                         >
                           <div className="mb-3 flex items-start justify-between gap-3 px-1">
                             <div>
@@ -2299,7 +2300,7 @@ export default function Home() {
               <tr>
                 <th
                   rowSpan={3}
-                  className="sticky left-0 top-0 z-[102] min-w-0 max-w-[3rem] border-b border-r border-black dark:border-stone-200 px-1 py-2 text-sm font-bold uppercase tracking-wide text-stone-950 dark:text-stone-100 whitespace-nowrap bg-rose-100 dark:bg-rose-950 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.12)] dark:shadow-[4px_0_12px_-4px_rgba(0,0,0,0.45)]"
+                  className="sticky left-0 top-0 z-[102] min-w-0 max-w-[54px] border-b border-r border-black dark:border-stone-200 px-1 py-2 text-sm font-bold uppercase tracking-wide text-stone-950 dark:text-stone-100 whitespace-nowrap bg-rose-100 dark:bg-rose-950 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.12)] dark:shadow-[4px_0_12px_-4px_rgba(0,0,0,0.45)]"
                 >
                   Thứ
                 </th>
@@ -2977,8 +2978,7 @@ export default function Home() {
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
                     >
-                      PRICE
-                      <br /> (US)
+                      (US)
                     </th>
                   </>
                 ) : null}
@@ -3031,7 +3031,6 @@ export default function Home() {
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
                     >
-                      OPEN <br />
                       (US)
                     </th>
                     <th
@@ -3139,7 +3138,7 @@ export default function Home() {
                           j === 0
                             ? "border-0 px-0 py-0 w-0 max-w-0 overflow-hidden"
                             : j === 11
-                              ? `sticky left-0 z-20 min-w-0 max-w-[3rem] border-r border-b border-black dark:border-stone-200 px-1 py-2 text-center text-sm font-bold tabular-nums leading-snug text-balance text-stone-950 dark:text-stone-100 bg-orange-50 dark:bg-orange-950 group-hover/row:bg-orange-100 dark:group-hover/row:bg-orange-900 shadow-[4px_0_10px_-6px_rgba(0,0,0,0.15)] dark:shadow-[4px_0_10px_-6px_rgba(0,0,0,0.5)] ${TD_CELL_FX}`
+                              ? `sticky left-0 z-20 min-w-0 max-w-[54px] border-r border-b border-black dark:border-stone-200 px-1 py-2 text-center text-sm font-bold tabular-nums leading-snug text-balance text-stone-950 dark:text-stone-100 bg-orange-50 dark:bg-orange-950 group-hover/row:bg-orange-100 dark:group-hover/row:bg-orange-900 shadow-[4px_0_10px_-6px_rgba(0,0,0,0.15)] dark:shadow-[4px_0_10px_-6px_rgba(0,0,0,0.5)] ${TD_CELL_FX}`
                               : j === 12
                                 ? `sticky z-[19] min-w-0 border-r border-b border-black dark:border-stone-200 px-2 py-2.5 text-center font-bold tabular-nums leading-snug text-balance text-stone-950 dark:text-stone-100 bg-sky-100 dark:bg-sky-950 group-hover/row:bg-sky-200 dark:group-hover/row:bg-sky-900 shadow-[4px_0_10px_-6px_rgba(0,0,0,0.12)] dark:shadow-[4px_0_10px_-6px_rgba(0,0,0,0.45)] ${TD_CELL_FX}`
                                 : j >= 61 && j <= 66
