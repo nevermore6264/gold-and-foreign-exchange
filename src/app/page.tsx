@@ -27,14 +27,6 @@ import * as XLSX from "xlsx";
  */
 
 type FullTableRow = Record<string, string | number | null>;
-type GoldApiResponse = {
-  live?: {
-    bid?: number;
-    ask?: number;
-    change?: number;
-    changePercent?: number;
-  };
-};
 
 type MarketLiveResponse = {
   oil?: { price?: number; changePercent?: number; updatedAt: string };
@@ -163,6 +155,26 @@ function getVietnamNowParts(): { isoDate: string; minutes: number } {
   return { isoDate: `${y}-${m}-${d}`, minutes: h * 60 + min };
 }
 
+/**
+ * Hàng “hôm nay” (VN): Đóng / Cao / Thấp / % là OHLC ngày — trước khi phiên Mỹ (ET)
+ * coi như đã đóng (sau 17:00 Thứ 2–6) thì chỉ là giá tạm, không hiển thị.
+ */
+function shouldShowDailyOhlcForVnTodayRow(isoDate: string): boolean {
+  const vn = getVietnamNowParts();
+  if (isoDate !== vn.isoDate) return true;
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    weekday: "short",
+    hour: "numeric",
+    minute: "numeric",
+    hour12: false,
+  }).formatToParts(new Date());
+  const wd = parts.find((p) => p.type === "weekday")?.value;
+  const hour = parseInt(parts.find((p) => p.type === "hour")?.value ?? "0", 10);
+  if (wd === "Sat" || wd === "Sun") return false;
+  return hour >= 17;
+}
+
 type RangeMode = "month" | "quarter" | "year" | "all";
 
 function getMarketChangeToneClass(value: string): string {
@@ -185,8 +197,12 @@ function getRegionBgClass(colIndex: number): string {
   // Mạnh Hải Mua/Bán: col_1..col_10 — nền trắng (body)
   if (colIndex >= 1 && colIndex <= 10)
     return "bg-white dark:bg-stone-950/35 group-hover/row:bg-[#fafafa] dark:group-hover/row:bg-stone-900/45";
-  // Lãi (nếu bán ra): col_67..70 — xanh lá nhạt (Excel ~#e6f0db)
-  if (colIndex >= 67 && colIndex <= 70)
+  // Lãi (nếu bán ra) + ∑ chỉ vàng + ∑ chỉ vàng thêm — cùng nền xanh lá nhạt (Excel ~#e6f0db)
+  if (
+    (colIndex >= 67 && colIndex <= 70) ||
+    colIndex === 61 ||
+    colIndex === 66
+  )
     return "bg-[#e6f0db] dark:bg-emerald-950/35 group-hover/row:bg-[#dce8d0] dark:group-hover/row:bg-emerald-950/50";
   // KITCO - GIÁ VÀNG THẾ GIỚI: col_13..col_21 — nền xám nhạt (giống Excel)
   if (colIndex >= 13 && colIndex <= 21)
@@ -208,9 +224,6 @@ function getRegionBgClass(colIndex: number): string {
   // CHÊNH LỆCH (trong nước / thế giới): col_62..65 — vàng nhạt (như Excel)
   if (colIndex >= 62 && colIndex <= 65)
     return "bg-[#fff9c4] dark:bg-amber-950/25 group-hover/row:bg-[#fff59d] dark:group-hover/row:bg-amber-950/40";
-  // ∑ chỉ vàng & ∑ chỉ vàng thêm — cùng nền xanh lá
-  if (colIndex === 61 || colIndex === 66)
-    return "bg-emerald-200/60 dark:bg-emerald-900/30";
 
   return "";
 }
@@ -218,7 +231,11 @@ function getRegionBgClass(colIndex: number): string {
 function getRegionHeaderBgClass(colIndex: number): string {
   // Đậm hơn body để nhìn rõ ở header.
   if (colIndex >= 1 && colIndex <= 10) return "bg-[#C8E3F5] dark:bg-sky-900/48";
-  if (colIndex >= 67 && colIndex <= 70)
+  if (
+    (colIndex >= 67 && colIndex <= 70) ||
+    colIndex === 61 ||
+    colIndex === 66
+  )
     return "bg-[#d4e8c8] dark:bg-emerald-900/50";
   // KITCO: header đào / hồng nhạt (nhóm “MỞ / ĐÓNG / …”)
   if (colIndex >= 13 && colIndex <= 21)
@@ -237,8 +254,6 @@ function getRegionHeaderBgClass(colIndex: number): string {
   if (colIndex === 60) return "bg-violet-300/75 dark:bg-violet-900/45";
   if (colIndex >= 62 && colIndex <= 65)
     return "bg-[#fff59d] dark:bg-amber-950/45";
-  if (colIndex === 61 || colIndex === 66)
-    return "bg-emerald-200/80 dark:bg-emerald-900/45";
   return "";
 }
 
@@ -615,7 +630,6 @@ export default function Home() {
     chunkCurrent: number;
     chunkTotal: number;
   } | null>(null);
-  const [kitcoLive, setKitcoLive] = useState<GoldApiResponse["live"]>();
   const [marketLive, setMarketLive] = useState<MarketLiveResponse>();
 
   /** ∑ TÀI SẢN / ∑ CHỈ VÀNG CŨ — nhập tay, lưu trên trình duyệt */
@@ -873,28 +887,6 @@ export default function Home() {
   useEffect(() => {
     let cancelled = false;
 
-    async function loadKitcoLive() {
-      try {
-        const res = await fetch("/api/gold", { cache: "no-store" });
-        if (!res.ok) return;
-        const data = (await res.json()) as GoldApiResponse;
-        if (!cancelled) setKitcoLive(data.live);
-      } catch {
-        // ignore
-      }
-    }
-
-    loadKitcoLive();
-    const t = setInterval(loadKitcoLive, 60_000);
-    return () => {
-      cancelled = true;
-      clearInterval(t);
-    };
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-
     async function loadMarketLive() {
       try {
         const res = await fetch("/api/market-live", { cache: "no-store" });
@@ -914,23 +906,17 @@ export default function Home() {
     };
   }, []);
 
-  const kitcoLiveMid = useMemo(() => {
-    if (!kitcoLive) return undefined;
-    const bid = kitcoLive.bid;
-    const ask = kitcoLive.ask;
-    if (typeof bid === "number" && typeof ask === "number")
-      return (bid + ask) / 2;
-    if (typeof bid === "number") return bid;
-    if (typeof ask === "number") return ask;
-    return undefined;
-  }, [kitcoLive]);
-
   function kitcoCellValue(isoDate: string, colIndex: number): string {
     const base = fullRowsByDate[isoDate];
     const baseVal = base ? base[`col_${colIndex}`] : null;
-
-    // Only overlay realtime for "today in Vietnam"
     const vnNow = getVietnamNowParts();
+
+    // Hàng hôm nay: Đóng/Cao/Thấp/% chỉ từ OHLC ngày sau khi coi phiên ET đã đóng — không dùng spot Kitco (vẫn là giá phiên, không phải đóng ngày).
+    if (isoDate === vnNow.isoDate && colIndex >= 18 && colIndex <= 21) {
+      if (!shouldShowDailyOhlcForVnTodayRow(isoDate)) return "–";
+      return formatMarketNumberByColumn(baseVal, colIndex);
+    }
+
     if (isoDate !== vnNow.isoDate)
       return formatMarketNumberByColumn(baseVal, colIndex);
 
@@ -939,18 +925,6 @@ export default function Home() {
       const o = marketLive?.goldGc?.regularMarketOpen;
       if (typeof o === "number" && Number.isFinite(o))
         return formatMarketNumberByColumn(o, colIndex);
-    }
-
-    // ĐÓNG (US): có thể là giá gần nhất từ Kitco khi đang trong phiên
-    if (colIndex === 18 && kitcoLiveMid != null)
-      return formatMarketNumberByColumn(kitcoLiveMid, colIndex);
-
-    // KITCO change% is col_21
-    if (colIndex === 21) {
-      const cp = kitcoLive?.changePercent;
-      if (typeof cp === "number" && Number.isFinite(cp))
-        return `${cp.toFixed(2)}%`;
-      return formatCellValue(baseVal);
     }
 
     return formatMarketNumberByColumn(baseVal, colIndex);
@@ -963,6 +937,19 @@ export default function Home() {
   ): string {
     const base = fullRowsByDate[isoDate];
     const baseVal = base ? base[`col_${colIndex}`] : null;
+
+    if (!shouldShowDailyOhlcForVnTodayRow(isoDate)) {
+      const closeHighLowCh: Record<
+        "oil" | "dollarIndex" | "bond10y" | "sp500",
+        number[]
+      > = {
+        oil: [27, 28, 29, 30],
+        dollarIndex: [36, 37, 38, 39],
+        bond10y: [45, 46, 47, 48],
+        sp500: [54, 55, 56, 57],
+      };
+      if (closeHighLowCh[kind].includes(colIndex)) return "–";
+    }
 
     const vnNow = getVietnamNowParts();
     if (isoDate !== vnNow.isoDate)
@@ -1004,8 +991,13 @@ export default function Home() {
       return formatMarketNumberByColumn(livePrice, colIndex);
     }
 
-    // change% is the last col of the group
+    // change%: hôm nay sau khi hiển thị OHLC ngày thì dùng % từ bảng (OHLC), không dùng % realtime (chưa phải đóng phiên).
     if (colIndex === changeCol) {
+      if (
+        isoDate === vnNow.isoDate &&
+        shouldShowDailyOhlcForVnTodayRow(isoDate)
+      )
+        return formatCellValue(baseVal);
       if (
         typeof liveChangePercent === "number" &&
         Number.isFinite(liveChangePercent)
@@ -2128,22 +2120,39 @@ export default function Home() {
         </section>
 
         <div
-          className="scroll-table-premium overflow-auto max-h-[min(78vh,1200px)] rounded-xl border border-stone-200/90 dark:border-stone-600/40 bg-white dark:bg-stone-900"
+          className="scroll-table-premium overflow-auto max-h-[min(78vh,1200px)] rounded-xl border-2 border-solid border-black bg-white dark:border-stone-200 dark:bg-stone-900"
         >
-          <table className="w-full min-w-max border-separate border-spacing-0 text-left text-[14px]">
+          <table
+            className="table-fixed w-full border-separate border-spacing-0 text-center text-base"
+            style={{ minWidth: `${visibleJ.length * 124}px` }}
+          >
+            <colgroup>
+              {visibleJ.map((j) => (
+                <col
+                  key={j}
+                  style={{
+                    width: `${100 / visibleJ.length}%`,
+                    minWidth: 120,
+                  }}
+                />
+              ))}
+            </colgroup>
             {/* z-50: luôn nằm trên ô sticky Thứ/Ngày ở tbody (z-20/19) khi cuộn dọc — tránh bị hàng dữ liệu đè header */}
-            <thead className="sticky top-0 z-50 bg-amber-100/90 dark:bg-amber-900/30 backdrop-blur-sm text-center [&_th]:font-bold [&_th]:!border-black [&_th]:dark:!border-stone-200 [&_th]:transition-[filter,box-shadow] [&_th]:duration-200 [&_th]:hover:brightness-[1.04] dark:[&_th]:hover:brightness-110">
+            <thead className="sticky top-0 z-50 bg-amber-100/90 dark:bg-amber-900/30 backdrop-blur-sm text-center [&_th]:!text-base [&_th]:font-bold [&_th]:!border-black [&_th]:dark:!border-stone-200 [&_th]:transition-[filter,box-shadow] [&_th]:duration-200 [&_th]:hover:brightness-[1.04] dark:[&_th]:hover:brightness-110">
               {/* Dòng 1: nhóm lớn + STT + Thứ/Ngày (rowSpan) */}
               <tr>
                 <th
                   rowSpan={3}
-                  className="sticky left-0 top-0 z-[102] border-b border-r border-black dark:border-stone-200 px-1.5 py-2 w-16 min-w-16 text-[13px] font-bold uppercase tracking-wide text-stone-950 dark:text-stone-100 whitespace-nowrap bg-rose-100 dark:bg-rose-950 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.12)] dark:shadow-[4px_0_12px_-4px_rgba(0,0,0,0.45)]"
+                  className="sticky left-0 top-0 z-[102] min-w-0 border-b border-r border-black dark:border-stone-200 px-2 py-2.5 text-base font-bold uppercase tracking-wide text-stone-950 dark:text-stone-100 whitespace-nowrap bg-rose-100 dark:bg-rose-950 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.12)] dark:shadow-[4px_0_12px_-4px_rgba(0,0,0,0.45)]"
                 >
                   Thứ
                 </th>
                 <th
                   rowSpan={3}
-                  className="sticky left-16 top-0 z-[101] border-b border-r border-black dark:border-stone-200 px-2 py-2 w-32 min-w-32 text-[14px] font-bold uppercase tracking-wide text-stone-950 dark:text-sky-100 whitespace-nowrap bg-sky-100 dark:bg-sky-900 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.1)] dark:shadow-[4px_0_12px_-4px_rgba(0,0,0,0.4)]"
+                  className="sticky top-0 z-[101] min-w-0 border-b border-r border-black dark:border-stone-200 px-2 py-2.5 text-base font-bold uppercase tracking-wide text-stone-950 dark:text-sky-100 whitespace-nowrap bg-sky-100 dark:bg-sky-900 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.1)] dark:shadow-[4px_0_12px_-4px_rgba(0,0,0,0.4)]"
+                  style={{
+                    left: `calc(100% / ${visibleJ.length})`,
+                  }}
                 >
                   Ngày
                 </th>
@@ -2172,7 +2181,7 @@ export default function Home() {
                   <>
                     <th
                       rowSpan={3}
-                      className={`border border-black dark:border-stone-200 px-1.5 py-2 w-16 min-w-16 text-[14px] font-bold leading-tight text-stone-900 dark:text-stone-100 ${getRegionHeaderBgClass(61)}`}
+                      className={`min-w-0 border border-black dark:border-stone-200 px-1.5 py-2 text-[14px] font-bold leading-tight text-stone-900 dark:text-stone-100 ${getRegionHeaderBgClass(61)}`}
                     >
                       <span className="block">∑</span>
                       <span className="block">chỉ</span>
@@ -2180,7 +2189,7 @@ export default function Home() {
                     </th>
                     <th
                       rowSpan={3}
-                      className={`border border-black dark:border-stone-200 border-l-0 px-1.5 py-2 w-[4.5rem] min-w-[4.5rem] text-[14px] font-bold leading-tight text-stone-900 dark:text-stone-100 ${getRegionHeaderBgClass(66)}`}
+                      className={`min-w-0 border border-black dark:border-stone-200 border-l-0 px-1.5 py-2 text-[14px] font-bold leading-tight text-stone-900 dark:text-stone-100 ${getRegionHeaderBgClass(66)}`}
                     >
                       <span className="block">∑</span>
                       <span className="block">chỉ vàng</span>
@@ -2918,7 +2927,7 @@ export default function Home() {
                 ) : null}
               </tr>
             </thead>
-            <tbody>
+            <tbody className="[&_td]:align-middle [&_span]:inline-block [&_span]:max-w-full [&_span]:text-center">
               {dateRows.map((row, rowIdx) => (
                 <tr
                   key={row.isoDate}
@@ -2928,15 +2937,21 @@ export default function Home() {
                     j === 0 || j === 58 || j === 59 ? null : (
                       <td
                         key={j}
+                        align="center"
                         title="Nhấp đúp để chọn màu nền ô"
-                        style={
-                          cellBgColors[`${row.isoDate}:${j}`]
+                        style={{
+                          ...(cellBgColors[`${row.isoDate}:${j}`]
                             ? {
                                 backgroundColor:
                                   cellBgColors[`${row.isoDate}:${j}`],
                               }
-                            : undefined
-                        }
+                            : {}),
+                          ...(j === 12
+                            ? {
+                                left: `calc(100% / ${visibleJ.length})`,
+                              }
+                            : {}),
+                        }}
                         onMouseDown={(e) => {
                           if (e.detail > 1) e.preventDefault();
                         }}
@@ -2974,16 +2989,16 @@ export default function Home() {
                           j === 0
                             ? "border-0 px-0 py-0 w-0 max-w-0 overflow-hidden"
                             : j === 11
-                              ? `sticky left-0 z-20 border-r border-b border-black dark:border-stone-200 px-1.5 py-2 text-right text-[13px] font-bold w-16 max-w-16 truncate tabular-nums text-stone-950 dark:text-stone-100 bg-orange-50 dark:bg-orange-950 group-hover/row:bg-orange-100 dark:group-hover/row:bg-orange-900 shadow-[4px_0_10px_-6px_rgba(0,0,0,0.15)] dark:shadow-[4px_0_10px_-6px_rgba(0,0,0,0.5)] ${TD_CELL_FX}`
+                              ? `sticky left-0 z-20 border-r border-b border-black dark:border-stone-200 px-2 py-2.5 text-center font-bold tabular-nums leading-snug text-balance text-stone-950 dark:text-stone-100 bg-orange-50 dark:bg-orange-950 group-hover/row:bg-orange-100 dark:group-hover/row:bg-orange-900 shadow-[4px_0_10px_-6px_rgba(0,0,0,0.15)] dark:shadow-[4px_0_10px_-6px_rgba(0,0,0,0.5)] ${TD_CELL_FX}`
                               : j === 12
-                                ? `sticky left-16 z-[19] border-r border-b border-black dark:border-stone-200 px-2 py-2 text-center text-[14px] font-bold w-32 max-w-32 truncate tabular-nums text-red-600 dark:text-red-400 bg-sky-100 dark:bg-sky-950 group-hover/row:bg-sky-200 dark:group-hover/row:bg-sky-900 shadow-[4px_0_10px_-6px_rgba(0,0,0,0.12)] dark:shadow-[4px_0_10px_-6px_rgba(0,0,0,0.45)] ${TD_CELL_FX}`
+                                ? `sticky z-[19] border-r border-b border-black dark:border-stone-200 px-2 py-2.5 text-center font-bold tabular-nums leading-snug text-balance text-red-600 dark:text-red-400 bg-sky-100 dark:bg-sky-950 group-hover/row:bg-sky-200 dark:group-hover/row:bg-sky-900 shadow-[4px_0_10px_-6px_rgba(0,0,0,0.12)] dark:shadow-[4px_0_10px_-6px_rgba(0,0,0,0.45)] ${TD_CELL_FX}`
                                 : j >= 61 && j <= 66
-                                  ? `border-r border-b border-black dark:border-stone-200 px-2 py-2 text-[14px] font-bold max-w-[110px] truncate tabular-nums text-stone-950 dark:text-stone-50 text-center ${getRegionBgClass(j)} ${TD_CELL_FX}`
-                                  : `border-r border-b border-black dark:border-stone-200 px-2 py-2 text-[14px] font-bold max-w-[130px] truncate tabular-nums text-stone-950 dark:text-stone-50 ${getRegionBgClass(j)} ${TD_CELL_FX}`
+                                  ? `border-r border-b border-black dark:border-stone-200 px-2.5 py-2.5 text-center font-bold tabular-nums leading-snug whitespace-normal break-words text-stone-950 dark:text-stone-50 ${getRegionBgClass(j)} ${TD_CELL_FX}`
+                                  : `border-r border-b border-black dark:border-stone-200 px-2.5 py-2.5 text-center font-bold tabular-nums leading-snug whitespace-normal break-words text-stone-950 dark:text-stone-50 ${getRegionBgClass(j)} ${TD_CELL_FX}`
                         }
                       >
                         {isLoadingTable && j !== 0 && j !== 11 && j !== 12 ? (
-                          <div className="h-4 w-14 rounded bg-stone-200/70 dark:bg-stone-800/70 animate-pulse" />
+                          <div className="mx-auto h-5 w-20 rounded bg-stone-200/70 dark:bg-stone-800/70 animate-pulse" />
                         ) : j === 0 ? (
                           ""
                         ) : j === 11 ? (
