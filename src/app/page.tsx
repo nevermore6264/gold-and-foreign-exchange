@@ -2400,10 +2400,13 @@ export default function Home() {
                 ) : null}
                 {columnVisibility.vcb ? (
                   <th
+                    rowSpan={2}
                     colSpan={1}
-                    className={`border-b border-black dark:border-stone-200 px-2 py-2 text-[14px] font-bold text-amber-900/80 dark:text-amber-200/90 whitespace-nowrap ${getRegionHeaderBgClass(60)}`}
+                    className={`border-b border-black dark:border-stone-200 px-2 py-2 text-[14px] font-bold text-stone-950 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(60)}`}
                   >
                     Tỷ Giá VCB
+                    <br />
+                    Bán
                   </th>
                 ) : null}
               </tr>
@@ -2731,16 +2734,8 @@ export default function Home() {
                     </th>
                   </>
                 ) : null}
-                {columnVisibility.vcb ? (
-                  <>
-                    {/* Tỷ giá VCB (1 cột - chỉ lấy Bán) */}
-                    <th
-                      className={`border-b border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-amber-900/70 dark:text-amber-200/80 whitespace-nowrap ${getRegionHeaderBgClass(60)}`}
-                    >
-                      Bán
-                    </th>
-                  </>
-                ) : null}
+                {/* VCB đã được gộp vào header dòng trên (rowSpan) */}
+                {columnVisibility.vcb ? null : null}
               </tr>
               {/* Dòng 3: các mốc giờ chi tiết */}
               <tr>
