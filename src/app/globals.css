@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: #ffffff;
   --foreground: #1c1917;
@@ -28,23 +30,21 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #1c1917;
-    --foreground: #fafaf9;
-    --gold: #d4a017;
-    --gold-light: #fbbf24;
-    --gold-soft: #422006;
-    --card: #292524;
-    --card-border: #44403c;
-    --muted: #a8a29e;
-    --bg-grad-1: #1c1917;
-    --bg-grad-2: #292524;
-    --bg-grad-3: #422006;
-    --scrollbar-thumb: rgba(255, 255, 255, 0.28);
-    --scrollbar-thumb-hover: rgba(255, 255, 255, 0.46);
-    --scrollbar-thumb-active: rgba(255, 255, 255, 0.58);
-  }
+html.dark {
+  --background: #1c1917;
+  --foreground: #fafaf9;
+  --gold: #d4a017;
+  --gold-light: #fbbf24;
+  --gold-soft: #422006;
+  --card: #292524;
+  --card-border: #44403c;
+  --muted: #a8a29e;
+  --bg-grad-1: #1c1917;
+  --bg-grad-2: #292524;
+  --bg-grad-3: #422006;
+  --scrollbar-thumb: rgba(255, 255, 255, 0.28);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.46);
+  --scrollbar-thumb-active: rgba(255, 255, 255, 0.58);
 }
 
 html {

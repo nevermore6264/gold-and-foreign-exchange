@@ -39,9 +39,57 @@ function liveQuoteFromYahoo(q: unknown): LiveQuote {
   };
 }
 
+async function quoteDollarIndexLive(
+  yahooFinance: InstanceType<typeof YahooFinance>,
+  quoteSafe: (symbol: string) => Promise<unknown>,
+): Promise<unknown> {
+  const sym = "DX-Y.NYB";
+  const q = await quoteSafe(sym);
+  const o = q as { regularMarketPrice?: number } | null;
+  if (o && typeof o.regularMarketPrice === "number" && Number.isFinite(o.regularMarketPrice)) {
+    return q;
+  }
+  try {
+    const p2 = new Date();
+    const p1 = new Date(p2.getTime() - 10 * 24 * 60 * 60 * 1000);
+    const ch = await yahooFinance.chart(sym, {
+      period1: p1,
+      period2: p2,
+      interval: "1d",
+    });
+    const quotes = ch?.quotes;
+    if (!Array.isArray(quotes) || quotes.length === 0) return q;
+    const last = quotes[quotes.length - 1] as {
+      close?: number | null;
+      date?: Date;
+    };
+    const prev =
+      quotes.length >= 2
+        ? (quotes[quotes.length - 2] as { close?: number | null })
+        : null;
+    const price = last?.close;
+    if (typeof price !== "number" || !Number.isFinite(price)) return q;
+    let changePercent: number | undefined;
+    const pc = prev?.close;
+    if (typeof pc === "number" && Number.isFinite(pc) && pc !== 0) {
+      changePercent = ((price - pc) / pc) * 100;
+    }
+    return {
+      regularMarketPrice: price,
+      regularMarketChangePercent: changePercent,
+      regularMarketTime: last?.date,
+    };
+  } catch (e) {
+    console.error("market-live DXY chart fallback:", e);
+    return q;
+  }
+}
+
 export async function GET() {
   try {
-    const yahooFinance = new YahooFinance();
+    const yahooFinance = new YahooFinance({
+      suppressNotices: ["yahooSurvey", "ripHistorical"],
+    });
 
     const quoteSafe = async (symbol: string) => {
       try {
@@ -52,12 +100,12 @@ export async function GET() {
       }
     };
 
-    const [oil, dxy, tnx, sp, gc] = await Promise.all([
+    const [oil, tnx, sp, gc, dxy] = await Promise.all([
       quoteSafe("CL=F"),
-      quoteSafe("DX-Y.NYB"),
       quoteSafe("^TNX"),
       quoteSafe("^GSPC"),
       quoteSafe("GC=F"),
+      quoteDollarIndexLive(yahooFinance, quoteSafe),
     ]);
 
     const oilLive = liveQuoteFromYahoo(oil);

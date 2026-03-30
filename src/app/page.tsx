@@ -16,6 +16,7 @@ import {
   TOGGLEABLE_GROUPS,
   type ToggleableColGroup,
 } from "@/lib/table-columns";
+import { ThemeToggle } from "@/components/theme-toggle";
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
@@ -62,6 +63,20 @@ function formatVnd(v: string | number | null | undefined): string {
   return new Intl.NumberFormat("vi-VN", {
     maximumFractionDigits: 0,
   }).format(n);
+}
+
+/**
+ * Ô đỏ: kế toán — bọc giá trị trong ngoặc (), không hiện thêm mức chênh so với ngày trên.
+ * Số âm (ví dụ Lãi): bỏ dấu trừ, chỉ để phần tuyệt đối trong ngoặc.
+ */
+function formatRedCellAccountingStyle(
+  mainText: string,
+  toneClass: string | undefined,
+): string {
+  if (mainText === "–" || !toneClass?.includes("text-red-600")) return mainText;
+  const inner = mainText.trim().replace(/^[\u2212\−\-]\s*/, "");
+  if (inner === "") return mainText;
+  return `(${inner})`;
 }
 
 function formatMarketNumberByColumn(
@@ -1213,24 +1228,27 @@ export default function Home() {
   }
 
   /**
-   * MUA 11h/14h30/17h30 và Bán 11h/14h30/17h30: so với mốc giờ ngay trước (cùng hàng).
-   * 9h giữ màu mặc định; CHÊNH LỆCH dùng tone từ getNumberToneClass trong manhHaiCellValue.
+   * MUA/Bán giá (1–4, 6–9): tone so với ngày liền trước (cùng cột).
+   * CHÊNH (5, 10): tone từ manhHaiCellValue.
    */
-  function manhHaiMoDongVsPrevTimeTone(
+  function manhHaiMuaBanPrevRowCompare(
     isoDate: string,
     colIndex: number,
-  ): string | undefined {
-    if (colIndex >= 2 && colIndex <= 4) {
-      const cur = manhHaiRawNumber(isoDate, colIndex);
-      const prev = manhHaiRawNumber(isoDate, colIndex - 1);
-      return toneClassCompareToRowAbove(cur, prev);
-    }
-    if (colIndex >= 7 && colIndex <= 9) {
-      const cur = manhHaiRawNumber(isoDate, colIndex);
-      const prev = manhHaiRawNumber(isoDate, colIndex - 1);
-      return toneClassCompareToRowAbove(cur, prev);
-    }
-    return undefined;
+    rowIdx: number,
+  ): { tone?: string; delta: number | null } {
+    const isPrice =
+      (colIndex >= 1 && colIndex <= 4) || (colIndex >= 6 && colIndex <= 9);
+    if (!isPrice) return { delta: null };
+    if (rowIdx <= 0) return { delta: null };
+    const prevIso = dateRows[rowIdx - 1]?.isoDate;
+    if (!prevIso) return { delta: null };
+    const cur = manhHaiRawNumber(isoDate, colIndex);
+    const prev = manhHaiRawNumber(prevIso, colIndex);
+    if (cur == null || prev == null) return { delta: null };
+    return {
+      tone: toneClassCompareToRowAbove(cur, prev),
+      delta: cur - prev,
+    };
   }
 
   /**
@@ -1238,10 +1256,10 @@ export default function Home() {
    * (∑ Đầu tư × ∑ chỉ vàng đang có) − MUA − Bán (Mạnh Hải cùng mốc VN).
    * MUA: col_1..col_4; Bán: col_6..col_9 (9h, 11h, 14h30, 17h30).
    */
-  function laiNeuBanRa(
+  function laiNeuBanRaNumber(
     isoDate: string,
     colJ: 67 | 68 | 69 | 70,
-  ): { text: string; toneClass?: string } {
+  ): number | null {
     const muaCols = [
       MANH_HAI_COL.MUA_9H,
       MANH_HAI_COL.MUA_11H,
@@ -1260,10 +1278,18 @@ export default function Home() {
     const giaMua = manhHaiRawNumber(isoDate, muaCols[slotIdx]!);
     const giaBan = manhHaiRawNumber(isoDate, banCols[slotIdx]!);
     if (dauTu == null || chi == null || giaMua == null || giaBan == null)
-      return { text: "–" };
+      return null;
     const base = dauTu * chi;
     const lai = base - giaMua - giaBan;
-    if (!Number.isFinite(lai)) return { text: "–" };
+    return Number.isFinite(lai) ? lai : null;
+  }
+
+  function laiNeuBanRa(
+    isoDate: string,
+    colJ: 67 | 68 | 69 | 70,
+  ): { text: string; toneClass?: string } {
+    const lai = laiNeuBanRaNumber(isoDate, colJ);
+    if (lai == null) return { text: "–" };
     const text = formatVnd(lai);
     return {
       text,
@@ -1278,9 +1304,24 @@ export default function Home() {
     const { isoDate } = row;
     if (j === 11) return row.weekdayLabel;
     if (j === 12) return row.dateLabel;
-    if (j >= 1 && j <= 10) return manhHaiCellValue(isoDate, j).text;
-    if (j >= 67 && j <= 70)
-      return laiNeuBanRa(isoDate, j as 67 | 68 | 69 | 70).text;
+    if (j >= 1 && j <= 10) {
+      const v = manhHaiCellValue(isoDate, j);
+      const rowIdx = dateRows.findIndex((r) => r.isoDate === isoDate);
+      const priceCmp = manhHaiMuaBanPrevRowCompare(isoDate, j, rowIdx);
+      const toneClass = priceCmp.tone ?? v.toneClass;
+      if ((j >= 1 && j <= 4) || (j >= 6 && j <= 9)) {
+        return formatRedCellAccountingStyle(v.text, toneClass);
+      }
+      if (j === 5 || j === 10) {
+        return formatRedCellAccountingStyle(v.text, v.toneClass);
+      }
+      return v.text;
+    }
+    if (j >= 67 && j <= 70) {
+      const colJ = j as 67 | 68 | 69 | 70;
+      const v = laiNeuBanRa(isoDate, colJ);
+      return formatRedCellAccountingStyle(v.text, v.toneClass);
+    }
     if (j === 21) return formatChangeWithPlus(kitcoCellValue(isoDate, j));
     if (j === 30)
       return formatChangeWithPlus(marketTimedCellValue(isoDate, j, "oil"));
@@ -1383,6 +1424,7 @@ export default function Home() {
               </p>
             </div>
           </div>
+          <ThemeToggle />
         </div>
       </header>
 
@@ -3008,38 +3050,53 @@ export default function Home() {
                         ) : j >= 1 && j <= 10 ? (
                           (() => {
                             const v = manhHaiCellValue(row.isoDate, j);
-                            const slotTone = manhHaiMoDongVsPrevTimeTone(
+                            const priceCmp = manhHaiMuaBanPrevRowCompare(
                               row.isoDate,
                               j,
+                              rowIdx,
                             );
-                            const toneClass = slotTone ?? v.toneClass;
+                            const toneClass = priceCmp.tone ?? v.toneClass;
+                            let text = v.text;
+                            if ((j >= 1 && j <= 4) || (j >= 6 && j <= 9)) {
+                              text = formatRedCellAccountingStyle(
+                                v.text,
+                                toneClass,
+                              );
+                            } else if (j === 5 || j === 10) {
+                              text = formatRedCellAccountingStyle(
+                                v.text,
+                                v.toneClass,
+                              );
+                            }
                             return toneClass ? (
-                              <span className={toneClass}>{v.text}</span>
+                              <span className={toneClass}>{text}</span>
                             ) : (
-                              v.text
+                              text
                             );
                           })()
                         ) : j >= 67 && j <= 70 ? (
                           (() => {
-                            const v = laiNeuBanRa(
-                              row.isoDate,
-                              j as 67 | 68 | 69 | 70,
+                            const colJ = j as 67 | 68 | 69 | 70;
+                            const v = laiNeuBanRa(row.isoDate, colJ);
+                            const text = formatRedCellAccountingStyle(
+                              v.text,
+                              v.toneClass,
                             );
                             return v.toneClass ? (
-                              <span className={v.toneClass}>{v.text}</span>
+                              <span className={v.toneClass}>{text}</span>
                             ) : (
-                              v.text
+                              text
                             );
                           })()
                         ) : j === 21 ? (
                           (() => {
                             const v = kitcoCellValue(row.isoDate, j);
-                            const text = formatChangeWithPlus(v);
-                            return (
-                              <span className={getMarketChangeToneClass(v)}>
-                                {text}
-                              </span>
+                            const tone = getMarketChangeToneClass(v);
+                            const text = formatRedCellAccountingStyle(
+                              formatChangeWithPlus(v),
+                              tone,
                             );
+                            return <span className={tone}>{text}</span>;
                           })()
                         ) : j === 30 ? (
                           (() => {
@@ -3048,12 +3105,12 @@ export default function Home() {
                               j,
                               "oil",
                             );
-                            const text = formatChangeWithPlus(v);
-                            return (
-                              <span className={getMarketChangeToneClass(v)}>
-                                {text}
-                              </span>
+                            const tone = getMarketChangeToneClass(v);
+                            const text = formatRedCellAccountingStyle(
+                              formatChangeWithPlus(v),
+                              tone,
                             );
+                            return <span className={tone}>{text}</span>;
                           })()
                         ) : j === 39 ? (
                           (() => {
@@ -3062,12 +3119,12 @@ export default function Home() {
                               j,
                               "dollarIndex",
                             );
-                            const text = formatChangeWithPlus(v);
-                            return (
-                              <span className={getMarketChangeToneClass(v)}>
-                                {text}
-                              </span>
+                            const tone = getMarketChangeToneClass(v);
+                            const text = formatRedCellAccountingStyle(
+                              formatChangeWithPlus(v),
+                              tone,
                             );
+                            return <span className={tone}>{text}</span>;
                           })()
                         ) : j === 48 ? (
                           (() => {
@@ -3076,12 +3133,12 @@ export default function Home() {
                               j,
                               "bond10y",
                             );
-                            const text = formatChangeWithPlus(v);
-                            return (
-                              <span className={getMarketChangeToneClass(v)}>
-                                {text}
-                              </span>
+                            const tone = getMarketChangeToneClass(v);
+                            const text = formatRedCellAccountingStyle(
+                              formatChangeWithPlus(v),
+                              tone,
                             );
+                            return <span className={tone}>{text}</span>;
                           })()
                         ) : j === 57 ? (
                           (() => {
@@ -3090,12 +3147,12 @@ export default function Home() {
                               j,
                               "sp500",
                             );
-                            const text = formatChangeWithPlus(v);
-                            return (
-                              <span className={getMarketChangeToneClass(v)}>
-                                {text}
-                              </span>
+                            const tone = getMarketChangeToneClass(v);
+                            const text = formatRedCellAccountingStyle(
+                              formatChangeWithPlus(v),
+                              tone,
                             );
+                            return <span className={tone}>{text}</span>;
                           })()
                         ) : j >= 13 && j <= 17 ? (
                           (() => {
@@ -3105,11 +3162,24 @@ export default function Home() {
                             return v === "–" ? (
                               v
                             ) : (
-                              <span className={tone}>{v}</span>
+                              <span className={tone}>
+                                {formatRedCellAccountingStyle(v, tone)}
+                              </span>
                             );
                           })()
                         ) : j >= 18 && j <= 20 ? (
-                          kitcoCellValue(row.isoDate, j)
+                          (() => {
+                            const v = kitcoCellValue(row.isoDate, j);
+                            const ch = kitcoCellValue(row.isoDate, 21);
+                            const tone = getMarketChangeToneClass(ch);
+                            return v === "–" ? (
+                              v
+                            ) : (
+                              <span className={tone}>
+                                {formatRedCellAccountingStyle(v, tone)}
+                              </span>
+                            );
+                          })()
                         ) : j >= 22 && j <= 29 ? (
                           (() => {
                             const v = marketTimedCellValue(
@@ -3128,7 +3198,9 @@ export default function Home() {
                             return v === "–" ? (
                               v
                             ) : (
-                              <span className={tone}>{v}</span>
+                              <span className={tone}>
+                                {formatRedCellAccountingStyle(v, tone)}
+                              </span>
                             );
                           })()
                         ) : j >= 31 && j <= 38 ? (
@@ -3149,7 +3221,9 @@ export default function Home() {
                             return v === "–" ? (
                               v
                             ) : (
-                              <span className={tone}>{v}</span>
+                              <span className={tone}>
+                                {formatRedCellAccountingStyle(v, tone)}
+                              </span>
                             );
                           })()
                         ) : j >= 40 && j <= 47 ? (
@@ -3170,7 +3244,9 @@ export default function Home() {
                             return v === "–" ? (
                               v
                             ) : (
-                              <span className={tone}>{v}</span>
+                              <span className={tone}>
+                                {formatRedCellAccountingStyle(v, tone)}
+                              </span>
                             );
                           })()
                         ) : j >= 49 && j <= 56 ? (
@@ -3191,7 +3267,9 @@ export default function Home() {
                             return v === "–" ? (
                               v
                             ) : (
-                              <span className={tone}>{v}</span>
+                              <span className={tone}>
+                                {formatRedCellAccountingStyle(v, tone)}
+                              </span>
                             );
                           })()
                         ) : j === 61 ? (

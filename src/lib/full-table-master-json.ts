@@ -12,8 +12,9 @@ const MASTER_PATH = path.join(getAppCacheRoot(), "full-table-dataset.json");
 
 /**
  * Tăng khi đổi cách gộp OHLC / generate ngày — bỏ qua master cũ để build lại dữ liệu thị trường.
+ * v6: Dollar Index — bổ sung fallback Yahoo chart (Investing hay chặn serverless; historical đôi khi rỗng).
  */
-export const MARKET_SCHEMA_VERSION = 5;
+export const MARKET_SCHEMA_VERSION = 6;
 
 /** Cùng shape với FullTableRow trong full-table.ts */
 export type MasterTableRow = Record<string, string | number | null>;
