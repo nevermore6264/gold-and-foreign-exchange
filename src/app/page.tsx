@@ -19,6 +19,7 @@ import {
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import * as XLSX from "xlsx";
 
 /**
  * Khung UI trước – chỉ header + bảng trống.
@@ -1333,6 +1334,19 @@ export default function Home() {
     URL.revokeObjectURL(url);
   }
 
+  function handleDownloadXlsx() {
+    const cols = visibleJ.filter((c) => c !== 0);
+    if (cols.length === 0) return;
+    const header = cols.map((jj) => CSV_COL_LABELS[jj] ?? `col_${jj}`);
+    const rows = dateRows.map((row) =>
+      cols.map((jj) => exportCellPlainText(row, jj)),
+    );
+    const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Du_lieu");
+    XLSX.writeFile(wb, `gia-vang-${from}_${to}.xlsx`);
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-white text-stone-900 dark:bg-stone-950 dark:text-stone-100">
       <header
@@ -1461,7 +1475,7 @@ export default function Home() {
           style={{ animationDelay: "80ms", animationFillMode: "forwards" }}
         >
           <div className="mt-4 flex flex-col sm:flex-row sm:items-end gap-3">
-            {/* Trái: xuất CSV + cột (cùng khu với bộ lọc) */}
+            {/* Trái: xuất CSV/XLSX + cột (cùng khu với bộ lọc) */}
             <div className="flex flex-wrap items-center gap-2">
               {isLoadingTable ? (
                 tableLoadProgress ? (
@@ -1480,14 +1494,28 @@ export default function Home() {
                   </span>
                 )
               ) : null}
-              <button
-                type="button"
-                onClick={handleDownloadCsv}
-                disabled={isLoadingTable || dateRows.length === 0}
-                className="h-9 shrink-0 rounded-xl border border-emerald-200/80 bg-emerald-50/90 px-3 text-[14px] font-semibold text-emerald-900 hover:bg-emerald-100/90 disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-800/50 dark:bg-emerald-950/40 dark:text-emerald-200 dark:hover:bg-emerald-900/50"
-              >
-                Tải CSV
-              </button>
+              <div className="inline-flex h-9 shrink-0 overflow-hidden rounded-xl border border-emerald-200/80 dark:border-emerald-800/50">
+                <button
+                  type="button"
+                  onClick={handleDownloadCsv}
+                  disabled={isLoadingTable || dateRows.length === 0}
+                  className="border-0 bg-emerald-50/90 px-3 text-[14px] font-semibold text-emerald-900 hover:bg-emerald-100/90 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-emerald-950/40 dark:text-emerald-200 dark:hover:bg-emerald-900/50"
+                >
+                  Tải CSV
+                </button>
+                <span
+                  className="w-px shrink-0 bg-emerald-200/90 dark:bg-emerald-700/60"
+                  aria-hidden
+                />
+                <button
+                  type="button"
+                  onClick={handleDownloadXlsx}
+                  disabled={isLoadingTable || dateRows.length === 0}
+                  className="border-0 bg-emerald-50/90 px-3 text-[14px] font-semibold text-emerald-900 hover:bg-emerald-100/90 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-emerald-950/40 dark:text-emerald-200 dark:hover:bg-emerald-900/50"
+                >
+                  Tải XLSX
+                </button>
+              </div>
               <div className="relative z-[260]">
                 <button
                   type="button"
