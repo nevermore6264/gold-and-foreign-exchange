@@ -1235,20 +1235,17 @@ export default function Home() {
     isoDate: string,
     colIndex: number,
     rowIdx: number,
-  ): { tone?: string; delta: number | null } {
+  ): { tone?: string } {
     const isPrice =
       (colIndex >= 1 && colIndex <= 4) || (colIndex >= 6 && colIndex <= 9);
-    if (!isPrice) return { delta: null };
-    if (rowIdx <= 0) return { delta: null };
+    if (!isPrice) return {};
+    if (rowIdx <= 0) return {};
     const prevIso = dateRows[rowIdx - 1]?.isoDate;
-    if (!prevIso) return { delta: null };
+    if (!prevIso) return {};
     const cur = manhHaiRawNumber(isoDate, colIndex);
     const prev = manhHaiRawNumber(prevIso, colIndex);
-    if (cur == null || prev == null) return { delta: null };
-    return {
-      tone: toneClassCompareToRowAbove(cur, prev),
-      delta: cur - prev,
-    };
+    if (cur == null || prev == null) return {};
+    return { tone: toneClassCompareToRowAbove(cur, prev) };
   }
 
   /**
@@ -1322,32 +1319,119 @@ export default function Home() {
       const v = laiNeuBanRa(isoDate, colJ);
       return formatRedCellAccountingStyle(v.text, v.toneClass);
     }
-    if (j === 21) return formatChangeWithPlus(kitcoCellValue(isoDate, j));
-    if (j === 30)
-      return formatChangeWithPlus(marketTimedCellValue(isoDate, j, "oil"));
-    if (j === 39)
-      return formatChangeWithPlus(
-        marketTimedCellValue(isoDate, j, "dollarIndex"),
+    if (j === 21) {
+      const raw = kitcoCellValue(isoDate, j);
+      return formatRedCellAccountingStyle(
+        formatChangeWithPlus(raw),
+        getMarketChangeToneClass(raw),
       );
-    if (j === 48)
-      return formatChangeWithPlus(marketTimedCellValue(isoDate, j, "bond10y"));
-    if (j === 57)
-      return formatChangeWithPlus(marketTimedCellValue(isoDate, j, "sp500"));
-    if (j >= 13 && j <= 20) return kitcoCellValue(isoDate, j);
-    if (j >= 22 && j <= 29) return marketTimedCellValue(isoDate, j, "oil");
-    if (j >= 31 && j <= 38)
-      return marketTimedCellValue(isoDate, j, "dollarIndex");
-    if (j >= 40 && j <= 47) return marketTimedCellValue(isoDate, j, "bond10y");
-    if (j >= 49 && j <= 56) return marketTimedCellValue(isoDate, j, "sp500");
-    if (j === 61) return chiVangIndexTaiSanOverDong17h30(isoDate);
-    if (j >= 62 && j <= 65) {
-      const n = chenhLechTrongNuocTheGioiNumber(
-        isoDate,
-        (j - 62) as 0 | 1 | 2 | 3,
-      );
-      return n == null ? "–" : formatVnd(n);
     }
-    if (j === 66) return chiVangThemMinusChiCu(isoDate);
+    if (j === 30) {
+      const rawCh = marketTimedCellValue(isoDate, j, "oil");
+      return formatRedCellAccountingStyle(
+        formatChangeWithPlus(rawCh),
+        getMarketChangeToneClass(rawCh),
+      );
+    }
+    if (j === 39) {
+      const rawCh = marketTimedCellValue(isoDate, j, "dollarIndex");
+      return formatRedCellAccountingStyle(
+        formatChangeWithPlus(rawCh),
+        getMarketChangeToneClass(rawCh),
+      );
+    }
+    if (j === 48) {
+      const rawCh = marketTimedCellValue(isoDate, j, "bond10y");
+      return formatRedCellAccountingStyle(
+        formatChangeWithPlus(rawCh),
+        getMarketChangeToneClass(rawCh),
+      );
+    }
+    if (j === 57) {
+      const rawCh = marketTimedCellValue(isoDate, j, "sp500");
+      return formatRedCellAccountingStyle(
+        formatChangeWithPlus(rawCh),
+        getMarketChangeToneClass(rawCh),
+      );
+    }
+    if (j >= 13 && j <= 20) {
+      const tone = getMarketChangeToneClass(kitcoCellValue(isoDate, 21));
+      return formatRedCellAccountingStyle(kitcoCellValue(isoDate, j), tone);
+    }
+    if (j >= 22 && j <= 29) {
+      const ch = marketTimedCellValue(isoDate, 30, "oil");
+      const tone = getMarketChangeToneClass(formatChangeWithPlus(ch));
+      return formatRedCellAccountingStyle(
+        marketTimedCellValue(isoDate, j, "oil"),
+        tone,
+      );
+    }
+    if (j >= 31 && j <= 38) {
+      const ch = marketTimedCellValue(isoDate, 39, "dollarIndex");
+      const tone = getMarketChangeToneClass(formatChangeWithPlus(ch));
+      return formatRedCellAccountingStyle(
+        marketTimedCellValue(isoDate, j, "dollarIndex"),
+        tone,
+      );
+    }
+    if (j >= 40 && j <= 47) {
+      const ch = marketTimedCellValue(isoDate, 48, "bond10y");
+      const tone = getMarketChangeToneClass(formatChangeWithPlus(ch));
+      return formatRedCellAccountingStyle(
+        marketTimedCellValue(isoDate, j, "bond10y"),
+        tone,
+      );
+    }
+    if (j >= 49 && j <= 56) {
+      const ch = marketTimedCellValue(isoDate, 57, "sp500");
+      const tone = getMarketChangeToneClass(formatChangeWithPlus(ch));
+      return formatRedCellAccountingStyle(
+        marketTimedCellValue(isoDate, j, "sp500"),
+        tone,
+      );
+    }
+    if (j === 61) {
+      const text = chiVangIndexTaiSanOverDong17h30(isoDate);
+      if (text === "–") return text;
+      const n = chiVangIndexNumber(isoDate);
+      const rowIdx = dateRows.findIndex((r) => r.isoDate === isoDate);
+      const prevIso = rowIdx > 0 ? dateRows[rowIdx - 1]?.isoDate : null;
+      const prevN =
+        prevIso != null ? chiVangIndexNumber(prevIso) : null;
+      return formatRedCellAccountingStyle(
+        text,
+        toneClassCompareToRowAbove(n, prevN),
+      );
+    }
+    if (j >= 62 && j <= 65) {
+      const slot = (j - 62) as 0 | 1 | 2 | 3;
+      const n = chenhLechTrongNuocTheGioiNumber(isoDate, slot);
+      if (n == null) return "–";
+      const prevN =
+        slot > 0
+          ? chenhLechTrongNuocTheGioiNumber(
+              isoDate,
+              (slot - 1) as 0 | 1 | 2 | 3,
+            )
+          : null;
+      return formatRedCellAccountingStyle(
+        formatVnd(n),
+        toneClassCompareToRowAbove(n, prevN),
+      );
+    }
+    if (j === 66) {
+      const text = chiVangThemMinusChiCu(isoDate);
+      if (text === "–") return text;
+      const n = chiVangThemNumber(isoDate);
+      const rowIdx = dateRows.findIndex((r) => r.isoDate === isoDate);
+      const prevIso = rowIdx > 0 ? dateRows[rowIdx - 1]?.isoDate : null;
+      const prevN =
+        prevIso != null ? chiVangThemNumber(prevIso) : null;
+      return formatRedCellAccountingStyle(
+        text,
+        toneClassCompareToRowAbove(n, prevN),
+      );
+    }
     if (j === 60) return vcbCellValue(isoDate, j);
     return "–";
   }
@@ -3287,7 +3371,11 @@ export default function Home() {
                                 ? chiVangIndexNumber(prevIso)
                                 : null;
                             const cls = toneClassCompareToRowAbove(n, prevN);
-                            return <span className={cls}>{text}</span>;
+                            return (
+                              <span className={cls}>
+                                {formatRedCellAccountingStyle(text, cls)}
+                              </span>
+                            );
                           })()
                         ) : j >= 62 && j <= 65 ? (
                           (() => {
@@ -3306,7 +3394,11 @@ export default function Home() {
                                   )
                                 : null;
                             const cls = toneClassCompareToRowAbove(n, prevN);
-                            return <span className={cls}>{text}</span>;
+                            return (
+                              <span className={cls}>
+                                {formatRedCellAccountingStyle(text, cls)}
+                              </span>
+                            );
                           })()
                         ) : j === 66 ? (
                           (() => {
@@ -3322,7 +3414,11 @@ export default function Home() {
                                 ? chiVangThemNumber(prevIso)
                                 : null;
                             const cls = toneClassCompareToRowAbove(n, prevN);
-                            return <span className={cls}>{text}</span>;
+                            return (
+                              <span className={cls}>
+                                {formatRedCellAccountingStyle(text, cls)}
+                              </span>
+                            );
                           })()
                         ) : j >= 58 && j <= 60 ? (
                           vcbCellValue(row.isoDate, j)
