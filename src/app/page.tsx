@@ -28,8 +28,8 @@ import * as XLSX from "xlsx";
  */
 
 /** Cột Thứ chỉ hiển thị CN / 2–7 — hẹp hơn chia đều với các cột dữ liệu. */
-const WEEKDAY_COL_WIDTH_PCT = 2.2;
-const WEEKDAY_COL_MIN_PX = 34;
+const WEEKDAY_COL_WIDTH_PX = 34;
+const DATE_COL_WIDTH_PX = 140;
 const DATA_COL_MIN_PX = 120;
 
 type FullTableRow = Record<string, string | number | null>;
@@ -741,17 +741,11 @@ export default function Home() {
     [columnVisibility],
   );
 
-  const otherColWidthPct = useMemo(
-    () =>
-      visibleJ.length > 1
-        ? (100 - WEEKDAY_COL_WIDTH_PCT) / (visibleJ.length - 1)
-        : 100,
-    [visibleJ.length],
-  );
-
   const tableMinWidthPx = useMemo(
     () =>
-      WEEKDAY_COL_MIN_PX + Math.max(0, visibleJ.length - 1) * DATA_COL_MIN_PX,
+      WEEKDAY_COL_WIDTH_PX +
+      DATE_COL_WIDTH_PX +
+      Math.max(0, visibleJ.length - 2) * DATA_COL_MIN_PX,
     [visibleJ.length],
   );
 
@@ -2285,9 +2279,16 @@ export default function Home() {
                   style={{
                     width:
                       j === 11
-                        ? `${WEEKDAY_COL_WIDTH_PCT}%`
-                        : `${otherColWidthPct}%`,
-                    minWidth: j === 11 ? WEEKDAY_COL_MIN_PX : DATA_COL_MIN_PX,
+                        ? `${WEEKDAY_COL_WIDTH_PX}px`
+                        : j === 12
+                          ? `${DATE_COL_WIDTH_PX}px`
+                          : `${DATA_COL_MIN_PX}px`,
+                    minWidth:
+                      j === 11
+                        ? WEEKDAY_COL_WIDTH_PX
+                        : j === 12
+                          ? DATE_COL_WIDTH_PX
+                          : DATA_COL_MIN_PX,
                   }}
                 />
               ))}
@@ -2306,7 +2307,7 @@ export default function Home() {
                   rowSpan={3}
                   className="sticky top-0 z-[101] min-w-0 border-b border-r border-black dark:border-stone-200 px-2 py-2.5 text-base font-bold uppercase tracking-wide text-stone-950 dark:text-stone-100 whitespace-nowrap bg-sky-100 dark:bg-sky-900 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.1)] dark:shadow-[4px_0_12px_-4px_rgba(0,0,0,0.4)]"
                   style={{
-                    left: `${WEEKDAY_COL_WIDTH_PCT}%`,
+                    left: `${WEEKDAY_COL_WIDTH_PX}px`,
                   }}
                 >
                   Ngày
@@ -2400,13 +2401,10 @@ export default function Home() {
                 ) : null}
                 {columnVisibility.vcb ? (
                   <th
-                    rowSpan={2}
                     colSpan={1}
                     className={`border-b border-black dark:border-stone-200 px-2 py-2 text-[14px] font-bold text-stone-950 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(60)}`}
                   >
                     Tỷ Giá VCB
-                    <br />
-                    Bán
                   </th>
                 ) : null}
               </tr>
@@ -2734,8 +2732,16 @@ export default function Home() {
                     </th>
                   </>
                 ) : null}
-                {/* VCB đã được gộp vào header dòng trên (rowSpan) */}
-                {columnVisibility.vcb ? null : null}
+                {columnVisibility.vcb ? (
+                  <>
+                    {/* Tách riêng để "Bán" thẳng hàng với dòng 2 (không gộp vào "Tỷ Giá VCB") */}
+                    <th
+                      className={`border-b border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-950 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(60)}`}
+                    >
+                      Bán
+                    </th>
+                  </>
+                ) : null}
               </tr>
               {/* Dòng 3: các mốc giờ chi tiết */}
               <tr>
@@ -3092,7 +3098,7 @@ export default function Home() {
                             : {}),
                           ...(j === 12
                             ? {
-                                left: `${WEEKDAY_COL_WIDTH_PCT}%`,
+                                left: `${WEEKDAY_COL_WIDTH_PX}px`,
                               }
                             : {}),
                         }}
