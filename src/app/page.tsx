@@ -83,8 +83,14 @@ function formatMarketNumberByColumn(
       : parseFloat(String(value).replace(/,/g, "").trim());
   if (!Number.isFinite(n)) return "–";
 
-  // KITCO và US10Y: giữ 3 số lẻ.
-  if ((colIndex >= 13 && colIndex <= 20) || (colIndex >= 40 && colIndex <= 47))
+  // KITCO: không hiển thị phần thập phân (ví dụ 5,999 thay vì 5,999.000).
+  if (colIndex >= 13 && colIndex <= 20)
+    return new Intl.NumberFormat("en-US", {
+      maximumFractionDigits: 0,
+    }).format(n);
+
+  // US10Y: giữ 3 số lẻ.
+  if (colIndex >= 40 && colIndex <= 47)
     return new Intl.NumberFormat("en-US", {
       minimumFractionDigits: 3,
       maximumFractionDigits: 3,
