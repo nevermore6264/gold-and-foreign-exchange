@@ -2737,7 +2737,8 @@ export default function Home() {
                   <>
                     {/* Tách riêng để "Bán" thẳng hàng với dòng 2 (không gộp vào "Tỷ Giá VCB") */}
                     <th
-                      className={`border-b border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-950 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(60)}`}
+                      rowSpan={2}
+                      className={`border-b border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-950 dark:text-stone-100 whitespace-nowrap align-middle ${getRegionHeaderBgClass(60)}`}
                     >
                       Bán
                     </th>
@@ -3071,7 +3072,10 @@ export default function Home() {
                 {columnVisibility.vcb ? (
                   <>
                     {/* Tỷ giá VCB (1 cột - chỉ lấy Bán) */}
-                    <th className="border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap" />
+                    {/*
+                      Đã rowSpan ở dòng 2 để gộp "Bán" với dòng 3,
+                      nên dòng 3 không render thêm th cho VCB.
+                    */}
                   </>
                 ) : null}
               </tr>
