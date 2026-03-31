@@ -1438,63 +1438,40 @@ export default function Home() {
       );
     }
     if (j === 13) return kitcoCellValue(isoDate, j);
-    if (j >= 14 && j <= 17) return kitcoCellValue(isoDate, j);
-    if (j === 18) {
-      const v = kitcoCellValue(isoDate, 18);
-      const prev = kitcoCellValue(isoDate, 13);
-      return formatTableToneCellDisplay(v, toneClassIntradayVsPrev(v, prev));
+    if (j >= 14 && j <= 20) {
+      const v = kitcoCellValue(isoDate, j);
+      if (v === "–") return v;
+      const openV = kitcoCellValue(isoDate, 13);
+      return formatTableToneCellDisplay(v, toneClassIntradayVsPrev(v, openV));
     }
-    if (j === 19 || j === 20) return kitcoCellValue(isoDate, j);
     if (j === 22) return marketTimedCellValue(isoDate, j, "oil");
-    if (j >= 23 && j <= 26) {
+    if (j >= 23 && j <= 29) {
       const v = marketTimedCellValue(isoDate, j, "oil");
-      const prev = marketTimedCellValue(isoDate, j - 1, "oil");
-      return formatTableToneCellDisplay(v, toneClassIntradayVsPrev(v, prev));
+      if (v === "–") return v;
+      const openV = marketTimedCellValue(isoDate, 22, "oil");
+      return formatTableToneCellDisplay(v, toneClassIntradayVsPrev(v, openV));
     }
-    if (j === 27) {
-      const v = marketTimedCellValue(isoDate, 27, "oil");
-      const prev = marketTimedCellValue(isoDate, 26, "oil");
-      return formatTableToneCellDisplay(v, toneClassIntradayVsPrev(v, prev));
-    }
-    if (j === 28 || j === 29) return marketTimedCellValue(isoDate, j, "oil");
     if (j === 31) return marketTimedCellValue(isoDate, j, "dollarIndex");
-    if (j >= 32 && j <= 35) {
+    if (j >= 32 && j <= 38) {
       const v = marketTimedCellValue(isoDate, j, "dollarIndex");
-      const prev = marketTimedCellValue(isoDate, j - 1, "dollarIndex");
-      return formatTableToneCellDisplay(v, toneClassIntradayVsPrev(v, prev));
+      if (v === "–") return v;
+      const openV = marketTimedCellValue(isoDate, 31, "dollarIndex");
+      return formatTableToneCellDisplay(v, toneClassIntradayVsPrev(v, openV));
     }
-    if (j === 36) {
-      const v = marketTimedCellValue(isoDate, 36, "dollarIndex");
-      const prev = marketTimedCellValue(isoDate, 35, "dollarIndex");
-      return formatTableToneCellDisplay(v, toneClassIntradayVsPrev(v, prev));
-    }
-    if (j === 37 || j === 38)
-      return marketTimedCellValue(isoDate, j, "dollarIndex");
     if (j === 40) return marketTimedCellValue(isoDate, j, "bond10y");
-    if (j >= 41 && j <= 44) {
+    if (j >= 41 && j <= 47) {
       const v = marketTimedCellValue(isoDate, j, "bond10y");
-      const prev = marketTimedCellValue(isoDate, j - 1, "bond10y");
-      return formatTableToneCellDisplay(v, toneClassIntradayVsPrev(v, prev));
+      if (v === "–") return v;
+      const openV = marketTimedCellValue(isoDate, 40, "bond10y");
+      return formatTableToneCellDisplay(v, toneClassIntradayVsPrev(v, openV));
     }
-    if (j === 45) {
-      const v = marketTimedCellValue(isoDate, 45, "bond10y");
-      const prev = marketTimedCellValue(isoDate, 44, "bond10y");
-      return formatTableToneCellDisplay(v, toneClassIntradayVsPrev(v, prev));
-    }
-    if (j === 46 || j === 47)
-      return marketTimedCellValue(isoDate, j, "bond10y");
     if (j === 49) return marketTimedCellValue(isoDate, j, "sp500");
-    if (j >= 50 && j <= 53) {
+    if (j >= 50 && j <= 56) {
       const v = marketTimedCellValue(isoDate, j, "sp500");
-      const prev = marketTimedCellValue(isoDate, j - 1, "sp500");
-      return formatTableToneCellDisplay(v, toneClassIntradayVsPrev(v, prev));
+      if (v === "–") return v;
+      const openV = marketTimedCellValue(isoDate, 49, "sp500");
+      return formatTableToneCellDisplay(v, toneClassIntradayVsPrev(v, openV));
     }
-    if (j === 54) {
-      const v = marketTimedCellValue(isoDate, 54, "sp500");
-      const prev = marketTimedCellValue(isoDate, 53, "sp500");
-      return formatTableToneCellDisplay(v, toneClassIntradayVsPrev(v, prev));
-    }
-    if (j === 55 || j === 56) return marketTimedCellValue(isoDate, j, "sp500");
     if (j === 61) {
       const text = chiVangIndexTaiSanOverDong17h30(isoDate);
       if (text === "–") return text;
@@ -3360,35 +3337,16 @@ export default function Home() {
                               <span className={neutralPriceClass}>{v}</span>
                             );
                           })()
-                        ) : j >= 14 && j <= 17 ? (
+                        ) : j >= 14 && j <= 20 ? (
                           (() => {
                             const v = kitcoCellValue(row.isoDate, j);
-                            return v === "–" ? (
-                              v
-                            ) : (
-                              <span className={neutralPriceClass}>{v}</span>
-                            );
-                          })()
-                        ) : j === 18 ? (
-                          (() => {
-                            const v = kitcoCellValue(row.isoDate, 18);
-                            const prevV = kitcoCellValue(row.isoDate, 13);
-                            const cls = toneClassIntradayVsPrev(v, prevV);
-                            return v === "–" ? (
-                              v
-                            ) : (
+                            if (v === "–") return v;
+                            const openV = kitcoCellValue(row.isoDate, 13);
+                            const cls = toneClassIntradayVsPrev(v, openV);
+                            return (
                               <span className={cls}>
                                 {formatTableToneCellDisplay(v, cls)}
                               </span>
-                            );
-                          })()
-                        ) : j === 19 || j === 20 ? (
-                          (() => {
-                            const v = kitcoCellValue(row.isoDate, j);
-                            return v === "–" ? (
-                              v
-                            ) : (
-                              <span className={neutralPriceClass}>{v}</span>
                             );
                           })()
                         ) : j === 22 ? (
@@ -3404,59 +3362,24 @@ export default function Home() {
                               <span className={neutralPriceClass}>{v}</span>
                             );
                           })()
-                        ) : j >= 23 && j <= 26 ? (
+                        ) : j >= 23 && j <= 29 ? (
                           (() => {
                             const v = marketTimedCellValue(
                               row.isoDate,
                               j,
                               "oil",
                             );
-                            const prevV = marketTimedCellValue(
+                            if (v === "–") return v;
+                            const openV = marketTimedCellValue(
                               row.isoDate,
-                              j - 1,
+                              22,
                               "oil",
                             );
-                            const cls = toneClassIntradayVsPrev(v, prevV);
-                            return v === "–" ? (
-                              v
-                            ) : (
+                            const cls = toneClassIntradayVsPrev(v, openV);
+                            return (
                               <span className={cls}>
                                 {formatTableToneCellDisplay(v, cls)}
                               </span>
-                            );
-                          })()
-                        ) : j === 27 ? (
-                          (() => {
-                            const v = marketTimedCellValue(
-                              row.isoDate,
-                              27,
-                              "oil",
-                            );
-                            const prevV = marketTimedCellValue(
-                              row.isoDate,
-                              26,
-                              "oil",
-                            );
-                            const cls = toneClassIntradayVsPrev(v, prevV);
-                            return v === "–" ? (
-                              v
-                            ) : (
-                              <span className={cls}>
-                                {formatTableToneCellDisplay(v, cls)}
-                              </span>
-                            );
-                          })()
-                        ) : j === 28 || j === 29 ? (
-                          (() => {
-                            const v = marketTimedCellValue(
-                              row.isoDate,
-                              j,
-                              "oil",
-                            );
-                            return v === "–" ? (
-                              v
-                            ) : (
-                              <span className={neutralPriceClass}>{v}</span>
                             );
                           })()
                         ) : j === 31 ? (
@@ -3472,59 +3395,24 @@ export default function Home() {
                               <span className={neutralPriceClass}>{v}</span>
                             );
                           })()
-                        ) : j >= 32 && j <= 35 ? (
+                        ) : j >= 32 && j <= 38 ? (
                           (() => {
                             const v = marketTimedCellValue(
                               row.isoDate,
                               j,
                               "dollarIndex",
                             );
-                            const prevV = marketTimedCellValue(
+                            if (v === "–") return v;
+                            const openV = marketTimedCellValue(
                               row.isoDate,
-                              j - 1,
+                              31,
                               "dollarIndex",
                             );
-                            const cls = toneClassIntradayVsPrev(v, prevV);
-                            return v === "–" ? (
-                              v
-                            ) : (
+                            const cls = toneClassIntradayVsPrev(v, openV);
+                            return (
                               <span className={cls}>
                                 {formatTableToneCellDisplay(v, cls)}
                               </span>
-                            );
-                          })()
-                        ) : j === 36 ? (
-                          (() => {
-                            const v = marketTimedCellValue(
-                              row.isoDate,
-                              36,
-                              "dollarIndex",
-                            );
-                            const prevV = marketTimedCellValue(
-                              row.isoDate,
-                              35,
-                              "dollarIndex",
-                            );
-                            const cls = toneClassIntradayVsPrev(v, prevV);
-                            return v === "–" ? (
-                              v
-                            ) : (
-                              <span className={cls}>
-                                {formatTableToneCellDisplay(v, cls)}
-                              </span>
-                            );
-                          })()
-                        ) : j === 37 || j === 38 ? (
-                          (() => {
-                            const v = marketTimedCellValue(
-                              row.isoDate,
-                              j,
-                              "dollarIndex",
-                            );
-                            return v === "–" ? (
-                              v
-                            ) : (
-                              <span className={neutralPriceClass}>{v}</span>
                             );
                           })()
                         ) : j === 40 ? (
@@ -3540,59 +3428,24 @@ export default function Home() {
                               <span className={neutralPriceClass}>{v}</span>
                             );
                           })()
-                        ) : j >= 41 && j <= 44 ? (
+                        ) : j >= 41 && j <= 47 ? (
                           (() => {
                             const v = marketTimedCellValue(
                               row.isoDate,
                               j,
                               "bond10y",
                             );
-                            const prevV = marketTimedCellValue(
+                            if (v === "–") return v;
+                            const openV = marketTimedCellValue(
                               row.isoDate,
-                              j - 1,
+                              40,
                               "bond10y",
                             );
-                            const cls = toneClassIntradayVsPrev(v, prevV);
-                            return v === "–" ? (
-                              v
-                            ) : (
+                            const cls = toneClassIntradayVsPrev(v, openV);
+                            return (
                               <span className={cls}>
                                 {formatTableToneCellDisplay(v, cls)}
                               </span>
-                            );
-                          })()
-                        ) : j === 45 ? (
-                          (() => {
-                            const v = marketTimedCellValue(
-                              row.isoDate,
-                              45,
-                              "bond10y",
-                            );
-                            const prevV = marketTimedCellValue(
-                              row.isoDate,
-                              44,
-                              "bond10y",
-                            );
-                            const cls = toneClassIntradayVsPrev(v, prevV);
-                            return v === "–" ? (
-                              v
-                            ) : (
-                              <span className={cls}>
-                                {formatTableToneCellDisplay(v, cls)}
-                              </span>
-                            );
-                          })()
-                        ) : j === 46 || j === 47 ? (
-                          (() => {
-                            const v = marketTimedCellValue(
-                              row.isoDate,
-                              j,
-                              "bond10y",
-                            );
-                            return v === "–" ? (
-                              v
-                            ) : (
-                              <span className={neutralPriceClass}>{v}</span>
                             );
                           })()
                         ) : j === 49 ? (
@@ -3608,59 +3461,24 @@ export default function Home() {
                               <span className={neutralPriceClass}>{v}</span>
                             );
                           })()
-                        ) : j >= 50 && j <= 53 ? (
+                        ) : j >= 50 && j <= 56 ? (
                           (() => {
                             const v = marketTimedCellValue(
                               row.isoDate,
                               j,
                               "sp500",
                             );
-                            const prevV = marketTimedCellValue(
+                            if (v === "–") return v;
+                            const openV = marketTimedCellValue(
                               row.isoDate,
-                              j - 1,
+                              49,
                               "sp500",
                             );
-                            const cls = toneClassIntradayVsPrev(v, prevV);
-                            return v === "–" ? (
-                              v
-                            ) : (
+                            const cls = toneClassIntradayVsPrev(v, openV);
+                            return (
                               <span className={cls}>
                                 {formatTableToneCellDisplay(v, cls)}
                               </span>
-                            );
-                          })()
-                        ) : j === 54 ? (
-                          (() => {
-                            const v = marketTimedCellValue(
-                              row.isoDate,
-                              54,
-                              "sp500",
-                            );
-                            const prevV = marketTimedCellValue(
-                              row.isoDate,
-                              53,
-                              "sp500",
-                            );
-                            const cls = toneClassIntradayVsPrev(v, prevV);
-                            return v === "–" ? (
-                              v
-                            ) : (
-                              <span className={cls}>
-                                {formatTableToneCellDisplay(v, cls)}
-                              </span>
-                            );
-                          })()
-                        ) : j === 55 || j === 56 ? (
-                          (() => {
-                            const v = marketTimedCellValue(
-                              row.isoDate,
-                              j,
-                              "sp500",
-                            );
-                            return v === "–" ? (
-                              v
-                            ) : (
-                              <span className={neutralPriceClass}>{v}</span>
                             );
                           })()
                         ) : j === 61 ? (
