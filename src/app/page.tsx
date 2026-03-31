@@ -34,9 +34,9 @@ if (process.env.NODE_ENV === "development") {
  */
 
 /** Cột Thứ chỉ hiển thị CN / 2–7 — hẹp hơn chia đều với các cột dữ liệu. */
-const WEEKDAY_COL_WIDTH_PX = 54;
-const DATE_COL_WIDTH_PX = 140;
-const DATA_COL_MIN_PX = 120;
+const WEEKDAY_COL_WIDTH_PX = 48;
+const DATE_COL_WIDTH_PX = 128;
+const DATA_COL_MIN_PX = 108;
 
 type FullTableRow = Record<string, string | number | null>;
 
@@ -77,17 +77,24 @@ function formatVnd(v: string | number | null | undefined): string {
 }
 
 /**
- * Ô đỏ: kế toán — bọc giá trị trong ngoặc (), không hiện thêm mức chênh so với ngày trên.
- * Số âm (ví dụ Lãi): bỏ dấu trừ, chỉ để phần tuyệt đối trong ngoặc.
+ * Toàn bảng — ô có tone xanh/đỏ: đỏ kế toán (…); xanh thêm dấu + (tránh ++ nếu đã có).
  */
-function formatRedCellAccountingStyle(
+function formatTableToneCellDisplay(
   mainText: string,
   toneClass: string | undefined,
 ): string {
-  if (mainText === "–" || !toneClass?.includes("text-red-600")) return mainText;
-  const inner = mainText.trim().replace(/^[\u2212\−\-]\s*/, "");
-  if (inner === "") return mainText;
-  return `(${inner})`;
+  if (mainText === "–" || !toneClass) return mainText;
+  if (toneClass.includes("text-red-600")) {
+    const inner = mainText.trim().replace(/^[\u2212\−\-]\s*/, "");
+    if (inner === "") return mainText;
+    return `(${inner})`;
+  }
+  if (toneClass.includes("text-green-600")) {
+    const inner = mainText.trim().replace(/^\+/, "");
+    if (inner === "") return mainText;
+    return `+${inner}`;
+  }
+  return mainText;
 }
 
 function formatMarketNumberByColumn(
@@ -285,26 +292,30 @@ const MH_HEAD_BORDER = TABLE_CELL_BR;
 /** Header cột Lãi (nếu bán ra) — nền xanh lá nhạt như Excel */
 const LAI_HEAD_GREEN =
   "bg-[#e6f0db] dark:bg-emerald-950/40 text-stone-950 dark:text-emerald-50";
-const LAI_HEAD_TIME_CLASS = `${TABLE_CELL_BR} px-2 py-2 text-[14px] font-bold ${LAI_HEAD_GREEN} whitespace-nowrap`;
+/** Mật độ ô gần Excel — chữ nhỏ hơn, padding dọc ít */
+const TABLE_TEXT = "text-[13px] leading-tight";
+const TABLE_TD_PAD = "px-1.5 py-1";
+
+const LAI_HEAD_TIME_CLASS = `${TABLE_CELL_BR} px-1.5 py-1 ${TABLE_TEXT} font-bold ${LAI_HEAD_GREEN} whitespace-nowrap`;
 
 /** Hiệu ứng ô: highlight nhẹ khi hover cả hàng (giống glass / macOS) */
 const TD_CELL_FX =
   "transition-[box-shadow,filter] duration-200 ease-out motion-reduce:transition-none group-hover/row:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.4)] dark:group-hover/row:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.09)] group-hover/row:brightness-[1.015] dark:group-hover/row:brightness-110";
 
 function manhHaiHeaderGroupClass(): string {
-  return `${MH_HEAD_BORDER} px-2 py-2.5 text-[14px] font-bold whitespace-nowrap ${MH_HEAD_BLUE}`;
+  return `${MH_HEAD_BORDER} px-1.5 py-1.5 ${TABLE_TEXT} font-bold whitespace-nowrap ${MH_HEAD_BLUE}`;
 }
 
 function manhHaiHeaderRow2CellClass(): string {
-  return `${MH_HEAD_BORDER} px-2 py-2 text-[14px] font-bold whitespace-nowrap ${MH_HEAD_BLUE}`;
+  return `${MH_HEAD_BORDER} px-1.5 py-1 ${TABLE_TEXT} font-bold whitespace-nowrap ${MH_HEAD_BLUE}`;
 }
 
 function manhHaiHeaderChenhLechRowSpanClass(): string {
-  return `${MH_HEAD_BORDER} px-2 py-2 align-middle text-[14px] font-bold whitespace-nowrap ${MH_HEAD_BLUE}`;
+  return `${MH_HEAD_BORDER} px-1.5 py-1 align-middle ${TABLE_TEXT} font-bold whitespace-nowrap ${MH_HEAD_BLUE}`;
 }
 
 function manhHaiHeaderTimeRowClass(): string {
-  return `${MH_HEAD_BORDER} px-2 py-2 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${MH_HEAD_BLUE}`;
+  return `${MH_HEAD_BORDER} px-1.5 py-1 ${TABLE_TEXT} font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${MH_HEAD_BLUE}`;
 }
 
 function formatChangeWithPlus(value: string): string {
@@ -1288,24 +1299,36 @@ export default function Home() {
     "text-stone-950 dark:text-stone-50 font-bold" as const;
 
   /**
-   * MUA/Bán giá (1–4, 6–9): tone so với ngày liền trước (cùng cột).
-   * CHÊNH (5, 10): tone từ manhHaiCellValue.
+   * Mở (9h, 11h = col 1–2, 6–7): không tô màu theo chênh — luôn đen (neutral).
+   * Đóng (14h30, 17h30): xanh/đỏ so với mốc giá liền trước trong cùng ngày
+   * (MUA: 14h30↔11h, 17h30↔14h30; BÁN: tương tự col 8↔7, 9↔8).
    */
-  function manhHaiMuaBanPrevRowCompare(
-    isoDate: string,
-    colIndex: number,
-    rowIdx: number,
-  ): { tone?: string } {
-    const isPrice =
-      (colIndex >= 1 && colIndex <= 4) || (colIndex >= 6 && colIndex <= 9);
-    if (!isPrice) return {};
-    if (rowIdx <= 0) return {};
-    const prevIso = dateRows[rowIdx - 1]?.isoDate;
-    if (!prevIso) return {};
-    const cur = manhHaiRawNumber(isoDate, colIndex);
-    const prev = manhHaiRawNumber(prevIso, colIndex);
-    if (cur == null || prev == null) return {};
-    return { tone: toneClassCompareToRowAbove(cur, prev) };
+  function manhHaiDongIntradayToneClass(isoDate: string, colIndex: number): string {
+    if (colIndex === MANH_HAI_COL.MUA_14H30) {
+      return toneClassCompareToRowAbove(
+        manhHaiRawNumber(isoDate, MANH_HAI_COL.MUA_14H30),
+        manhHaiRawNumber(isoDate, MANH_HAI_COL.MUA_11H),
+      );
+    }
+    if (colIndex === MANH_HAI_COL.MUA_17H30) {
+      return toneClassCompareToRowAbove(
+        manhHaiRawNumber(isoDate, MANH_HAI_COL.MUA_17H30),
+        manhHaiRawNumber(isoDate, MANH_HAI_COL.MUA_14H30),
+      );
+    }
+    if (colIndex === MANH_HAI_COL.BAN_14H30) {
+      return toneClassCompareToRowAbove(
+        manhHaiRawNumber(isoDate, MANH_HAI_COL.BAN_14H30),
+        manhHaiRawNumber(isoDate, MANH_HAI_COL.BAN_11H),
+      );
+    }
+    if (colIndex === MANH_HAI_COL.BAN_17H30) {
+      return toneClassCompareToRowAbove(
+        manhHaiRawNumber(isoDate, MANH_HAI_COL.BAN_17H30),
+        manhHaiRawNumber(isoDate, MANH_HAI_COL.BAN_14H30),
+      );
+    }
+    return neutralPriceClass;
   }
 
   /**
@@ -1363,53 +1386,53 @@ export default function Home() {
     if (j === 12) return row.dateLabel;
     if (j >= 1 && j <= 10) {
       const v = manhHaiCellValue(isoDate, j);
-      const rowIdx = dateRows.findIndex((r) => r.isoDate === isoDate);
-      const priceCmp = manhHaiMuaBanPrevRowCompare(isoDate, j, rowIdx);
-      const toneClass = priceCmp.tone ?? v.toneClass;
-      if ((j >= 1 && j <= 4) || (j >= 6 && j <= 9)) {
-        return formatRedCellAccountingStyle(v.text, toneClass);
-      }
-      if (j === 5 || j === 10) {
-        return formatRedCellAccountingStyle(v.text, v.toneClass);
-      }
-      return v.text;
+      const toneClass =
+        j === 1 || j === 2 || j === 6 || j === 7
+          ? neutralPriceClass
+          : j === 3 || j === 4 || j === 8 || j === 9
+            ? manhHaiDongIntradayToneClass(isoDate, j)
+            : (v.toneClass ?? neutralPriceClass);
+      return formatTableToneCellDisplay(v.text, toneClass);
     }
     if (j >= 67 && j <= 70) {
       const colJ = j as 67 | 68 | 69 | 70;
       const v = laiNeuBanRa(isoDate, colJ);
-      return formatRedCellAccountingStyle(v.text, v.toneClass);
+      return formatTableToneCellDisplay(
+        v.text,
+        v.toneClass ?? neutralPriceClass,
+      );
     }
     if (j === 21) {
       const raw = kitcoCellValue(isoDate, j);
-      return formatRedCellAccountingStyle(
+      return formatTableToneCellDisplay(
         formatChangeWithPlus(raw),
         getMarketChangeToneClass(raw),
       );
     }
     if (j === 30) {
       const rawCh = marketTimedCellValue(isoDate, j, "oil");
-      return formatRedCellAccountingStyle(
+      return formatTableToneCellDisplay(
         formatChangeWithPlus(rawCh),
         getMarketChangeToneClass(rawCh),
       );
     }
     if (j === 39) {
       const rawCh = marketTimedCellValue(isoDate, j, "dollarIndex");
-      return formatRedCellAccountingStyle(
+      return formatTableToneCellDisplay(
         formatChangeWithPlus(rawCh),
         getMarketChangeToneClass(rawCh),
       );
     }
     if (j === 48) {
       const rawCh = marketTimedCellValue(isoDate, j, "bond10y");
-      return formatRedCellAccountingStyle(
+      return formatTableToneCellDisplay(
         formatChangeWithPlus(rawCh),
         getMarketChangeToneClass(rawCh),
       );
     }
     if (j === 57) {
       const rawCh = marketTimedCellValue(isoDate, j, "sp500");
-      return formatRedCellAccountingStyle(
+      return formatTableToneCellDisplay(
         formatChangeWithPlus(rawCh),
         getMarketChangeToneClass(rawCh),
       );
@@ -1419,31 +1442,31 @@ export default function Home() {
     if (j === 18) {
       const v = kitcoCellValue(isoDate, 18);
       const prev = kitcoCellValue(isoDate, 13);
-      return formatRedCellAccountingStyle(v, toneClassIntradayVsPrev(v, prev));
+      return formatTableToneCellDisplay(v, toneClassIntradayVsPrev(v, prev));
     }
     if (j === 19 || j === 20) return kitcoCellValue(isoDate, j);
     if (j === 22) return marketTimedCellValue(isoDate, j, "oil");
     if (j >= 23 && j <= 26) {
       const v = marketTimedCellValue(isoDate, j, "oil");
       const prev = marketTimedCellValue(isoDate, j - 1, "oil");
-      return formatRedCellAccountingStyle(v, toneClassIntradayVsPrev(v, prev));
+      return formatTableToneCellDisplay(v, toneClassIntradayVsPrev(v, prev));
     }
     if (j === 27) {
       const v = marketTimedCellValue(isoDate, 27, "oil");
       const prev = marketTimedCellValue(isoDate, 26, "oil");
-      return formatRedCellAccountingStyle(v, toneClassIntradayVsPrev(v, prev));
+      return formatTableToneCellDisplay(v, toneClassIntradayVsPrev(v, prev));
     }
     if (j === 28 || j === 29) return marketTimedCellValue(isoDate, j, "oil");
     if (j === 31) return marketTimedCellValue(isoDate, j, "dollarIndex");
     if (j >= 32 && j <= 35) {
       const v = marketTimedCellValue(isoDate, j, "dollarIndex");
       const prev = marketTimedCellValue(isoDate, j - 1, "dollarIndex");
-      return formatRedCellAccountingStyle(v, toneClassIntradayVsPrev(v, prev));
+      return formatTableToneCellDisplay(v, toneClassIntradayVsPrev(v, prev));
     }
     if (j === 36) {
       const v = marketTimedCellValue(isoDate, 36, "dollarIndex");
       const prev = marketTimedCellValue(isoDate, 35, "dollarIndex");
-      return formatRedCellAccountingStyle(v, toneClassIntradayVsPrev(v, prev));
+      return formatTableToneCellDisplay(v, toneClassIntradayVsPrev(v, prev));
     }
     if (j === 37 || j === 38)
       return marketTimedCellValue(isoDate, j, "dollarIndex");
@@ -1451,12 +1474,12 @@ export default function Home() {
     if (j >= 41 && j <= 44) {
       const v = marketTimedCellValue(isoDate, j, "bond10y");
       const prev = marketTimedCellValue(isoDate, j - 1, "bond10y");
-      return formatRedCellAccountingStyle(v, toneClassIntradayVsPrev(v, prev));
+      return formatTableToneCellDisplay(v, toneClassIntradayVsPrev(v, prev));
     }
     if (j === 45) {
       const v = marketTimedCellValue(isoDate, 45, "bond10y");
       const prev = marketTimedCellValue(isoDate, 44, "bond10y");
-      return formatRedCellAccountingStyle(v, toneClassIntradayVsPrev(v, prev));
+      return formatTableToneCellDisplay(v, toneClassIntradayVsPrev(v, prev));
     }
     if (j === 46 || j === 47)
       return marketTimedCellValue(isoDate, j, "bond10y");
@@ -1464,12 +1487,12 @@ export default function Home() {
     if (j >= 50 && j <= 53) {
       const v = marketTimedCellValue(isoDate, j, "sp500");
       const prev = marketTimedCellValue(isoDate, j - 1, "sp500");
-      return formatRedCellAccountingStyle(v, toneClassIntradayVsPrev(v, prev));
+      return formatTableToneCellDisplay(v, toneClassIntradayVsPrev(v, prev));
     }
     if (j === 54) {
       const v = marketTimedCellValue(isoDate, 54, "sp500");
       const prev = marketTimedCellValue(isoDate, 53, "sp500");
-      return formatRedCellAccountingStyle(v, toneClassIntradayVsPrev(v, prev));
+      return formatTableToneCellDisplay(v, toneClassIntradayVsPrev(v, prev));
     }
     if (j === 55 || j === 56) return marketTimedCellValue(isoDate, j, "sp500");
     if (j === 61) {
@@ -1479,7 +1502,7 @@ export default function Home() {
       const rowIdx = dateRows.findIndex((r) => r.isoDate === isoDate);
       const prevIso = rowIdx > 0 ? dateRows[rowIdx - 1]?.isoDate : null;
       const prevN = prevIso != null ? chiVangIndexNumber(prevIso) : null;
-      return formatRedCellAccountingStyle(
+      return formatTableToneCellDisplay(
         text,
         toneClassCompareToRowAbove(n, prevN),
       );
@@ -1495,7 +1518,7 @@ export default function Home() {
               (slot - 1) as 0 | 1 | 2 | 3,
             )
           : null;
-      return formatRedCellAccountingStyle(
+      return formatTableToneCellDisplay(
         formatVnd(n),
         toneClassCompareToRowAbove(n, prevN),
       );
@@ -1507,7 +1530,7 @@ export default function Home() {
       const rowIdx = dateRows.findIndex((r) => r.isoDate === isoDate);
       const prevIso = rowIdx > 0 ? dateRows[rowIdx - 1]?.isoDate : null;
       const prevN = prevIso != null ? chiVangThemNumber(prevIso) : null;
-      return formatRedCellAccountingStyle(
+      return formatTableToneCellDisplay(
         text,
         toneClassCompareToRowAbove(n, prevN),
       );
@@ -2348,7 +2371,7 @@ export default function Home() {
 
         <div className="scroll-table-premium min-h-0 w-full flex-1 overflow-auto border-2 border-solid border-black bg-white dark:border-stone-200 dark:bg-stone-900">
           <table
-            className="table-fixed w-full border-separate border-spacing-0 text-center text-base"
+            className={`table-fixed w-full border-separate border-spacing-0 text-center ${TABLE_TEXT}`}
             style={{ minWidth: `${tableMinWidthPx}px` }}
           >
             <colgroup>
@@ -2373,18 +2396,18 @@ export default function Home() {
               ))}
             </colgroup>
             {/* z-50: luôn nằm trên ô sticky Thứ/Ngày ở tbody (z-20/19) khi cuộn dọc — tránh bị hàng dữ liệu đè header */}
-            <thead className="sticky top-0 z-50 bg-amber-100/90 dark:bg-amber-900/30 backdrop-blur-sm text-center [&_th]:!text-base [&_th]:font-bold [&_th]:!border-black [&_th]:dark:!border-stone-200 [&_th]:transition-[filter,box-shadow] [&_th]:duration-200 [&_th]:hover:brightness-[1.04] dark:[&_th]:hover:brightness-110">
+            <thead className="sticky top-0 z-50 bg-amber-100/90 dark:bg-amber-900/30 backdrop-blur-sm text-center [&_th]:!text-[13px] [&_th]:!leading-tight [&_th]:font-bold [&_th]:!border-black [&_th]:dark:!border-stone-200 [&_th]:transition-[filter,box-shadow] [&_th]:duration-200 [&_th]:hover:brightness-[1.04] dark:[&_th]:hover:brightness-110">
               {/* Dòng 1: STT + Thứ (hẹp) / Ngày (rộng) */}
               <tr>
                 <th
                   rowSpan={3}
-                  className="sticky left-0 top-0 z-[102] min-w-0 max-w-[54px] border-b border-r border-black dark:border-stone-200 px-1 py-2 text-sm font-bold uppercase tracking-wide text-stone-950 dark:text-stone-100 whitespace-nowrap bg-rose-100 dark:bg-rose-950 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.12)] dark:shadow-[4px_0_12px_-4px_rgba(0,0,0,0.45)]"
+                  className="sticky left-0 top-0 z-[102] min-w-0 max-w-[48px] border-b border-r border-black dark:border-stone-200 px-0.5 py-1 text-[12px] font-bold uppercase tracking-wide text-stone-950 dark:text-stone-100 whitespace-nowrap bg-rose-100 dark:bg-rose-950 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.12)] dark:shadow-[4px_0_12px_-4px_rgba(0,0,0,0.45)]"
                 >
                   Thứ
                 </th>
                 <th
                   rowSpan={3}
-                  className="sticky top-0 z-[101] min-w-0 border-b border-r border-black dark:border-stone-200 px-2 py-2.5 text-base font-bold uppercase tracking-wide text-stone-950 dark:text-stone-100 whitespace-nowrap bg-sky-100 dark:bg-sky-900 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.1)] dark:shadow-[4px_0_12px_-4px_rgba(0,0,0,0.4)]"
+                  className="sticky top-0 z-[101] min-w-0 border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-bold uppercase tracking-wide leading-tight text-stone-950 dark:text-stone-100 whitespace-nowrap bg-sky-100 dark:bg-sky-900 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.1)] dark:shadow-[4px_0_12px_-4px_rgba(0,0,0,0.4)]"
                   style={{
                     left: `${WEEKDAY_COL_WIDTH_PX}px`,
                   }}
@@ -2400,7 +2423,7 @@ export default function Home() {
                   <th
                     rowSpan={2}
                     colSpan={4}
-                    className={`${TABLE_CELL_BR} align-middle px-2 py-2 text-center text-[14px] font-bold uppercase tracking-wide leading-snug ${LAI_HEAD_GREEN}`}
+                    className={`${TABLE_CELL_BR} align-middle px-1.5 py-1 text-center text-[13px] font-bold uppercase tracking-wide leading-tight ${LAI_HEAD_GREEN}`}
                   >
                     LÃI
                     <br />
@@ -2412,11 +2435,11 @@ export default function Home() {
                     BÁN - Mạnh Hải
                   </th>
                 ) : null}
-                {columnVisibility.sumCols ? (
+                {columnVisibility.banMh ? (
                   <>
                     <th
                       rowSpan={3}
-                      className={`min-w-0 border border-black dark:border-stone-200 px-1.5 py-2 text-[14px] font-bold leading-tight text-stone-900 dark:text-stone-100 ${getRegionHeaderBgClass(61)}`}
+                      className={`min-w-0 border border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-bold leading-tight text-stone-900 dark:text-stone-100 ${getRegionHeaderBgClass(61)}`}
                     >
                       <span className="block">∑</span>
                       <span className="block">chỉ</span>
@@ -2424,7 +2447,7 @@ export default function Home() {
                     </th>
                     <th
                       rowSpan={3}
-                      className={`min-w-0 border border-black dark:border-stone-200 border-l-0 px-1.5 py-2 text-[14px] font-bold leading-tight text-stone-900 dark:text-stone-100 ${getRegionHeaderBgClass(66)}`}
+                      className={`min-w-0 border border-black dark:border-stone-200 border-l-0 px-1.5 py-1 text-[13px] font-bold leading-tight text-stone-900 dark:text-stone-100 ${getRegionHeaderBgClass(66)}`}
                     >
                       <span className="block">∑</span>
                       <span className="block">chỉ vàng</span>
@@ -2432,7 +2455,7 @@ export default function Home() {
                     </th>
                     <th
                       colSpan={4}
-                      className={`border border-black dark:border-stone-200 border-l-0 px-2 py-2 text-[14px] font-bold uppercase tracking-wide text-stone-900 dark:text-stone-100 ${getRegionHeaderBgClass(62)}`}
+                      className={`border border-black dark:border-stone-200 border-l-0 px-1.5 py-1 text-[13px] font-bold uppercase tracking-wide text-stone-900 dark:text-stone-100 ${getRegionHeaderBgClass(62)}`}
                     >
                       CHÊNH LỆCH
                     </th>
@@ -2441,7 +2464,7 @@ export default function Home() {
                 {columnVisibility.kitco ? (
                   <th
                     colSpan={9}
-                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-2 text-[14px] font-bold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                    className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-bold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
                   >
                     KITCO - GIÁ VÀNG THẾ GIỚI
                   </th>
@@ -2449,7 +2472,7 @@ export default function Home() {
                 {columnVisibility.oil ? (
                   <th
                     colSpan={9}
-                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-2 text-[14px] font-bold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                    className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-bold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
                   >
                     GIÁ DẦU
                   </th>
@@ -2457,7 +2480,7 @@ export default function Home() {
                 {columnVisibility.dollar ? (
                   <th
                     colSpan={9}
-                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-2 text-[14px] font-bold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                    className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-bold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
                   >
                     DOLLAR INDEX
                   </th>
@@ -2465,7 +2488,7 @@ export default function Home() {
                 {columnVisibility.bond ? (
                   <th
                     colSpan={9}
-                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-2 text-[14px] font-bold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                    className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-bold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
                   >
                     TRÁI PHIẾU US - 10 NĂM
                   </th>
@@ -2473,7 +2496,7 @@ export default function Home() {
                 {columnVisibility.sp500 ? (
                   <th
                     colSpan={9}
-                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-2 text-[14px] font-bold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                    className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-bold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
                   >
                     S&amp;P 500
                   </th>
@@ -2481,7 +2504,7 @@ export default function Home() {
                 {columnVisibility.vcb ? (
                   <th
                     colSpan={1}
-                    className={`border-b border-black dark:border-stone-200 px-2 py-2 text-[14px] font-bold text-stone-950 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(60)}`}
+                    className={`border-b border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-bold text-stone-950 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(60)}`}
                   >
                     Tỷ Giá VCB
                   </th>
@@ -2518,10 +2541,10 @@ export default function Home() {
                   </>
                 ) : null}
                 {/* Thứ, Ngày đã rowSpan=3 ở dòng 1 nên bỏ qua ở dòng 2 */}
-                {columnVisibility.sumCols ? (
+                {columnVisibility.banMh ? (
                   <th
                     colSpan={4}
-                    className={`border-b border-r border-black dark:border-stone-200 px-2 py-2 text-[14px] font-bold text-center text-stone-900 dark:text-stone-100 ${getRegionHeaderBgClass(62)}`}
+                    className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-bold text-center text-stone-900 dark:text-stone-100 ${getRegionHeaderBgClass(62)}`}
                   >
                     (trong nước / thế giới)
                   </th>
@@ -2530,54 +2553,54 @@ export default function Home() {
                   <>
                     {/* KITCO (9 cột) */}
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
                     >
                       MỞ
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
                       aria-hidden
                     >
                       {"\u00a0"}
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
                       aria-hidden
                     >
                       {"\u00a0"}
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
                       aria-hidden
                     >
                       {"\u00a0"}
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
                       aria-hidden
                     >
                       {"\u00a0"}
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
                     >
                       ĐÓNG
                     </th>
                     <th
                       rowSpan={2}
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap align-middle text-center ${getRegionHeaderBgClass(13)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap align-middle text-center ${getRegionHeaderBgClass(13)}`}
                     >
                       CAO
                     </th>
                     <th
                       rowSpan={2}
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap align-middle text-center ${getRegionHeaderBgClass(13)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap align-middle text-center ${getRegionHeaderBgClass(13)}`}
                     >
                       THẤP
                     </th>
                     <th
                       rowSpan={2}
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap align-middle text-center ${getRegionHeaderBgClass(13)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap align-middle text-center ${getRegionHeaderBgClass(13)}`}
                     >
                       THAY ĐỔI
                     </th>
@@ -2587,54 +2610,54 @@ export default function Home() {
                   <>
                     {/* Giá dầu (9 cột) */}
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
                     >
                       MỞ
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
                       aria-hidden
                     >
                       {"\u00a0"}
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
                       aria-hidden
                     >
                       {"\u00a0"}
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
                       aria-hidden
                     >
                       {"\u00a0"}
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
                       aria-hidden
                     >
                       {"\u00a0"}
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
                     >
                       PRICE
                     </th>
                     <th
                       rowSpan={2}
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap align-middle text-center ${getRegionHeaderBgClass(22)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap align-middle text-center ${getRegionHeaderBgClass(22)}`}
                     >
                       CAO
                     </th>
                     <th
                       rowSpan={2}
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap align-middle text-center ${getRegionHeaderBgClass(22)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap align-middle text-center ${getRegionHeaderBgClass(22)}`}
                     >
                       THẤP
                     </th>
                     <th
                       rowSpan={2}
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap align-middle text-center ${getRegionHeaderBgClass(22)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap align-middle text-center ${getRegionHeaderBgClass(22)}`}
                     >
                       THAY ĐỔI
                     </th>
@@ -2644,54 +2667,54 @@ export default function Home() {
                   <>
                     {/* Dollar index (9 cột) */}
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
                     >
                       MỞ
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
                       aria-hidden
                     >
                       {"\u00a0"}
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
                       aria-hidden
                     >
                       {"\u00a0"}
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
                       aria-hidden
                     >
                       {"\u00a0"}
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
                       aria-hidden
                     >
                       {"\u00a0"}
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
                     >
                       PRICE
                     </th>
                     <th
                       rowSpan={2}
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap align-middle text-center ${getRegionHeaderBgClass(31)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap align-middle text-center ${getRegionHeaderBgClass(31)}`}
                     >
                       CAO
                     </th>
                     <th
                       rowSpan={2}
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap align-middle text-center ${getRegionHeaderBgClass(31)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap align-middle text-center ${getRegionHeaderBgClass(31)}`}
                     >
                       THẤP
                     </th>
                     <th
                       rowSpan={2}
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap align-middle text-center ${getRegionHeaderBgClass(31)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap align-middle text-center ${getRegionHeaderBgClass(31)}`}
                     >
                       THAY ĐỔI
                     </th>
@@ -2701,54 +2724,54 @@ export default function Home() {
                   <>
                     {/* Trái phiếu 10Y (9 cột) */}
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
                     >
                       MỞ
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
                       aria-hidden
                     >
                       {"\u00a0"}
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
                       aria-hidden
                     >
                       {"\u00a0"}
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
                       aria-hidden
                     >
                       {"\u00a0"}
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
                       aria-hidden
                     >
                       {"\u00a0"}
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
                     >
                       PRICE
                     </th>
                     <th
                       rowSpan={2}
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap align-middle text-center ${getRegionHeaderBgClass(40)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap align-middle text-center ${getRegionHeaderBgClass(40)}`}
                     >
                       CAO
                     </th>
                     <th
                       rowSpan={2}
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap align-middle text-center ${getRegionHeaderBgClass(40)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap align-middle text-center ${getRegionHeaderBgClass(40)}`}
                     >
                       THẤP
                     </th>
                     <th
                       rowSpan={2}
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap align-middle text-center ${getRegionHeaderBgClass(40)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap align-middle text-center ${getRegionHeaderBgClass(40)}`}
                     >
                       THAY ĐỔI
                     </th>
@@ -2758,54 +2781,54 @@ export default function Home() {
                   <>
                     {/* S&P 500 (9 cột) */}
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
                     >
                       MỞ
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
                       aria-hidden
                     >
                       {"\u00a0"}
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
                       aria-hidden
                     >
                       {"\u00a0"}
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
                       aria-hidden
                     >
                       {"\u00a0"}
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
                       aria-hidden
                     >
                       {"\u00a0"}
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
                     >
                       ĐÓNG
                     </th>
                     <th
                       rowSpan={2}
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap align-middle text-center ${getRegionHeaderBgClass(49)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap align-middle text-center ${getRegionHeaderBgClass(49)}`}
                     >
                       CAO
                     </th>
                     <th
                       rowSpan={2}
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap align-middle text-center ${getRegionHeaderBgClass(49)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap align-middle text-center ${getRegionHeaderBgClass(49)}`}
                     >
                       THẤP
                     </th>
                     <th
                       rowSpan={2}
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap align-middle text-center ${getRegionHeaderBgClass(49)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-semibold text-stone-900 dark:text-stone-100 whitespace-nowrap align-middle text-center ${getRegionHeaderBgClass(49)}`}
                     >
                       THAY ĐỔI
                     </th>
@@ -2816,7 +2839,7 @@ export default function Home() {
                     {/* Tách riêng để "Bán" thẳng hàng với dòng 2 (không gộp vào "Tỷ Giá VCB") */}
                     <th
                       rowSpan={2}
-                      className={`border-b border-stone-200 px-2 py-1.5 text-[14px] font-semibold text-stone-950 dark:text-stone-100 whitespace-nowrap align-middle ${getRegionHeaderBgClass(60)}`}
+                      className={`border-b border-stone-200 px-1.5 py-1 text-[13px] font-semibold text-stone-950 dark:text-stone-100 whitespace-nowrap align-middle ${getRegionHeaderBgClass(60)}`}
                     >
                       Bán
                     </th>
@@ -2900,31 +2923,31 @@ export default function Home() {
                   </>
                 ) : null}
                 {/* Thứ, Ngày đã rowSpan=3 ở dòng 1 */}
-                {columnVisibility.sumCols ? (
+                {columnVisibility.banMh ? (
                   <>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(62)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(62)}`}
                     >
                       9h
                       <br />
                       (Việt Nam)
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(62)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(62)}`}
                     >
                       11h
                       <br />
                       (Việt Nam)
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(62)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(62)}`}
                     >
                       14h30
                       <br />
                       (Việt Nam)
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(62)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(62)}`}
                     >
                       17h30
                       <br />
@@ -2936,40 +2959,40 @@ export default function Home() {
                   <>
                     {/* KITCO (9 cột) */}
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
                     >
                       (US)
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
                     >
                       9h
                       <br />
                       (Việt Nam)
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
                     >
                       11h
                       <br />
                       (Việt Nam)
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
                     >
                       14h30
                       <br />
                       (Việt Nam)
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
                     >
                       17h30
                       <br />
                       (Việt Nam)
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(13)}`}
                     >
                       (US)
                     </th>
@@ -2979,40 +3002,40 @@ export default function Home() {
                   <>
                     {/* Giá dầu (9 cột) */}
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
                     >
                       (US)
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
                     >
                       9h
                       <br />
                       (Việt Nam)
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
                     >
                       11h
                       <br />
                       (Việt Nam)
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
                     >
                       14h30
                       <br />
                       (Việt Nam)
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
                     >
                       17h30
                       <br />
                       (Việt Nam)
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
                     >
                       (US)
                     </th>
@@ -3022,40 +3045,40 @@ export default function Home() {
                   <>
                     {/* Dollar index (9 cột) */}
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
                     >
                       (US)
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
                     >
                       9h
                       <br />
                       (Việt Nam)
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
                     >
                       11h
                       <br />
                       (Việt Nam)
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
                     >
                       14h30
                       <br />
                       (Việt Nam)
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
                     >
                       17h30
                       <br />
                       (Việt Nam)
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
                     >
                       (US)
                     </th>
@@ -3065,40 +3088,40 @@ export default function Home() {
                   <>
                     {/* Trái phiếu 10Y (9 cột) */}
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
                     >
                       (US)
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
                     >
                       9h
                       <br />
                       (Việt Nam)
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
                     >
                       11h
                       <br />
                       (Việt Nam)
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
                     >
                       14h30
                       <br />
                       (Việt Nam)
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
                     >
                       17h30
                       <br />
                       (Việt Nam)
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
                     >
                       (US)
                     </th>
@@ -3108,40 +3131,40 @@ export default function Home() {
                   <>
                     {/* S&P 500 (9 cột) */}
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
                     >
                       (US)
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
                     >
                       9h
                       <br />
                       (Việt Nam)
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
                     >
                       11h
                       <br />
                       (Việt Nam)
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
                     >
                       14h30
                       <br />
                       (Việt Nam)
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
                     >
                       17h30
                       <br />
                       (Việt Nam)
                     </th>
                     <th
-                      className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
+                      className={`border-b border-r border-black dark:border-stone-200 px-1.5 py-1 text-[13px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(49)}`}
                     >
                       (US)
                     </th>
@@ -3220,16 +3243,16 @@ export default function Home() {
                           j === 0
                             ? "border-0 px-0 py-0 w-0 max-w-0 overflow-hidden"
                             : j === 11
-                              ? `sticky left-0 z-20 min-w-0 max-w-[54px] border-r border-b border-black dark:border-stone-200 px-1 py-2 text-center text-sm font-bold tabular-nums leading-snug text-balance text-stone-950 dark:text-stone-100 bg-orange-50 dark:bg-orange-950 group-hover/row:bg-orange-100 dark:group-hover/row:bg-orange-900 shadow-[4px_0_10px_-6px_rgba(0,0,0,0.15)] dark:shadow-[4px_0_10px_-6px_rgba(0,0,0,0.5)] ${TD_CELL_FX}`
+                              ? `sticky left-0 z-20 min-w-0 max-w-[48px] border-r border-b border-black dark:border-stone-200 px-0.5 py-1 text-center text-[12px] font-bold tabular-nums leading-tight text-balance text-stone-950 dark:text-stone-100 bg-orange-50 dark:bg-orange-950 group-hover/row:bg-orange-100 dark:group-hover/row:bg-orange-900 shadow-[4px_0_10px_-6px_rgba(0,0,0,0.15)] dark:shadow-[4px_0_10px_-6px_rgba(0,0,0,0.5)] ${TD_CELL_FX}`
                               : j === 12
-                                ? `sticky z-[19] min-w-0 border-r border-b border-black dark:border-stone-200 px-2 py-2.5 text-center font-bold tabular-nums leading-snug text-balance text-stone-950 dark:text-stone-100 bg-sky-100 dark:bg-sky-950 group-hover/row:bg-sky-200 dark:group-hover/row:bg-sky-900 shadow-[4px_0_10px_-6px_rgba(0,0,0,0.12)] dark:shadow-[4px_0_10px_-6px_rgba(0,0,0,0.45)] ${TD_CELL_FX}`
+                                ? `sticky z-[19] min-w-0 border-r border-b border-black dark:border-stone-200 ${TABLE_TD_PAD} text-center ${TABLE_TEXT} font-bold tabular-nums text-balance text-stone-950 dark:text-stone-100 bg-sky-100 dark:bg-sky-950 group-hover/row:bg-sky-200 dark:group-hover/row:bg-sky-900 shadow-[4px_0_10px_-6px_rgba(0,0,0,0.12)] dark:shadow-[4px_0_10px_-6px_rgba(0,0,0,0.45)] ${TD_CELL_FX}`
                                 : j >= 61 && j <= 66
-                                  ? `border-r border-b border-black dark:border-stone-200 px-2.5 py-2.5 text-center font-bold tabular-nums leading-snug whitespace-normal break-words text-stone-950 dark:text-stone-50 ${getRegionBgClass(j)} ${TD_CELL_FX}`
-                                  : `border-r border-b border-black dark:border-stone-200 px-2.5 py-2.5 text-center font-bold tabular-nums leading-snug whitespace-normal break-words text-stone-950 dark:text-stone-50 ${getRegionBgClass(j)} ${TD_CELL_FX}`
+                                  ? `border-r border-b border-black dark:border-stone-200 ${TABLE_TD_PAD} text-center ${TABLE_TEXT} font-bold tabular-nums whitespace-normal break-words text-stone-950 dark:text-stone-50 ${getRegionBgClass(j)} ${TD_CELL_FX}`
+                                  : `border-r border-b border-black dark:border-stone-200 ${TABLE_TD_PAD} text-center ${TABLE_TEXT} font-bold tabular-nums whitespace-normal break-words text-stone-950 dark:text-stone-50 ${getRegionBgClass(j)} ${TD_CELL_FX}`
                         }
                       >
                         {isLoadingTable && j !== 0 && j !== 11 && j !== 12 ? (
-                          <div className="mx-auto h-5 w-20 rounded bg-stone-200/70 dark:bg-stone-800/70 animate-pulse" />
+                          <div className="mx-auto h-3.5 w-16 rounded bg-stone-200/70 dark:bg-stone-800/70 animate-pulse" />
                         ) : j === 0 ? (
                           ""
                         ) : j === 11 ? (
@@ -3239,49 +3262,34 @@ export default function Home() {
                         ) : j >= 1 && j <= 10 ? (
                           (() => {
                             const v = manhHaiCellValue(row.isoDate, j);
-                            const priceCmp = manhHaiMuaBanPrevRowCompare(
-                              row.isoDate,
-                              j,
-                              rowIdx,
+                            const toneClass =
+                              j === 1 || j === 2 || j === 6 || j === 7
+                                ? neutralPriceClass
+                                : j === 3 || j === 4 || j === 8 || j === 9
+                                  ? manhHaiDongIntradayToneClass(
+                                      row.isoDate,
+                                      j,
+                                    )
+                                  : (v.toneClass ?? neutralPriceClass);
+                            const text = formatTableToneCellDisplay(
+                              v.text,
+                              toneClass,
                             );
-                            const toneClass = priceCmp.tone ?? v.toneClass;
-                            let text = v.text;
-                            if ((j >= 1 && j <= 4) || (j >= 6 && j <= 9)) {
-                              text = formatRedCellAccountingStyle(
-                                v.text,
-                                toneClass,
-                              );
-                            } else if (j === 5 || j === 10) {
-                              text = formatRedCellAccountingStyle(
-                                v.text,
-                                v.toneClass,
-                              );
-                            }
-                            return toneClass ? (
-                              <span className={toneClass}>{text}</span>
-                            ) : (
-                              text
-                            );
+                            return <span className={toneClass}>{text}</span>;
                           })()
                         ) : j >= 67 && j <= 70 ? (
                           (() => {
                             const colJ = j as 67 | 68 | 69 | 70;
                             const v = laiNeuBanRa(row.isoDate, colJ);
-                            const text = formatRedCellAccountingStyle(
-                              v.text,
-                              v.toneClass,
-                            );
-                            return v.toneClass ? (
-                              <span className={v.toneClass}>{text}</span>
-                            ) : (
-                              text
-                            );
+                            const tone = v.toneClass ?? neutralPriceClass;
+                            const text = formatTableToneCellDisplay(v.text, tone);
+                            return <span className={tone}>{text}</span>;
                           })()
                         ) : j === 21 ? (
                           (() => {
                             const v = kitcoCellValue(row.isoDate, j);
                             const tone = getMarketChangeToneClass(v);
-                            const text = formatRedCellAccountingStyle(
+                            const text = formatTableToneCellDisplay(
                               formatChangeWithPlus(v),
                               tone,
                             );
@@ -3295,7 +3303,7 @@ export default function Home() {
                               "oil",
                             );
                             const tone = getMarketChangeToneClass(v);
-                            const text = formatRedCellAccountingStyle(
+                            const text = formatTableToneCellDisplay(
                               formatChangeWithPlus(v),
                               tone,
                             );
@@ -3309,7 +3317,7 @@ export default function Home() {
                               "dollarIndex",
                             );
                             const tone = getMarketChangeToneClass(v);
-                            const text = formatRedCellAccountingStyle(
+                            const text = formatTableToneCellDisplay(
                               formatChangeWithPlus(v),
                               tone,
                             );
@@ -3323,7 +3331,7 @@ export default function Home() {
                               "bond10y",
                             );
                             const tone = getMarketChangeToneClass(v);
-                            const text = formatRedCellAccountingStyle(
+                            const text = formatTableToneCellDisplay(
                               formatChangeWithPlus(v),
                               tone,
                             );
@@ -3337,7 +3345,7 @@ export default function Home() {
                               "sp500",
                             );
                             const tone = getMarketChangeToneClass(v);
-                            const text = formatRedCellAccountingStyle(
+                            const text = formatTableToneCellDisplay(
                               formatChangeWithPlus(v),
                               tone,
                             );
@@ -3370,7 +3378,7 @@ export default function Home() {
                               v
                             ) : (
                               <span className={cls}>
-                                {formatRedCellAccountingStyle(v, cls)}
+                                {formatTableToneCellDisplay(v, cls)}
                               </span>
                             );
                           })()
@@ -3413,7 +3421,7 @@ export default function Home() {
                               v
                             ) : (
                               <span className={cls}>
-                                {formatRedCellAccountingStyle(v, cls)}
+                                {formatTableToneCellDisplay(v, cls)}
                               </span>
                             );
                           })()
@@ -3434,7 +3442,7 @@ export default function Home() {
                               v
                             ) : (
                               <span className={cls}>
-                                {formatRedCellAccountingStyle(v, cls)}
+                                {formatTableToneCellDisplay(v, cls)}
                               </span>
                             );
                           })()
@@ -3481,7 +3489,7 @@ export default function Home() {
                               v
                             ) : (
                               <span className={cls}>
-                                {formatRedCellAccountingStyle(v, cls)}
+                                {formatTableToneCellDisplay(v, cls)}
                               </span>
                             );
                           })()
@@ -3502,7 +3510,7 @@ export default function Home() {
                               v
                             ) : (
                               <span className={cls}>
-                                {formatRedCellAccountingStyle(v, cls)}
+                                {formatTableToneCellDisplay(v, cls)}
                               </span>
                             );
                           })()
@@ -3549,7 +3557,7 @@ export default function Home() {
                               v
                             ) : (
                               <span className={cls}>
-                                {formatRedCellAccountingStyle(v, cls)}
+                                {formatTableToneCellDisplay(v, cls)}
                               </span>
                             );
                           })()
@@ -3570,7 +3578,7 @@ export default function Home() {
                               v
                             ) : (
                               <span className={cls}>
-                                {formatRedCellAccountingStyle(v, cls)}
+                                {formatTableToneCellDisplay(v, cls)}
                               </span>
                             );
                           })()
@@ -3617,7 +3625,7 @@ export default function Home() {
                               v
                             ) : (
                               <span className={cls}>
-                                {formatRedCellAccountingStyle(v, cls)}
+                                {formatTableToneCellDisplay(v, cls)}
                               </span>
                             );
                           })()
@@ -3638,7 +3646,7 @@ export default function Home() {
                               v
                             ) : (
                               <span className={cls}>
-                                {formatRedCellAccountingStyle(v, cls)}
+                                {formatTableToneCellDisplay(v, cls)}
                               </span>
                             );
                           })()
@@ -3671,7 +3679,7 @@ export default function Home() {
                             const cls = toneClassCompareToRowAbove(n, prevN);
                             return (
                               <span className={cls}>
-                                {formatRedCellAccountingStyle(text, cls)}
+                                {formatTableToneCellDisplay(text, cls)}
                               </span>
                             );
                           })()
@@ -3694,7 +3702,7 @@ export default function Home() {
                             const cls = toneClassCompareToRowAbove(n, prevN);
                             return (
                               <span className={cls}>
-                                {formatRedCellAccountingStyle(text, cls)}
+                                {formatTableToneCellDisplay(text, cls)}
                               </span>
                             );
                           })()
@@ -3712,7 +3720,7 @@ export default function Home() {
                             const cls = toneClassCompareToRowAbove(n, prevN);
                             return (
                               <span className={cls}>
-                                {formatRedCellAccountingStyle(text, cls)}
+                                {formatTableToneCellDisplay(text, cls)}
                               </span>
                             );
                           })()

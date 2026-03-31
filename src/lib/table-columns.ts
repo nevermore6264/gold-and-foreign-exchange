@@ -5,7 +5,7 @@
  * - 0: STT (ẩn)
  * - 1–5: MUA Mạnh Hải — 9h, 11h, 14h30, 17h30, chênh
  * - 67–70: Lãi (nếu bán ra) — cùng 4 mốc giờ VN (tính từ ô nhập + MUA/BÁN)
- * - 6–10: BÁN Mạnh Hải — 4 mốc + chênh
+ * - 6–10: BÁN Mạnh Hải — 4 mốc + chênh (cùng nhóm bật/tắt với 61–66)
  * - 61: ∑ chỉ vàng; 66: ∑ chỉ vàng thêm; 62–65: chênh lệch trong nước / TG (4 mốc)
  * - 13–21: KITCO (0h MỞ, 4 mốc VN, ĐÓNG, cao, thấp, %)
  * - 22–30, 31–39, 40–48, 49–57: dầu, DXY, US10Y, S&P (cùng bố cục 9 cột)
@@ -14,16 +14,16 @@
  * Gọi `getTableColumnConfigIssues()` trong dev nếu nghi ngờ lệch thứ tự.
  */
 export const TABLE_COL_ORDER: number[] = [
-  0, 11, 12, 1, 2, 3, 4, 5, 67, 68, 69, 70, 6, 7, 8, 9, 10, 61, 66, 62, 63, 64, 65, 13, 14, 15, 16, 17, 18, 19, 20,
-  21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41,
-  42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 60,
+  0, 11, 12, 1, 2, 3, 4, 5, 67, 68, 69, 70, 6, 7, 8, 9, 10, 61, 66, 62, 63, 64,
+  65, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
+  31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49,
+  50, 51, 52, 53, 54, 55, 56, 57, 60,
 ];
 
 /** Nhóm có thể bật/tắt (Thứ & Ngày luôn hiển thị). */
 export type ToggleableColGroup =
   | "muaMh"
   | "banMh"
-  | "sumCols"
   | "kitco"
   | "oil"
   | "dollar"
@@ -34,7 +34,6 @@ export type ToggleableColGroup =
 export const TOGGLEABLE_GROUPS: ToggleableColGroup[] = [
   "muaMh",
   "banMh",
-  "sumCols",
   "kitco",
   "oil",
   "dollar",
@@ -46,7 +45,6 @@ export const TOGGLEABLE_GROUPS: ToggleableColGroup[] = [
 export const GROUP_LABELS_VI: Record<ToggleableColGroup, string> = {
   muaMh: "MUA – Mạnh Hải",
   banMh: "BÁN – Mạnh Hải",
-  sumCols: "∑ chỉ vàng / ∑ thêm",
   kitco: "KITCO – Giá vàng TG",
   oil: "Giá dầu",
   dollar: "Dollar Index",
@@ -72,7 +70,7 @@ export function colGroupForDataColumn(j: number): ToggleableColGroup | null {
   /** Lãi (nếu bán ra) — đi kèm vùng MUA */
   if (j >= 67 && j <= 70) return "muaMh";
   if (j >= 6 && j <= 10) return "banMh";
-  if (j >= 61 && j <= 66) return "sumCols";
+  if (j >= 61 && j <= 66) return "banMh";
   if (j >= 13 && j <= 21) return "kitco";
   if (j >= 22 && j <= 30) return "oil";
   if (j >= 31 && j <= 39) return "dollar";
@@ -175,17 +173,43 @@ export function parseColumnVisibilityFromStorage(
     for (const g of TOGGLEABLE_GROUPS) {
       if (typeof o[g] === "boolean") next[g] = o[g];
     }
+    // legacy: sumCols đã gộp vào banMh — cả hai phải bật mới thấy bộ BÁN+∑
+    if (typeof o.sumCols === "boolean") {
+      next.banMh = next.banMh && o.sumCols;
+    }
   } catch {
     /* ignore */
   }
-  if (!TOGGLEABLE_GROUPS.some((g) => next[g])) return { ...DEFAULT_COLUMN_VISIBILITY };
+  if (!TOGGLEABLE_GROUPS.some((g) => next[g]))
+    return { ...DEFAULT_COLUMN_VISIBILITY };
   return next;
 }
 
 /** Các chỉ số cột dữ liệu phải có đúng một lần trong TABLE_COL_ORDER (trừ 58, 59 ẩn). */
 const EXPECTED_COL_INDICES_IN_ORDER = new Set<number>([
-  0, 11, 12,
-  1, 2, 3, 4, 5, 67, 68, 69, 70, 6, 7, 8, 9, 10, 61, 66, 62, 63, 64, 65,
+  0,
+  11,
+  12,
+  1,
+  2,
+  3,
+  4,
+  5,
+  67,
+  68,
+  69,
+  70,
+  6,
+  7,
+  8,
+  9,
+  10,
+  61,
+  66,
+  62,
+  63,
+  64,
+  65,
   ...Array.from({ length: 21 - 13 + 1 }, (_, i) => i + 13),
   ...Array.from({ length: 57 - 22 + 1 }, (_, i) => i + 22),
   60,
@@ -199,7 +223,8 @@ export function getTableColumnConfigIssues(): string[] {
   const issues: string[] = [];
   const seen = new Set<number>();
   for (const j of TABLE_COL_ORDER) {
-    if (seen.has(j)) issues.push(`Trùng chỉ số cột trong TABLE_COL_ORDER: ${j}`);
+    if (seen.has(j))
+      issues.push(`Trùng chỉ số cột trong TABLE_COL_ORDER: ${j}`);
     seen.add(j);
   }
   for (const j of EXPECTED_COL_INDICES_IN_ORDER) {
