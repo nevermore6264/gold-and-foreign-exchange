@@ -355,16 +355,24 @@ const MANUAL_MODAL_FORM_GRID = "grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6";
 
 const MANUAL_MODAL_FIELD = "flex min-w-0 flex-col gap-1.5";
 
-const MANUAL_MODAL_FIELD_TITLE =
-  "text-[13px] font-semibold text-stone-900 dark:text-stone-100";
+const MANUAL_MODAL_FIELD_TITLE_MONEY =
+  "text-[13px] font-bold tracking-tight text-amber-950 dark:text-amber-100";
+
+const MANUAL_MODAL_FIELD_TITLE_CHI =
+  "text-[13px] font-bold tracking-tight text-sky-900 dark:text-sky-100";
 
 const MANUAL_MODAL_FIELD_LABEL =
-  "text-[12px] leading-snug text-stone-600 dark:text-stone-400";
+  "text-[11px] font-medium leading-snug text-stone-500 dark:text-stone-400";
 
 const MANUAL_MODAL_INPUT_CLASS =
-  "mt-0.5 h-9 w-full rounded-md border border-stone-400 bg-stone-50 px-2 py-1 text-right text-sm font-semibold tabular-nums text-stone-900 outline-none transition-colors focus:border-stone-900 focus:bg-white dark:border-stone-500 dark:bg-stone-950 dark:text-stone-100 dark:focus:border-stone-300 dark:focus:bg-stone-950";
+  "mt-1 h-10 w-full rounded-lg border-0 bg-white/95 px-3 py-2 text-right text-sm font-semibold tabular-nums text-stone-900 shadow-inner ring-1 ring-stone-200/90 outline-none transition placeholder:text-stone-400 focus:bg-white focus:ring-2 focus:ring-amber-400/75 dark:bg-stone-950/90 dark:text-stone-100 dark:ring-stone-600 dark:placeholder:text-stone-500 dark:focus:ring-amber-500/55";
 
-const MANUAL_MODAL_FIELD_BOX = `${MANUAL_MODAL_FIELD} rounded-xl border border-stone-200/90 bg-white p-3 shadow-sm dark:border-stone-600 dark:bg-stone-900/80`;
+const MANUAL_MODAL_INPUT_CLASS_CHI =
+  "mt-1 h-10 w-full rounded-lg border-0 bg-white/95 px-3 py-2 text-right text-sm font-semibold tabular-nums text-stone-900 shadow-inner ring-1 ring-stone-200/90 outline-none transition placeholder:text-stone-400 focus:bg-white focus:ring-2 focus:ring-sky-400/75 dark:bg-stone-950/90 dark:text-stone-100 dark:ring-stone-600 dark:placeholder:text-stone-500 dark:focus:ring-sky-500/55";
+
+const MANUAL_MODAL_FIELD_BOX_MONEY = `${MANUAL_MODAL_FIELD} rounded-xl border border-amber-200/75 bg-gradient-to-br from-amber-50/95 via-white to-amber-50/45 p-3.5 shadow-md ring-1 ring-amber-100/45 dark:border-amber-800/55 dark:from-amber-950/50 dark:via-stone-900/98 dark:to-amber-950/35 dark:ring-amber-900/30`;
+
+const MANUAL_MODAL_FIELD_BOX_CHI = `${MANUAL_MODAL_FIELD} rounded-xl border border-sky-200/75 bg-gradient-to-br from-sky-50/90 via-white to-sky-50/40 p-3.5 shadow-md ring-1 ring-sky-100/45 dark:border-sky-800/50 dark:from-sky-950/40 dark:via-stone-900/98 dark:to-sky-950/30 dark:ring-sky-900/28`;
 
 function parseManualCardVisibilityFromStorage(
   raw: string | null,
@@ -2046,40 +2054,53 @@ export default function Home() {
               <button
                 type="button"
                 aria-label={`Đóng ${MANUAL_INPUTS_UI_LABEL_VI}`}
-                className="fixed inset-0 z-[330] bg-black/25 backdrop-blur-[1px]"
+                className="fixed inset-0 z-[330] bg-black/35 backdrop-blur-[2px]"
                 onMouseDown={() => setManualCardsModalOpen(false)}
               />
               <div
-                className="scroll-table-premium fixed left-1/2 top-1/2 z-[331] w-[min(92vw,720px)] max-h-[min(80vh,720px)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-blue-200/80 bg-white/95 p-3 shadow-2xl backdrop-blur-sm dark:border-blue-800/50 dark:bg-stone-900/95"
+                className="scroll-table-premium fixed left-1/2 top-1/2 z-[331] w-[min(92vw,720px)] max-h-[min(80vh,720px)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-amber-200/70 bg-gradient-to-b from-amber-50/55 via-white to-white p-0 shadow-[0_10px_50px_-12px_rgba(180,83,9,0.28)] backdrop-blur-md dark:border-amber-800/45 dark:from-amber-950/45 dark:via-stone-900 dark:to-stone-950"
                 role="dialog"
                 aria-label={MANUAL_INPUTS_UI_LABEL_VI}
                 onMouseDown={(e) => e.stopPropagation()}
               >
-                <div className="mb-3 flex items-start justify-between gap-3 border-b border-stone-200/90 px-1 pb-3 dark:border-stone-600">
-                  <div>
-                    <p className="text-[14px] font-extrabold text-stone-900 dark:text-stone-100">
-                      {MANUAL_INPUTS_UI_LABEL_VI}
-                    </p>
+                <div className="rounded-t-2xl border-b border-amber-200/55 bg-gradient-to-r from-amber-500/[0.12] via-amber-400/[0.06] to-sky-500/[0.08] px-4 py-3.5 dark:border-amber-800/40">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-[15px] font-extrabold tracking-tight text-stone-900 dark:text-stone-50">
+                        {MANUAL_INPUTS_UI_LABEL_VI}
+                      </p>
+                      <p className="mt-1 text-[12px] leading-snug text-stone-600 dark:text-stone-400">
+                        Nhập số để đối chiếu với các cột tính trong bảng.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      className="group inline-flex shrink-0 items-center gap-1.5 rounded-full border border-amber-300/90 bg-gradient-to-b from-white to-amber-50/90 px-3.5 py-2 text-[13px] font-bold text-amber-950 shadow-sm transition hover:border-amber-400 hover:from-amber-50 hover:to-amber-100 hover:shadow-md active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/80 dark:border-amber-600/80 dark:from-amber-950/70 dark:to-amber-900/80 dark:text-amber-50 dark:hover:border-amber-500 dark:hover:from-amber-900/90 dark:hover:to-amber-950"
+                      onClick={() => setManualCardsModalOpen(false)}
+                    >
+                      <span
+                        className="text-[20px] font-light leading-none text-amber-600 transition group-hover:text-amber-800 dark:text-amber-300 dark:group-hover:text-amber-100"
+                        aria-hidden
+                      >
+                        ×
+                      </span>
+                      Đóng
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    className="rounded-md border border-stone-200 px-2 py-1 text-[12px] font-semibold text-stone-600 hover:bg-stone-100 dark:border-stone-700 dark:text-stone-300 dark:hover:bg-stone-800"
-                    onClick={() => setManualCardsModalOpen(false)}
-                  >
-                    Đóng
-                  </button>
                 </div>
 
                 {manualCardVisibility.manualLeft ||
                 manualCardVisibility.manualRight ? (
-                  <div className="w-full px-1">
+                  <div className="w-full px-4 pb-4 pt-4">
                     {/* Bốn chỉ số nhập tay — lưới 2 cột, hàng cuối full width */}
                     <div className="w-full">
                       <div className={MANUAL_MODAL_FORM_GRID}>
                         {/* 1 — Σ Đầu tư */}
                         {manualCardVisibility.manualLeft ? (
-                          <div className={MANUAL_MODAL_FIELD_BOX}>
-                            <p className={MANUAL_MODAL_FIELD_TITLE}>∑ Đầu tư</p>
+                          <div className={MANUAL_MODAL_FIELD_BOX_MONEY}>
+                            <p className={MANUAL_MODAL_FIELD_TITLE_MONEY}>
+                              ∑ Đầu tư
+                            </p>
                             <label
                               htmlFor="manual-modal-dau-tu"
                               className={MANUAL_MODAL_FIELD_LABEL}
@@ -2120,8 +2141,8 @@ export default function Home() {
 
                         {/* 2 — Σ Tài sản */}
                         {manualCardVisibility.manualRight ? (
-                          <div className={MANUAL_MODAL_FIELD_BOX}>
-                            <p className={MANUAL_MODAL_FIELD_TITLE}>
+                          <div className={MANUAL_MODAL_FIELD_BOX_MONEY}>
+                            <p className={MANUAL_MODAL_FIELD_TITLE_MONEY}>
                               ∑ Tài sản
                             </p>
                             <label
@@ -2164,8 +2185,8 @@ export default function Home() {
 
                         {/* 3 — Σ chỉ vàng cũ */}
                         {manualCardVisibility.manualLeft ? (
-                          <div className={MANUAL_MODAL_FIELD_BOX}>
-                            <p className={MANUAL_MODAL_FIELD_TITLE}>
+                          <div className={MANUAL_MODAL_FIELD_BOX_CHI}>
+                            <p className={MANUAL_MODAL_FIELD_TITLE_CHI}>
                               ∑ Chỉ vàng cũ
                             </p>
                             <label
@@ -2201,15 +2222,15 @@ export default function Home() {
                                   /* ignore */
                                 }
                               }}
-                              className={MANUAL_MODAL_INPUT_CLASS}
+                              className={MANUAL_MODAL_INPUT_CLASS_CHI}
                             />
                           </div>
                         ) : null}
 
                         {/* 4 — Σ chỉ vàng đang có */}
                         {manualCardVisibility.manualRight ? (
-                          <div className={MANUAL_MODAL_FIELD_BOX}>
-                            <p className={MANUAL_MODAL_FIELD_TITLE}>
+                          <div className={MANUAL_MODAL_FIELD_BOX_CHI}>
+                            <p className={MANUAL_MODAL_FIELD_TITLE_CHI}>
                               ∑ Chỉ vàng đang có
                             </p>
                             <label
@@ -2251,7 +2272,7 @@ export default function Home() {
                                   /* ignore */
                                 }
                               }}
-                              className={MANUAL_MODAL_INPUT_CLASS}
+                              className={MANUAL_MODAL_INPUT_CLASS_CHI}
                             />
                           </div>
                         ) : null}
@@ -2316,7 +2337,7 @@ export default function Home() {
                     </div>
                   </div>
                 ) : (
-                  <div className="rounded-xl border border-stone-200 bg-stone-50 p-3 text-[13px] text-stone-600 dark:border-stone-700 dark:bg-stone-800/40 dark:text-stone-300">
+                  <div className="mx-4 mb-4 rounded-xl border border-amber-200/65 bg-gradient-to-r from-amber-50/80 to-stone-50/60 p-4 text-[13px] leading-relaxed text-stone-600 shadow-sm dark:border-amber-800/45 dark:from-amber-950/35 dark:to-stone-900/60 dark:text-stone-300">
                     {`Chưa bật “${MANUAL_INPUTS_UI_LABEL_VI}” trong Tùy chỉnh hiển thị.`}
                   </div>
                 )}
