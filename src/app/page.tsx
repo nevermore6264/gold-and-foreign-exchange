@@ -8,6 +8,7 @@ import {
 import {
   CSV_COL_LABELS,
   DEFAULT_COLUMN_VISIBILITY,
+  getTableColumnConfigIssues,
   GROUP_LABELS_VI,
   isColumnVisible,
   LS_COLUMN_VISIBILITY,
@@ -16,11 +17,16 @@ import {
   TOGGLEABLE_GROUPS,
   type ToggleableColGroup,
 } from "@/lib/table-columns";
-import { ThemeToggle } from "@/components/theme-toggle";
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
+
+if (process.env.NODE_ENV === "development") {
+  const colIssues = getTableColumnConfigIssues();
+  if (colIssues.length > 0)
+    console.error("[gia-vang] lệch cấu hình cột:", colIssues);
+}
 
 /**
  * Khung UI trước – chỉ header + bảng trống.
@@ -337,9 +343,28 @@ const DEFAULT_MANUAL_CARD_VISIBILITY: Record<ManualCardGroup, boolean> = {
 };
 
 const MANUAL_CARD_LABELS_VI: Record<ManualCardGroup, string> = {
-  manualLeft: "Thẻ nhập tay bên trái (∑ Đầu tư + ∑ chỉ vàng đang có)",
-  manualRight: "Thẻ nhập tay bên phải (∑ Tài sản + ∑ chỉ vàng cũ)",
+  manualLeft: "∑ Đầu tư + ∑ Chỉ vàng cũ",
+  manualRight: "∑ Tài sản + ∑ Chỉ vàng đang có",
 };
+
+/** Tên hiển thị nút mở modal + tiêu đề dialog — tham số tính vàng / tiền */
+const MANUAL_INPUTS_UI_LABEL_VI = "Tính vàng & tiền" as const;
+
+/** Modal nhập tham số: form thường — tiêu đề trên, label/mô tả dưới, ô nhập cuối; lưới 2 cột */
+const MANUAL_MODAL_FORM_GRID = "grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6";
+
+const MANUAL_MODAL_FIELD = "flex min-w-0 flex-col gap-1.5";
+
+const MANUAL_MODAL_FIELD_TITLE =
+  "text-[13px] font-semibold text-stone-900 dark:text-stone-100";
+
+const MANUAL_MODAL_FIELD_LABEL =
+  "text-[12px] leading-snug text-stone-600 dark:text-stone-400";
+
+const MANUAL_MODAL_INPUT_CLASS =
+  "mt-0.5 h-9 w-full rounded-md border border-stone-400 bg-stone-50 px-2 py-1 text-right text-sm font-semibold tabular-nums text-stone-900 outline-none transition-colors focus:border-stone-900 focus:bg-white dark:border-stone-500 dark:bg-stone-950 dark:text-stone-100 dark:focus:border-stone-300 dark:focus:bg-stone-950";
+
+const MANUAL_MODAL_FIELD_BOX = `${MANUAL_MODAL_FIELD} rounded-xl border border-stone-200/90 bg-white p-3 shadow-sm dark:border-stone-600 dark:bg-stone-900/80`;
 
 function parseManualCardVisibilityFromStorage(
   raw: string | null,
@@ -674,12 +699,23 @@ export default function Home() {
     }
   });
 
+  const [manualCardsModalOpen, setManualCardsModalOpen] = useState(false);
+
   const [cellBgColors, setCellBgColors] = useState<Record<string, string>>({});
   const [cellColorPicker, setCellColorPicker] = useState<{
     key: string;
     top: number;
     left: number;
   } | null>(null);
+
+  useEffect(() => {
+    if (!manualCardsModalOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setManualCardsModalOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [manualCardsModalOpen]);
 
   function persistCellBgColors(next: Record<string, string>) {
     try {
@@ -997,8 +1033,8 @@ export default function Home() {
             ? 48
             : 57;
 
-    // Giữ khung cột VN nhưng giá OPEN/PRICE lấy theo phiên Mỹ (feed live),
-    // không khóa theo giờ VN.
+    // Khung cột theo mốc giờ VN (cùng lưới với Mạnh Hải); với hàng hôm nay,
+    // các ô “mở cửa” 22–26 / 31–35 / … có thể hiện cùng giá realtime phiên Mỹ (xem /api/market-live).
     if (colIndex >= start && colIndex <= start + 4) {
       if (typeof livePrice !== "number")
         return formatMarketNumberByColumn(baseVal, colIndex);
@@ -1486,134 +1522,42 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-white text-stone-900 dark:bg-stone-950 dark:text-stone-100">
-      <header
-        className="shrink-0 sticky top-0 z-20 opacity-0 animate-fade-in-up border-b border-amber-200/50 dark:border-amber-900/30 bg-white/90 dark:bg-stone-900/90 backdrop-blur-md shadow-sm"
-        style={{ animationDelay: "0ms", animationFillMode: "forwards" }}
-      >
-        <div className="w-full px-4 sm:px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl overflow-hidden">
-              <Image
-                src="/favicon.svg"
-                alt="Logo"
-                width={28}
-                height={28}
-                priority
-              />
-            </span>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-[15px] sm:text-lg font-extrabold tracking-tight">
-                  <span className="bg-gradient-to-r from-amber-700 via-amber-600 to-orange-600 dark:from-amber-300 dark:via-amber-200 dark:to-orange-200 bg-clip-text text-transparent">
-                    Giá vàng
-                  </span>{" "}
-                  <span className="text-stone-800 dark:text-stone-100">&</span>{" "}
-                  <span className="text-stone-800 dark:text-stone-100">
-                    Tỷ giá
+    <div className="flex h-dvh max-h-dvh min-h-0 flex-col overflow-hidden bg-white text-stone-900 dark:bg-stone-950 dark:text-stone-100">
+      <header className="shrink-0 z-20 border-b border-amber-200/50 dark:border-amber-900/30 bg-white/90 dark:bg-stone-900/90">
+        <div className="w-full px-4 sm:px-6">
+          <div className="flex h-12 shrink-0 items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl overflow-hidden">
+                <Image
+                  src="/favicon.svg"
+                  alt="Logo"
+                  width={28}
+                  height={28}
+                  priority
+                />
+              </span>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-[15px] sm:text-lg font-extrabold tracking-tight">
+                    <span className="bg-gradient-to-r from-amber-700 via-amber-600 to-orange-600 dark:from-amber-300 dark:via-amber-200 dark:to-orange-200 bg-clip-text text-transparent">
+                      Giá vàng
+                    </span>{" "}
+                    <span className="text-stone-800 dark:text-stone-100">
+                      &
+                    </span>{" "}
+                    <span className="text-stone-800 dark:text-stone-100">
+                      Tỷ giá
+                    </span>
+                  </h1>
+                  <span className="hidden sm:inline-flex items-center gap-1 rounded-full border border-amber-200/70 dark:border-amber-800/40 bg-amber-50/70 dark:bg-amber-950/30 px-2 py-0.5 text-[14px] font-semibold text-amber-800 dark:text-amber-200">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                    Live
                   </span>
-                </h1>
-                <span className="hidden sm:inline-flex items-center gap-1 rounded-full border border-amber-200/70 dark:border-amber-800/40 bg-amber-50/70 dark:bg-amber-950/30 px-2 py-0.5 text-[14px] font-semibold text-amber-800 dark:text-amber-200">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                  Live
-                </span>
+                </div>
               </div>
-              <p className="text-[14px] text-stone-500 dark:text-stone-400">
-                Tổng hợp vàng, tỷ giá &amp; chỉ số thị trường
-              </p>
             </div>
           </div>
-          <ThemeToggle />
-        </div>
-      </header>
-
-      <main className="flex-1 w-full px-4 sm:px-6 py-8 sm:py-10">
-        {cellColorPicker != null &&
-          typeof document !== "undefined" &&
-          createPortal(
-            <>
-              <button
-                type="button"
-                aria-label="Đóng chọn màu"
-                className="fixed inset-0 z-[199] cursor-default bg-black/20 dark:bg-black/40"
-                onMouseDown={() => setCellColorPicker(null)}
-              />
-              <div
-                role="dialog"
-                aria-label="Màu nền ô"
-                className="fixed z-[200] rounded-xl border border-stone-200/90 bg-white p-2.5 shadow-2xl dark:border-stone-600 dark:bg-stone-900"
-                style={{
-                  top: cellColorPicker.top,
-                  left: cellColorPicker.left,
-                  width: CELL_COLOR_POPOVER_W,
-                }}
-                onMouseDown={(e) => e.stopPropagation()}
-              >
-                <p className="mb-2 text-center text-[12px] font-semibold text-stone-600 dark:text-stone-300">
-                  Màu nền ô
-                </p>
-                <div className="grid grid-cols-4 gap-1.5">
-                  {CELL_BG_PRESETS.map((hex) => (
-                    <button
-                      key={hex}
-                      type="button"
-                      title={hex}
-                      className="h-8 rounded-md border border-stone-300/80 shadow-inner transition hover:scale-105 hover:ring-2 hover:ring-amber-400/70 focus:outline-none focus:ring-2 focus:ring-amber-500 dark:border-stone-600"
-                      style={{ backgroundColor: hex }}
-                      onClick={() => {
-                        const key = cellColorPicker.key;
-                        setCellBgColors((prev) => {
-                          const next = { ...prev, [key]: hex };
-                          persistCellBgColors(next);
-                          return next;
-                        });
-                        setCellColorPicker(null);
-                      }}
-                    />
-                  ))}
-                </div>
-                <label className="mt-2.5 flex items-center gap-2 text-[12px] text-stone-600 dark:text-stone-400">
-                  <span className="shrink-0">Khác</span>
-                  <input
-                    type="color"
-                    className="h-9 min-w-0 flex-1 cursor-pointer rounded-md border border-stone-300 bg-stone-50 p-0.5 dark:border-stone-600 dark:bg-stone-800"
-                    value={cellBgColors[cellColorPicker.key] ?? "#fff9c4"}
-                    onChange={(e) => {
-                      const hex = e.target.value;
-                      const key = cellColorPicker.key;
-                      setCellBgColors((prev) => {
-                        const next = { ...prev, [key]: hex };
-                        persistCellBgColors(next);
-                        return next;
-                      });
-                    }}
-                  />
-                </label>
-                <button
-                  type="button"
-                  className="mt-2 w-full rounded-lg border border-stone-200 py-1.5 text-[12px] font-medium text-stone-600 hover:bg-stone-100 dark:border-stone-600 dark:text-stone-300 dark:hover:bg-stone-800"
-                  onClick={() => {
-                    const key = cellColorPicker.key;
-                    setCellBgColors((prev) => {
-                      const next = { ...prev };
-                      delete next[key];
-                      persistCellBgColors(next);
-                      return next;
-                    });
-                    setCellColorPicker(null);
-                  }}
-                >
-                  Xóa màu (mặc định)
-                </button>
-              </div>
-            </>,
-            document.body,
-          )}
-        <section
-          className="mb-6 opacity-0 animate-fade-in-up"
-          style={{ animationDelay: "80ms", animationFillMode: "forwards" }}
-        >
-          <div className="mt-4 flex flex-col sm:flex-row sm:items-end gap-3">
+          <div className="flex flex-col gap-2 border-t border-amber-200/40 py-2 dark:border-amber-900/25 sm:flex-row sm:items-end sm:flex-wrap">
             {/* Trái: xuất CSV/XLSX + cột (cùng khu với bộ lọc) */}
             <div className="flex flex-wrap items-center gap-2">
               {isLoadingTable ? (
@@ -1641,6 +1585,15 @@ export default function Home() {
                   className="border-0 bg-emerald-50/90 px-3 text-[14px] font-semibold text-emerald-900 hover:bg-emerald-100/90 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-emerald-950/40 dark:text-emerald-200 dark:hover:bg-emerald-900/50"
                 >
                   Tải XLSX
+                </button>
+              </div>
+              <div className="inline-flex h-9 shrink-0 overflow-hidden rounded-xl border border-stone-200/70 dark:border-stone-700/40">
+                <button
+                  type="button"
+                  onClick={() => setManualCardsModalOpen(true)}
+                  className="border-0 bg-stone-50/90 px-3 text-[14px] font-semibold text-stone-900 hover:bg-stone-100/90 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-stone-900/40 dark:text-stone-100 dark:hover:bg-stone-800/60"
+                >
+                  {MANUAL_INPUTS_UI_LABEL_VI}
                 </button>
               </div>
               <div className="relative z-[260]">
@@ -1758,7 +1711,7 @@ export default function Home() {
 
                           <div className="mt-2 rounded-xl border border-blue-200/80 bg-blue-50/60 p-2 dark:border-blue-800/50 dark:bg-blue-950/20">
                             <p className="mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-wide text-blue-800 dark:text-blue-300">
-                              Ô nhập số
+                              {MANUAL_INPUTS_UI_LABEL_VI}
                             </p>
                             <div className="flex flex-col gap-1">
                               {filteredManualCardGroups.map((g) => (
@@ -1799,7 +1752,7 @@ export default function Home() {
                               ))}
                               {filteredManualCardGroups.length === 0 ? (
                                 <p className="px-2 py-1 text-[12px] text-stone-500 dark:text-stone-400">
-                                  Không tìm thấy ô nhập số phù hợp.
+                                  Không tìm thấy mục phù hợp.
                                 </p>
                               ) : null}
                             </div>
@@ -2000,275 +1953,379 @@ export default function Home() {
               ) : null}
             </div>
           </div>
+        </div>
+      </header>
 
-          {/* Bốn chỉ số nhập tay — lưới 2×2 (giống bảng Excel): trái Đầu tư / chỉ đang có · phải Tài sản / chỉ cũ */}
-          <div className="mt-5 w-full max-w-4xl">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
-              {/* 1 — Σ Đầu tư */}
-              {manualCardVisibility.manualLeft ? (
-                <div className="group relative min-w-0 overflow-hidden rounded-2xl border border-blue-200/80 bg-white shadow-md shadow-blue-900/[0.05] ring-1 ring-stone-900/[0.04] transition-[box-shadow] duration-200 hover:shadow-lg dark:border-blue-800/40 dark:bg-stone-900 dark:ring-white/[0.06]">
-                  <div
-                    className="h-1 w-full bg-gradient-to-r from-blue-600 via-sky-500 to-blue-500 opacity-95 dark:from-blue-500 dark:via-sky-400 dark:to-blue-400"
-                    aria-hidden
-                  />
-                  <div className="flex items-start justify-between gap-2 px-3 pb-0.5 pt-2.5 sm:px-4">
-                    <div className="min-w-0">
-                      <p className="text-[12px] font-extrabold uppercase tracking-wide text-blue-900 dark:text-blue-200">
-                        ∑ Đầu tư
-                      </p>
-                      <p className="mt-0.5 text-[11px] leading-snug text-stone-500 dark:text-stone-400">
-                        Vốn / giá trị đầu tư (VNĐ)
-                      </p>
-                    </div>
-                    <span className="shrink-0 rounded-md border border-blue-200/80 bg-blue-50 px-2 py-0.5 text-[10px] font-bold uppercase text-blue-800 dark:border-blue-800/60 dark:bg-blue-950/60 dark:text-blue-200">
-                      VNĐ
-                    </span>
-                  </div>
-                  <div className="px-3 pb-3 pt-1 sm:px-4">
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      autoComplete="off"
-                      placeholder="vd. 30.000.000.000"
-                      value={totalDauTu}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setTotalDauTu(v);
-                        try {
-                          localStorage.setItem(LS_INPUT_DAU_TU, v);
-                        } catch {
-                          /* ignore */
-                        }
+      <main className="flex min-h-0 flex-1 flex-col overflow-hidden px-0 pb-2 pt-3 sm:pt-4">
+        {cellColorPicker != null &&
+          typeof document !== "undefined" &&
+          createPortal(
+            <>
+              <button
+                type="button"
+                aria-label="Đóng chọn màu"
+                className="fixed inset-0 z-[199] cursor-default bg-black/20 dark:bg-black/40"
+                onMouseDown={() => setCellColorPicker(null)}
+              />
+              <div
+                role="dialog"
+                aria-label="Màu nền ô"
+                className="fixed z-[200] rounded-xl border border-stone-200/90 bg-white p-2.5 shadow-2xl dark:border-stone-600 dark:bg-stone-900"
+                style={{
+                  top: cellColorPicker.top,
+                  left: cellColorPicker.left,
+                  width: CELL_COLOR_POPOVER_W,
+                }}
+                onMouseDown={(e) => e.stopPropagation()}
+              >
+                <p className="mb-2 text-center text-[12px] font-semibold text-stone-600 dark:text-stone-300">
+                  Màu nền ô
+                </p>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {CELL_BG_PRESETS.map((hex) => (
+                    <button
+                      key={hex}
+                      type="button"
+                      title={hex}
+                      className="h-8 rounded-md border border-stone-300/80 shadow-inner transition hover:scale-105 hover:ring-2 hover:ring-amber-400/70 focus:outline-none focus:ring-2 focus:ring-amber-500 dark:border-stone-600"
+                      style={{ backgroundColor: hex }}
+                      onClick={() => {
+                        const key = cellColorPicker.key;
+                        setCellBgColors((prev) => {
+                          const next = { ...prev, [key]: hex };
+                          persistCellBgColors(next);
+                          return next;
+                        });
+                        setCellColorPicker(null);
                       }}
-                      onBlur={(e) => {
-                        const v = formatTaiSanInputDisplay(e.target.value);
-                        setTotalDauTu(v);
-                        try {
-                          localStorage.setItem(LS_INPUT_DAU_TU, v);
-                        } catch {
-                          /* ignore */
-                        }
-                      }}
-                      className="h-12 w-full rounded-xl border border-stone-200/90 bg-gradient-to-b from-stone-50/90 to-white px-2.5 py-1.5 text-right text-base font-bold tabular-nums text-stone-900 shadow-inner focus:border-blue-400/70 focus:outline-none focus:ring-2 focus:ring-blue-400/30 dark:border-stone-600 dark:from-stone-900 dark:to-stone-950 dark:text-stone-50 dark:focus:border-blue-600/50 dark:focus:ring-blue-500/25"
                     />
-                  </div>
+                  ))}
                 </div>
-              ) : null}
-
-              {/* 2 — Σ Tài sản (dùng trong công thức cột bảng) */}
-              {manualCardVisibility.manualRight ? (
-                <div className="group relative min-w-0 overflow-hidden rounded-2xl border border-emerald-200/70 bg-white shadow-md shadow-emerald-900/[0.06] ring-1 ring-stone-900/[0.04] transition-[box-shadow] duration-200 hover:shadow-lg dark:border-emerald-800/45 dark:bg-stone-900 dark:ring-white/[0.06]">
-                  <div
-                    className="h-1 w-full bg-gradient-to-r from-emerald-600 via-teal-500 to-emerald-500 opacity-95 dark:from-emerald-500 dark:via-teal-400 dark:to-emerald-400"
-                    aria-hidden
+                <label className="mt-2.5 flex items-center gap-2 text-[12px] text-stone-600 dark:text-stone-400">
+                  <span className="shrink-0">Khác</span>
+                  <input
+                    type="color"
+                    className="h-9 min-w-0 flex-1 cursor-pointer rounded-md border border-stone-300 bg-stone-50 p-0.5 dark:border-stone-600 dark:bg-stone-800"
+                    value={cellBgColors[cellColorPicker.key] ?? "#fff9c4"}
+                    onChange={(e) => {
+                      const hex = e.target.value;
+                      const key = cellColorPicker.key;
+                      setCellBgColors((prev) => {
+                        const next = { ...prev, [key]: hex };
+                        persistCellBgColors(next);
+                        return next;
+                      });
+                    }}
                   />
-                  <div className="flex items-start justify-between gap-2 px-3 pb-0.5 pt-2.5 sm:px-4">
-                    <div className="min-w-0">
-                      <p className="text-[12px] font-extrabold uppercase tracking-wide text-emerald-900 dark:text-emerald-200">
-                        ∑ Tài sản
-                      </p>
-                      <p className="mt-0.5 text-[11px] leading-snug text-stone-500 dark:text-stone-400">
-                        Dùng tính cột ∑ chỉ vàng trong bảng
-                      </p>
-                    </div>
-                    <span className="shrink-0 rounded-md border border-emerald-200/80 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold uppercase text-emerald-800 dark:border-emerald-700/60 dark:bg-emerald-950/70 dark:text-emerald-300">
-                      VNĐ
-                    </span>
+                </label>
+                <button
+                  type="button"
+                  className="mt-2 w-full rounded-lg border border-stone-200 py-1.5 text-[12px] font-medium text-stone-600 hover:bg-stone-100 dark:border-stone-600 dark:text-stone-300 dark:hover:bg-stone-800"
+                  onClick={() => {
+                    const key = cellColorPicker.key;
+                    setCellBgColors((prev) => {
+                      const next = { ...prev };
+                      delete next[key];
+                      persistCellBgColors(next);
+                      return next;
+                    });
+                    setCellColorPicker(null);
+                  }}
+                >
+                  Xóa màu (mặc định)
+                </button>
+              </div>
+            </>,
+            document.body,
+          )}
+
+        {manualCardsModalOpen &&
+          typeof document !== "undefined" &&
+          createPortal(
+            <>
+              <button
+                type="button"
+                aria-label={`Đóng ${MANUAL_INPUTS_UI_LABEL_VI}`}
+                className="fixed inset-0 z-[330] bg-black/25 backdrop-blur-[1px]"
+                onMouseDown={() => setManualCardsModalOpen(false)}
+              />
+              <div
+                className="scroll-table-premium fixed left-1/2 top-1/2 z-[331] w-[min(92vw,720px)] max-h-[min(80vh,720px)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-blue-200/80 bg-white/95 p-3 shadow-2xl backdrop-blur-sm dark:border-blue-800/50 dark:bg-stone-900/95"
+                role="dialog"
+                aria-label={MANUAL_INPUTS_UI_LABEL_VI}
+                onMouseDown={(e) => e.stopPropagation()}
+              >
+                <div className="mb-3 flex items-start justify-between gap-3 border-b border-stone-200/90 px-1 pb-3 dark:border-stone-600">
+                  <div>
+                    <p className="text-[14px] font-extrabold text-stone-900 dark:text-stone-100">
+                      {MANUAL_INPUTS_UI_LABEL_VI}
+                    </p>
                   </div>
-                  <div className="px-3 pb-3 pt-1 sm:px-4">
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      autoComplete="off"
-                      placeholder="vd. 36.500.000.000"
-                      value={totalTaiSan}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setTotalTaiSan(v);
-                        try {
-                          localStorage.setItem(LS_INPUT_TAI_SAN, v);
-                        } catch {
-                          /* ignore */
-                        }
-                      }}
-                      onBlur={(e) => {
-                        const v = formatTaiSanInputDisplay(e.target.value);
-                        setTotalTaiSan(v);
-                        try {
-                          localStorage.setItem(LS_INPUT_TAI_SAN, v);
-                        } catch {
-                          /* ignore */
-                        }
-                      }}
-                      className="h-12 w-full rounded-xl border border-stone-200/90 bg-gradient-to-b from-stone-50/90 to-white px-2.5 py-1.5 text-right text-base font-bold tabular-nums text-stone-900 shadow-inner focus:border-emerald-400/70 focus:outline-none focus:ring-2 focus:ring-emerald-400/35 dark:border-stone-600 dark:from-stone-900 dark:to-stone-950 dark:text-stone-50 dark:focus:border-emerald-600/50 dark:focus:ring-emerald-500/25"
-                    />
-                  </div>
+                  <button
+                    type="button"
+                    className="rounded-md border border-stone-200 px-2 py-1 text-[12px] font-semibold text-stone-600 hover:bg-stone-100 dark:border-stone-700 dark:text-stone-300 dark:hover:bg-stone-800"
+                    onClick={() => setManualCardsModalOpen(false)}
+                  >
+                    Đóng
+                  </button>
                 </div>
-              ) : null}
 
-              {/* 3 — Σ chỉ vàng đang có */}
-              {manualCardVisibility.manualLeft ? (
-                <div className="group relative min-w-0 overflow-hidden rounded-2xl border border-violet-200/80 bg-white shadow-md shadow-violet-900/[0.06] ring-1 ring-stone-900/[0.04] transition-[box-shadow] duration-200 hover:shadow-lg dark:border-violet-800/40 dark:bg-stone-900 dark:ring-white/[0.06]">
-                  <div
-                    className="h-1 w-full bg-gradient-to-r from-violet-600 via-purple-500 to-violet-500 opacity-95 dark:from-violet-500 dark:via-purple-400 dark:to-violet-400"
-                    aria-hidden
-                  />
-                  <div className="flex items-start justify-between gap-2 px-3 pb-0.5 pt-2.5 sm:px-4">
-                    <div className="min-w-0">
-                      <p className="text-[12px] font-extrabold uppercase tracking-wide text-violet-900 dark:text-violet-200">
-                        ∑ chỉ vàng đang có
-                      </p>
-                      <p className="mt-0.5 text-[11px] leading-snug text-stone-500 dark:text-stone-400">
-                        Số chỉ hiện đang nắm giữ
-                      </p>
+                {manualCardVisibility.manualLeft ||
+                manualCardVisibility.manualRight ? (
+                  <div className="w-full px-1">
+                    {/* Bốn chỉ số nhập tay — lưới 2 cột, hàng cuối full width */}
+                    <div className="w-full">
+                      <div className={MANUAL_MODAL_FORM_GRID}>
+                        {/* 1 — Σ Đầu tư */}
+                        {manualCardVisibility.manualLeft ? (
+                          <div className={MANUAL_MODAL_FIELD_BOX}>
+                            <p className={MANUAL_MODAL_FIELD_TITLE}>∑ Đầu tư</p>
+                            <label
+                              htmlFor="manual-modal-dau-tu"
+                              className={MANUAL_MODAL_FIELD_LABEL}
+                            >
+                              Vốn / giá trị đầu tư — đơn vị VNĐ
+                            </label>
+                            <input
+                              id="manual-modal-dau-tu"
+                              type="text"
+                              inputMode="numeric"
+                              autoComplete="off"
+                              placeholder="vd. 30.000.000.000"
+                              value={totalDauTu}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                setTotalDauTu(v);
+                                try {
+                                  localStorage.setItem(LS_INPUT_DAU_TU, v);
+                                } catch {
+                                  /* ignore */
+                                }
+                              }}
+                              onBlur={(e) => {
+                                const v = formatTaiSanInputDisplay(
+                                  e.target.value,
+                                );
+                                setTotalDauTu(v);
+                                try {
+                                  localStorage.setItem(LS_INPUT_DAU_TU, v);
+                                } catch {
+                                  /* ignore */
+                                }
+                              }}
+                              className={MANUAL_MODAL_INPUT_CLASS}
+                            />
+                          </div>
+                        ) : null}
+
+                        {/* 2 — Σ Tài sản */}
+                        {manualCardVisibility.manualRight ? (
+                          <div className={MANUAL_MODAL_FIELD_BOX}>
+                            <p className={MANUAL_MODAL_FIELD_TITLE}>
+                              ∑ Tài sản
+                            </p>
+                            <label
+                              htmlFor="manual-modal-tai-san"
+                              className={MANUAL_MODAL_FIELD_LABEL}
+                            >
+                              Dùng tính cột ∑ chỉ vàng trong bảng — đơn vị VNĐ
+                            </label>
+                            <input
+                              id="manual-modal-tai-san"
+                              type="text"
+                              inputMode="numeric"
+                              autoComplete="off"
+                              placeholder="vd. 36.500.000.000"
+                              value={totalTaiSan}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                setTotalTaiSan(v);
+                                try {
+                                  localStorage.setItem(LS_INPUT_TAI_SAN, v);
+                                } catch {
+                                  /* ignore */
+                                }
+                              }}
+                              onBlur={(e) => {
+                                const v = formatTaiSanInputDisplay(
+                                  e.target.value,
+                                );
+                                setTotalTaiSan(v);
+                                try {
+                                  localStorage.setItem(LS_INPUT_TAI_SAN, v);
+                                } catch {
+                                  /* ignore */
+                                }
+                              }}
+                              className={MANUAL_MODAL_INPUT_CLASS}
+                            />
+                          </div>
+                        ) : null}
+
+                        {/* 3 — Σ chỉ vàng cũ */}
+                        {manualCardVisibility.manualLeft ? (
+                          <div className={MANUAL_MODAL_FIELD_BOX}>
+                            <p className={MANUAL_MODAL_FIELD_TITLE}>
+                              ∑ Chỉ vàng cũ
+                            </p>
+                            <label
+                              htmlFor="manual-modal-chi-vang-cu"
+                              className={MANUAL_MODAL_FIELD_LABEL}
+                            >
+                              Trừ khi tính “∑ chỉ vàng thêm” — đơn vị chỉ
+                            </label>
+                            <input
+                              id="manual-modal-chi-vang-cu"
+                              type="text"
+                              inputMode="numeric"
+                              autoComplete="off"
+                              placeholder="vd. 1.148"
+                              value={totalChiVangCu}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                setTotalChiVangCu(v);
+                                try {
+                                  localStorage.setItem(LS_INPUT_CHI_VANG_CU, v);
+                                } catch {
+                                  /* ignore */
+                                }
+                              }}
+                              onBlur={(e) => {
+                                const v = formatChiVangCuInputDisplay(
+                                  e.target.value,
+                                );
+                                setTotalChiVangCu(v);
+                                try {
+                                  localStorage.setItem(LS_INPUT_CHI_VANG_CU, v);
+                                } catch {
+                                  /* ignore */
+                                }
+                              }}
+                              className={MANUAL_MODAL_INPUT_CLASS}
+                            />
+                          </div>
+                        ) : null}
+
+                        {/* 4 — Σ chỉ vàng đang có */}
+                        {manualCardVisibility.manualRight ? (
+                          <div className={MANUAL_MODAL_FIELD_BOX}>
+                            <p className={MANUAL_MODAL_FIELD_TITLE}>
+                              ∑ Chỉ vàng đang có
+                            </p>
+                            <label
+                              htmlFor="manual-modal-chi-vang-dang-co"
+                              className={MANUAL_MODAL_FIELD_LABEL}
+                            >
+                              Số chỉ hiện đang nắm giữ — đơn vị chỉ
+                            </label>
+                            <input
+                              id="manual-modal-chi-vang-dang-co"
+                              type="text"
+                              inputMode="numeric"
+                              autoComplete="off"
+                              placeholder="vd. 1.920"
+                              value={chiVangDangCo}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                setChiVangDangCo(v);
+                                try {
+                                  localStorage.setItem(
+                                    LS_INPUT_CHI_VANG_DANG_CO,
+                                    v,
+                                  );
+                                } catch {
+                                  /* ignore */
+                                }
+                              }}
+                              onBlur={(e) => {
+                                const v = formatChiVangCuInputDisplay(
+                                  e.target.value,
+                                );
+                                setChiVangDangCo(v);
+                                try {
+                                  localStorage.setItem(
+                                    LS_INPUT_CHI_VANG_DANG_CO,
+                                    v,
+                                  );
+                                } catch {
+                                  /* ignore */
+                                }
+                              }}
+                              className={MANUAL_MODAL_INPUT_CLASS}
+                            />
+                          </div>
+                        ) : null}
+                      </div>
                     </div>
-                    <span className="shrink-0 rounded-md border border-violet-200/80 bg-violet-50 px-2 py-0.5 text-[10px] font-bold uppercase text-violet-900 dark:border-violet-700/60 dark:bg-violet-950/70 dark:text-violet-200">
-                      chỉ
-                    </span>
-                  </div>
-                  <div className="px-3 pb-3 pt-1 sm:px-4">
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      autoComplete="off"
-                      placeholder="vd. 1.920"
-                      value={chiVangDangCo}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setChiVangDangCo(v);
-                        try {
-                          localStorage.setItem(LS_INPUT_CHI_VANG_DANG_CO, v);
-                        } catch {
-                          /* ignore */
-                        }
-                      }}
-                      onBlur={(e) => {
-                        const v = formatChiVangCuInputDisplay(e.target.value);
-                        setChiVangDangCo(v);
-                        try {
-                          localStorage.setItem(LS_INPUT_CHI_VANG_DANG_CO, v);
-                        } catch {
-                          /* ignore */
-                        }
-                      }}
-                      className="h-12 w-full rounded-xl border border-stone-200/90 bg-gradient-to-b from-stone-50/90 to-white px-2.5 py-1.5 text-right text-base font-bold tabular-nums text-stone-900 shadow-inner focus:border-violet-400/70 focus:outline-none focus:ring-2 focus:ring-violet-400/35 dark:border-stone-600 dark:from-stone-900 dark:to-stone-950 dark:text-stone-50 dark:focus:border-violet-600/50 dark:focus:ring-violet-500/25"
-                    />
-                  </div>
-                </div>
-              ) : null}
 
-              {/* 4 — Σ chỉ vàng cũ (dùng trong công thức cột bảng) */}
-              {manualCardVisibility.manualRight ? (
-                <div className="group relative min-w-0 overflow-hidden rounded-2xl border border-amber-200/80 bg-white shadow-md shadow-amber-900/[0.07] ring-1 ring-stone-900/[0.04] transition-[box-shadow] duration-200 hover:shadow-lg dark:border-amber-800/40 dark:bg-stone-900 dark:ring-white/[0.06]">
-                  <div
-                    className="h-1 w-full bg-gradient-to-r from-amber-600 via-orange-500 to-amber-500 opacity-95 dark:from-amber-500 dark:via-orange-400 dark:to-amber-400"
-                    aria-hidden
-                  />
-                  <div className="flex items-start justify-between gap-2 px-3 pb-0.5 pt-2.5 sm:px-4">
-                    <div className="min-w-0">
-                      <p className="text-[12px] font-extrabold uppercase tracking-wide text-amber-900 dark:text-amber-200">
-                        ∑ Chỉ vàng cũ
-                      </p>
-                      <p className="mt-0.5 text-[11px] leading-snug text-stone-500 dark:text-stone-400">
-                        Trừ khi tính “∑ chỉ vàng thêm”
-                      </p>
+                    <div className="mt-3 flex flex-wrap gap-2 hidden">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRangeMode("month");
+                          setSelectedYear(currentYear);
+                          setSelectedMonth(currentMonth);
+                        }}
+                        className="h-9 px-3 rounded-xl border border-amber-200/60 dark:border-amber-800/40 bg-white dark:bg-stone-900 text-[14px] text-amber-900 dark:text-amber-200 hover:bg-amber-50/70 dark:hover:bg-amber-950/30"
+                      >
+                        Tháng này
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRangeMode("month");
+                          setSelectedYear(prevMonthInfo.y);
+                          setSelectedMonth(prevMonthInfo.m);
+                        }}
+                        className="h-9 px-3 rounded-xl border border-amber-200/60 dark:border-amber-800/40 bg-white dark:bg-stone-900 text-[14px] text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800"
+                      >
+                        Tháng trước
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRangeMode("quarter");
+                          setSelectedYear(currentYear);
+                          setSelectedQuarter(currentQuarter);
+                        }}
+                        className="h-9 px-3 rounded-xl border border-amber-200/60 dark:border-amber-800/40 bg-white dark:bg-stone-900 text-[14px] text-amber-900 dark:text-amber-200 hover:bg-amber-50/70 dark:hover:bg-amber-950/30"
+                      >
+                        Quý này
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRangeMode("quarter");
+                          setSelectedYear(prevQuarterInfo.y);
+                          setSelectedQuarter(prevQuarterInfo.q);
+                        }}
+                        className="h-9 px-3 rounded-xl border border-amber-200/60 dark:border-amber-800/40 bg-white dark:bg-stone-900 text-[14px] text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800"
+                      >
+                        Quý trước
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRangeMode("year");
+                          setSelectedYear(currentYear);
+                        }}
+                        className="h-9 px-3 rounded-xl border border-amber-200/60 dark:border-amber-800/40 bg-white dark:bg-stone-900 text-[14px] text-amber-900 dark:text-amber-200 hover:bg-amber-50/70 dark:hover:bg-amber-950/30"
+                      >
+                        Năm nay
+                      </button>
                     </div>
-                    <span className="shrink-0 rounded-md border border-amber-200/80 bg-amber-50 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/70 dark:text-amber-200">
-                      chỉ
-                    </span>
                   </div>
-                  <div className="px-3 pb-3 pt-1 sm:px-4">
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      autoComplete="off"
-                      placeholder="vd. 1.148"
-                      value={totalChiVangCu}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setTotalChiVangCu(v);
-                        try {
-                          localStorage.setItem(LS_INPUT_CHI_VANG_CU, v);
-                        } catch {
-                          /* ignore */
-                        }
-                      }}
-                      onBlur={(e) => {
-                        const v = formatChiVangCuInputDisplay(e.target.value);
-                        setTotalChiVangCu(v);
-                        try {
-                          localStorage.setItem(LS_INPUT_CHI_VANG_CU, v);
-                        } catch {
-                          /* ignore */
-                        }
-                      }}
-                      className="h-12 w-full rounded-xl border border-stone-200/90 bg-gradient-to-b from-stone-50/90 to-white px-2.5 py-1.5 text-right text-base font-bold tabular-nums text-stone-900 shadow-inner focus:border-amber-400/70 focus:outline-none focus:ring-2 focus:ring-amber-400/35 dark:border-stone-600 dark:from-stone-900 dark:to-stone-950 dark:text-stone-50 dark:focus:border-amber-600/50 dark:focus:ring-amber-500/25"
-                    />
+                ) : (
+                  <div className="rounded-xl border border-stone-200 bg-stone-50 p-3 text-[13px] text-stone-600 dark:border-stone-700 dark:bg-stone-800/40 dark:text-stone-300">
+                    {`Chưa bật “${MANUAL_INPUTS_UI_LABEL_VI}” trong Tùy chỉnh hiển thị.`}
                   </div>
-                </div>
-              ) : null}
-            </div>
-          </div>
+                )}
+              </div>
+            </>,
+            document.body,
+          )}
 
-          <div className="mt-3 flex flex-wrap gap-2 hidden">
-            <button
-              type="button"
-              onClick={() => {
-                setRangeMode("month");
-                setSelectedYear(currentYear);
-                setSelectedMonth(currentMonth);
-              }}
-              className="h-9 px-3 rounded-xl border border-amber-200/60 dark:border-amber-800/40 bg-white dark:bg-stone-900 text-[14px] text-amber-900 dark:text-amber-200 hover:bg-amber-50/70 dark:hover:bg-amber-950/30"
-            >
-              Tháng này
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setRangeMode("month");
-                setSelectedYear(prevMonthInfo.y);
-                setSelectedMonth(prevMonthInfo.m);
-              }}
-              className="h-9 px-3 rounded-xl border border-amber-200/60 dark:border-amber-800/40 bg-white dark:bg-stone-900 text-[14px] text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800"
-            >
-              Tháng trước
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setRangeMode("quarter");
-                setSelectedYear(currentYear);
-                setSelectedQuarter(currentQuarter);
-              }}
-              className="h-9 px-3 rounded-xl border border-amber-200/60 dark:border-amber-800/40 bg-white dark:bg-stone-900 text-[14px] text-amber-900 dark:text-amber-200 hover:bg-amber-50/70 dark:hover:bg-amber-950/30"
-            >
-              Quý này
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setRangeMode("quarter");
-                setSelectedYear(prevQuarterInfo.y);
-                setSelectedQuarter(prevQuarterInfo.q);
-              }}
-              className="h-9 px-3 rounded-xl border border-amber-200/60 dark:border-amber-800/40 bg-white dark:bg-stone-900 text-[14px] text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800"
-            >
-              Quý trước
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setRangeMode("year");
-                setSelectedYear(currentYear);
-              }}
-              className="h-9 px-3 rounded-xl border border-amber-200/60 dark:border-amber-800/40 bg-white dark:bg-stone-900 text-[14px] text-amber-900 dark:text-amber-200 hover:bg-amber-50/70 dark:hover:bg-amber-950/30"
-            >
-              Năm nay
-            </button>
-          </div>
-        </section>
-
-        <div className="scroll-table-premium overflow-auto max-h-[min(78vh,1200px)] rounded-xl border-2 border-solid border-black bg-white dark:border-stone-200 dark:bg-stone-900">
+        <div className="scroll-table-premium min-h-0 w-full flex-1 overflow-auto border-2 border-solid border-black bg-white dark:border-stone-200 dark:bg-stone-900">
           <table
             className="table-fixed w-full border-separate border-spacing-0 text-center text-base"
             style={{ minWidth: `${tableMinWidthPx}px` }}
@@ -2910,28 +2967,28 @@ export default function Home() {
                     >
                       9h
                       <br />
-                      (US)
+                      (Việt Nam)
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
                     >
                       11h
                       <br />
-                      (US)
+                      (Việt Nam)
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
                     >
                       14h30
                       <br />
-                      (US)
+                      (Việt Nam)
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
                     >
                       17h30
                       <br />
-                      (US)
+                      (Việt Nam)
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(22)}`}
@@ -2953,28 +3010,28 @@ export default function Home() {
                     >
                       9h
                       <br />
-                      (US)
+                      (Việt Nam)
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
                     >
                       11h
                       <br />
-                      (US)
+                      (Việt Nam)
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
                     >
                       14h30
                       <br />
-                      (US)
+                      (Việt Nam)
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
                     >
                       17h30
                       <br />
-                      (US)
+                      (Việt Nam)
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(31)}`}
@@ -2996,28 +3053,28 @@ export default function Home() {
                     >
                       9h
                       <br />
-                      (US)
+                      (Việt Nam)
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
                     >
                       11h
                       <br />
-                      (US)
+                      (Việt Nam)
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
                     >
                       14h30
                       <br />
-                      (US)
+                      (Việt Nam)
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
                     >
                       17h30
                       <br />
-                      (US)
+                      (Việt Nam)
                     </th>
                     <th
                       className={`border-b border-r border-black dark:border-stone-200 px-2 py-1.5 text-[14px] font-bold text-stone-950 dark:text-stone-50 whitespace-nowrap ${getRegionHeaderBgClass(40)}`}
@@ -3653,10 +3710,7 @@ export default function Home() {
         </div>
       </main>
 
-      <footer
-        className="shrink-0 border-t border-amber-200/40 dark:border-amber-900/30 bg-white/70 dark:bg-stone-900/70 backdrop-blur-sm mt-auto opacity-0 animate-fade-in"
-        style={{ animationDelay: "350ms", animationFillMode: "forwards" }}
-      >
+      <footer className="shrink-0 border-t border-amber-200/40 dark:border-amber-900/30 bg-white/70 dark:bg-stone-900/70 mt-auto">
         <div className="w-full px-4 sm:px-6 py-5">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 text-[14px] text-stone-500 dark:text-stone-400">
             <div className="flex items-center gap-2">

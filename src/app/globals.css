@@ -48,8 +48,8 @@ html.dark {
 }
 
 html {
-  overflow-x: hidden;
-  overflow-y: scroll;
+  overflow: hidden;
+  height: 100%;
   scrollbar-width: thin;
   scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }
@@ -83,12 +83,13 @@ html::-webkit-scrollbar-corner {
 }
 
 body {
-  min-height: 100vh;
+  min-height: 100%;
+  height: 100%;
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
   width: 100%;
-  overflow-x: hidden;
+  overflow: hidden;
 }
 
 /* Animations */

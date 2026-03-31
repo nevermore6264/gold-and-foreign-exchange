@@ -25,9 +25,8 @@ const themeBootstrapScript = `
 (function(){
   var k=${JSON.stringify(THEME_STORAGE_KEY)};
   try{
-    var raw=localStorage.getItem(k);
-    var pref=raw==='light'||raw==='dark'||raw==='system'?raw:'system';
-    var dark=pref==='dark'||(pref==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);
+    try{ localStorage.removeItem(k); }catch(e){}
+    var dark=window.matchMedia('(prefers-color-scheme: dark)').matches;
     document.documentElement.classList.toggle('dark',dark);
   }catch(e){}
 })();`;
@@ -38,14 +37,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="vi" suppressHydrationWarning>
+    <html lang="vi" className="h-full" suppressHydrationWarning>
       <head>
         <script
           dangerouslySetInnerHTML={{ __html: themeBootstrapScript }}
         />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} h-full min-h-0 antialiased`}
         suppressHydrationWarning
       >
         {children}

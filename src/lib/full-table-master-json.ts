@@ -14,8 +14,9 @@ const MASTER_PATH = path.join(getAppCacheRoot(), "full-table-dataset.json");
  * Tăng khi đổi cách gộp OHLC / generate ngày — bỏ qua master cũ để build lại dữ liệu thị trường.
  * v6: Dollar Index — bổ sung fallback Yahoo chart (Investing hay chặn serverless; historical đôi khi rỗng).
  * v7: Dollar Index — ngày nến theo Asia/Ho_Chi_Minh + gộp historical+chart + tải chunk (lịch sử đủ ngày quá khứ).
+ * v8: Xác minh mapping cột — bỏ master cũ nếu version lệch (tránh dữ liệu cột sai sau khi đổi schema).
  */
-export const MARKET_SCHEMA_VERSION = 7;
+export const MARKET_SCHEMA_VERSION = 8;
 
 /** Cùng shape với FullTableRow trong full-table.ts */
 export type MasterTableRow = Record<string, string | number | null>;

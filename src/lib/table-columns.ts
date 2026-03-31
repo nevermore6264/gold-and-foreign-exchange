@@ -1,5 +1,17 @@
 /**
- * Thứ tự cột bảng (trùng page.tsx) — col_0 / 58 / 59 không render.
+ * Thứ tự cột bảng (trùng `page.tsx` + colgroup + tbody) — col_0 / 58 / 59 không hiển thị.
+ *
+ * **Mapping nguồn dữ liệu `col_j` (JSON full-table / master):**
+ * - 0: STT (ẩn)
+ * - 1–5: MUA Mạnh Hải — 9h, 11h, 14h30, 17h30, chênh
+ * - 67–70: Lãi (nếu bán ra) — cùng 4 mốc giờ VN (tính từ ô nhập + MUA/BÁN)
+ * - 6–10: BÁN Mạnh Hải — 4 mốc + chênh
+ * - 61: ∑ chỉ vàng; 66: ∑ chỉ vàng thêm; 62–65: chênh lệch trong nước / TG (4 mốc)
+ * - 13–21: KITCO (0h MỞ, 4 mốc VN, ĐÓNG, cao, thấp, %)
+ * - 22–30, 31–39, 40–48, 49–57: dầu, DXY, US10Y, S&P (cùng bố cục 9 cột)
+ * - 58–60: VCB mua TM / mua CK / bán (chỉ hiển thị 60)
+ *
+ * Gọi `getTableColumnConfigIssues()` trong dev nếu nghi ngờ lệch thứ tự.
  */
 export const TABLE_COL_ORDER: number[] = [
   0, 11, 12, 1, 2, 3, 4, 5, 67, 68, 69, 70, 6, 7, 8, 9, 10, 61, 66, 62, 63, 64, 65, 13, 14, 15, 16, 17, 18, 19, 20,
@@ -168,4 +180,34 @@ export function parseColumnVisibilityFromStorage(
   }
   if (!TOGGLEABLE_GROUPS.some((g) => next[g])) return { ...DEFAULT_COLUMN_VISIBILITY };
   return next;
+}
+
+/** Các chỉ số cột dữ liệu phải có đúng một lần trong TABLE_COL_ORDER (trừ 58, 59 ẩn). */
+const EXPECTED_COL_INDICES_IN_ORDER = new Set<number>([
+  0, 11, 12,
+  1, 2, 3, 4, 5, 67, 68, 69, 70, 6, 7, 8, 9, 10, 61, 66, 62, 63, 64, 65,
+  ...Array.from({ length: 21 - 13 + 1 }, (_, i) => i + 13),
+  ...Array.from({ length: 57 - 22 + 1 }, (_, i) => i + 22),
+  60,
+]);
+
+/**
+ * Kiểm tra nhanh: không trùng, không thiếu cột, không có chỉ số lạ.
+ * Dùng khi debug “cột lệch nhau”.
+ */
+export function getTableColumnConfigIssues(): string[] {
+  const issues: string[] = [];
+  const seen = new Set<number>();
+  for (const j of TABLE_COL_ORDER) {
+    if (seen.has(j)) issues.push(`Trùng chỉ số cột trong TABLE_COL_ORDER: ${j}`);
+    seen.add(j);
+  }
+  for (const j of EXPECTED_COL_INDICES_IN_ORDER) {
+    if (!seen.has(j)) issues.push(`Thiếu cột ${j} trong TABLE_COL_ORDER`);
+  }
+  for (const j of seen) {
+    if (!EXPECTED_COL_INDICES_IN_ORDER.has(j))
+      issues.push(`Chỉ số cột thừa hoặc không mong đợi: ${j}`);
+  }
+  return issues;
 }

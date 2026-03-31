@@ -1,5 +1,5 @@
 /**
- * Bảng 60 cột (col_0 .. col_59). Nguồn:
+ * Bảng 61 trường index (col_0 .. col_60). Nguồn:
  * - col_1-10: Mua/Bán Mạnh Hải (file cache/manh-hai; nếu thiếu → backfill từ lịch sử CafeF từ ~2025-02-08, 1 giá/ngày × 4 khung giờ)
  * - col_12: DATE
  * - col_13-21: KITCO (GC=F / XAU): MỞ·ĐÓNG·Cao·Thấp·% từ OHLC ngày;
