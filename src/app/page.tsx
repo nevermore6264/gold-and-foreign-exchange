@@ -18,7 +18,14 @@ import {
   type ToggleableColGroup,
 } from "@/lib/table-columns";
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import {
+  startTransition,
+  useEffect,
+  useMemo,
+  useOptimistic,
+  useState,
+  useTransition,
+} from "react";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
 
@@ -297,6 +304,18 @@ const TABLE_TEXT = "text-[13px] leading-tight";
 const TABLE_TD_PAD = "px-1.5 py-1";
 
 const LAI_HEAD_TIME_CLASS = `${TABLE_CELL_BR} px-1.5 py-1 ${TABLE_TEXT} font-bold ${LAI_HEAD_GREEN} whitespace-nowrap`;
+const BTN_BASE =
+  "inline-flex items-center justify-center rounded-lg border px-3 py-2 text-[14px] font-bold tracking-tight transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-500/70 disabled:cursor-not-allowed disabled:opacity-45";
+const BTN_PRIMARY_STRONG =
+  `${BTN_BASE} border-stone-900 bg-stone-900 text-white hover:bg-stone-800 dark:border-stone-200 dark:bg-stone-100 dark:text-stone-950 dark:hover:bg-stone-200`;
+const BTN_SECONDARY_STRONG =
+  `${BTN_BASE} border-stone-400 bg-white text-stone-900 hover:bg-stone-100 dark:border-stone-500 dark:bg-stone-900 dark:text-stone-100 dark:hover:bg-stone-800`;
+
+function segmentedButtonClass(active: boolean): string {
+  return active
+    ? "border-r border-stone-400 bg-stone-900 text-white dark:border-stone-600 dark:bg-stone-100 dark:text-stone-950"
+    : "border-r border-stone-300 bg-white text-stone-700 hover:bg-stone-100 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-200 dark:hover:bg-stone-800";
+}
 
 /** Hiệu ứng ô: highlight nhẹ khi hover cả hàng (giống glass / macOS) */
 const TD_CELL_FX =
@@ -673,7 +692,7 @@ export default function Home() {
     slots: ManhHaiSlotMap;
   } | null>(null);
   const [isLoadingTable, setIsLoadingTable] = useState<boolean>(false);
-  /** Tiến trình tải bảng (theo từng gói năm) */
+  /** Tiến trình tải bảng: số dòng đã có dữ liệu / tổng dòng (theo gói năm) */
   const [tableLoadProgress, setTableLoadProgress] = useState<{
     loaded: number;
     total: number;
@@ -1574,32 +1593,49 @@ export default function Home() {
                     <span className="inline-block h-3 w-3 shrink-0 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
                     <span className="font-semibold tabular-nums">
                       {tableLoadProgress.loaded.toLocaleString("vi-VN")} /{" "}
-                      {tableLoadProgress.total.toLocaleString("vi-VN")}{" "}
-                      <span className="hidden sm:inline">ngày</span>
+                      {tableLoadProgress.total.toLocaleString("vi-VN")} dòng
+                      {tableLoadProgress.total > 0 ? (
+                        <span className="ml-1 font-bold text-amber-800/90 dark:text-amber-100/90">
+                          (
+                          {Math.min(
+                            100,
+                            Math.round(
+                              (tableLoadProgress.loaded /
+                                tableLoadProgress.total) *
+                                100,
+                            ),
+                          )}
+                          %)
+                        </span>
+                      ) : null}
                     </span>
                   </span>
                 ) : (
                   <span className="inline-flex items-center gap-2 text-[14px] text-amber-700 dark:text-amber-300">
-                    <span className="inline-block h-3 w-3 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
-                    <span className="hidden sm:inline">Đang tải...</span>
+                    <span className="inline-block h-3 w-3 shrink-0 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
+                    <span className="font-medium tabular-nums">
+                      {dateRows.length > 0
+                        ? `0 / ${dateRows.length.toLocaleString("vi-VN")} dòng`
+                        : "Đang tải…"}
+                    </span>
                   </span>
                 )
               ) : null}
-              <div className="inline-flex h-9 shrink-0 overflow-hidden rounded-xl border border-emerald-200/80 dark:border-emerald-800/50">
+              <div className="inline-flex h-9 shrink-0 overflow-hidden rounded-lg">
                 <button
                   type="button"
                   onClick={handleDownloadXlsx}
                   disabled={isLoadingTable || dateRows.length === 0}
-                  className="border-0 bg-emerald-50/90 px-3 text-[14px] font-semibold text-emerald-900 hover:bg-emerald-100/90 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-emerald-950/40 dark:text-emerald-200 dark:hover:bg-emerald-900/50"
+                  className={BTN_PRIMARY_STRONG}
                 >
                   Tải XLSX
                 </button>
               </div>
-              <div className="inline-flex h-9 shrink-0 overflow-hidden rounded-xl border border-stone-200/70 dark:border-stone-700/40">
+              <div className="inline-flex h-9 shrink-0 overflow-hidden rounded-lg">
                 <button
                   type="button"
                   onClick={() => setManualCardsModalOpen(true)}
-                  className="border-0 bg-stone-50/90 px-3 text-[14px] font-semibold text-stone-900 hover:bg-stone-100/90 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-stone-900/40 dark:text-stone-100 dark:hover:bg-stone-800/60"
+                  className={BTN_SECONDARY_STRONG}
                 >
                   {MANUAL_INPUTS_UI_LABEL_VI}
                 </button>
@@ -1614,10 +1650,10 @@ export default function Home() {
                       return next;
                     })
                   }
-                  className={`inline-flex h-9 shrink-0 items-center gap-2 rounded-xl border px-3 text-[14px] font-semibold transition-colors ${
+                  className={`inline-flex h-9 shrink-0 items-center gap-2 rounded-lg border px-3 text-[14px] font-bold tracking-tight transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-500/70 ${
                     columnMenuOpen
-                      ? "border-amber-300 bg-amber-100/90 text-amber-900 dark:border-amber-700 dark:bg-amber-900/35 dark:text-amber-100"
-                      : "border-amber-200/70 bg-white text-amber-900 hover:bg-amber-50/80 dark:border-amber-800/45 dark:bg-stone-900 dark:text-amber-200 dark:hover:bg-amber-950/40"
+                      ? "border-stone-900 bg-stone-900 text-white dark:border-stone-200 dark:bg-stone-100 dark:text-stone-950"
+                      : "border-stone-400 bg-white text-stone-900 hover:bg-stone-100 dark:border-stone-500 dark:bg-stone-900 dark:text-stone-100 dark:hover:bg-stone-800"
                   }`}
                   aria-expanded={columnMenuOpen}
                   aria-haspopup="dialog"
@@ -1659,7 +1695,7 @@ export default function Home() {
                             </div>
                             <button
                               type="button"
-                              className="rounded-md border border-stone-200 px-2 py-1 text-[12px] font-semibold text-stone-600 hover:bg-stone-100 dark:border-stone-700 dark:text-stone-300 dark:hover:bg-stone-800"
+                              className="rounded-md border border-stone-400 bg-white px-2.5 py-1 text-[12px] font-bold text-stone-800 hover:bg-stone-100 dark:border-stone-500 dark:bg-stone-900 dark:text-stone-100 dark:hover:bg-stone-800"
                               onClick={() => {
                                 setColumnMenuOpen(false);
                                 setColumnMenuQuery("");
@@ -1776,47 +1812,35 @@ export default function Home() {
               <span className="text-[14px] font-semibold text-stone-600 dark:text-stone-400">
                 Lọc theo
               </span>
-              <div className="inline-flex rounded-xl border border-amber-200/60 dark:border-amber-800/40 bg-white dark:bg-stone-900 overflow-hidden">
+              <div className="inline-flex overflow-hidden rounded-lg border border-stone-400 dark:border-stone-600 bg-white dark:bg-stone-900">
                 <button
                   type="button"
                   onClick={() => setRangeMode("month")}
-                  className={`px-3 py-2 text-sm font-medium transition-colors ${
-                    rangeMode === "month"
-                      ? "bg-amber-100/80 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200"
-                      : "text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800"
-                  }`}
+                  className={`px-3 py-2 text-sm font-bold transition-colors ${segmentedButtonClass(rangeMode === "month")}`}
                 >
                   Tháng
                 </button>
                 <button
                   type="button"
                   onClick={() => setRangeMode("quarter")}
-                  className={`px-3 py-2 text-sm font-medium transition-colors ${
-                    rangeMode === "quarter"
-                      ? "bg-amber-100/80 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200"
-                      : "text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800"
-                  }`}
+                  className={`px-3 py-2 text-sm font-bold transition-colors ${segmentedButtonClass(rangeMode === "quarter")}`}
                 >
                   Quý
                 </button>
                 <button
                   type="button"
                   onClick={() => setRangeMode("year")}
-                  className={`px-3 py-2 text-sm font-medium transition-colors ${
-                    rangeMode === "year"
-                      ? "bg-amber-100/80 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200"
-                      : "text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800"
-                  }`}
+                  className={`px-3 py-2 text-sm font-bold transition-colors ${segmentedButtonClass(rangeMode === "year")}`}
                 >
                   Năm
                 </button>
                 <button
                   type="button"
                   onClick={() => setRangeMode("all")}
-                  className={`px-3 py-2 text-sm font-medium transition-colors ${
+                  className={`px-3 py-2 text-sm font-bold transition-colors ${
                     rangeMode === "all"
-                      ? "bg-amber-100/80 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200"
-                      : "text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800"
+                      ? "bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-950"
+                      : "bg-white text-stone-700 hover:bg-stone-100 dark:bg-stone-900 dark:text-stone-200 dark:hover:bg-stone-800"
                   }`}
                   title="Từ 01/01/2022 đến hôm nay (toàn bộ dữ liệu app)"
                 >
@@ -1888,7 +1912,7 @@ export default function Home() {
                 <span className="text-[14px] font-semibold text-stone-600 dark:text-stone-400">
                   Quý
                 </span>
-                <div className="inline-flex rounded-xl overflow-hidden border border-amber-200/60 dark:border-amber-800/40 bg-white dark:bg-stone-900">
+                <div className="inline-flex overflow-hidden rounded-lg border border-stone-400 dark:border-stone-600 bg-white dark:bg-stone-900">
                   {[1, 2, 3, 4].map((q) => {
                     const disabled = q > maxQuarter;
                     return (
@@ -1897,12 +1921,12 @@ export default function Home() {
                         type="button"
                         disabled={disabled}
                         onClick={() => setSelectedQuarter(q)}
-                        className={`px-3 py-2 text-sm font-medium transition-colors ${
+                        className={`px-3 py-2 text-sm font-bold transition-colors ${
                           selectedQuarter === q
-                            ? "bg-amber-100/80 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200"
+                            ? "bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-950"
                             : disabled
-                              ? "bg-stone-50 dark:bg-stone-800 text-stone-400 dark:text-stone-500 cursor-not-allowed"
-                              : "text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800"
+                              ? "bg-stone-100 dark:bg-stone-800 text-stone-400 dark:text-stone-500 cursor-not-allowed"
+                              : "bg-white text-stone-700 hover:bg-stone-100 dark:bg-stone-900 dark:text-stone-200 dark:hover:bg-stone-800"
                         }`}
                       >
                         Q{q}
@@ -1926,8 +1950,11 @@ export default function Home() {
                 </span>
                 {!isLoadingTable && (
                   <span className="hidden sm:inline">
-                    • <span className="font-semibold">{dateRows.length}</span>{" "}
-                    ngày
+                    •{" "}
+                    <span className="font-semibold">
+                      {dateRows.length.toLocaleString("vi-VN")}
+                    </span>{" "}
+                    dòng
                   </span>
                 )}
               </div>
@@ -1935,12 +1962,26 @@ export default function Home() {
                 <div className="mt-2 w-full max-w-md sm:ml-auto">
                   <div className="mb-1 flex flex-wrap items-center justify-between gap-2 text-[12px] text-amber-800 dark:text-amber-200">
                     <span className="font-medium text-amber-900 dark:text-amber-100">
-                      Đang tải bảng (gói {tableLoadProgress.chunkCurrent}/
+                      Đang tải dữ liệu (gói {tableLoadProgress.chunkCurrent}/
                       {tableLoadProgress.chunkTotal})
                     </span>
                     <span className="font-bold tabular-nums">
                       {tableLoadProgress.loaded.toLocaleString("vi-VN")} /{" "}
-                      {tableLoadProgress.total.toLocaleString("vi-VN")} ngày
+                      {tableLoadProgress.total.toLocaleString("vi-VN")} dòng
+                      {tableLoadProgress.total > 0 ? (
+                        <span className="ml-1.5 font-semibold text-amber-700 dark:text-amber-300">
+                          (
+                          {Math.min(
+                            100,
+                            Math.round(
+                              (tableLoadProgress.loaded /
+                                tableLoadProgress.total) *
+                                100,
+                            ),
+                          )}
+                          %)
+                        </span>
+                      ) : null}
                     </span>
                   </div>
                   <div
@@ -2028,7 +2069,7 @@ export default function Home() {
                 </label>
                 <button
                   type="button"
-                  className="mt-2 w-full rounded-lg border border-stone-200 py-1.5 text-[12px] font-medium text-stone-600 hover:bg-stone-100 dark:border-stone-600 dark:text-stone-300 dark:hover:bg-stone-800"
+                  className="mt-2 w-full rounded-lg border border-stone-400 bg-white py-1.5 text-[12px] font-bold text-stone-800 hover:bg-stone-100 dark:border-stone-500 dark:bg-stone-900 dark:text-stone-100 dark:hover:bg-stone-800"
                   onClick={() => {
                     const key = cellColorPicker.key;
                     setCellBgColors((prev) => {
@@ -2075,11 +2116,11 @@ export default function Home() {
                     </div>
                     <button
                       type="button"
-                      className="group inline-flex shrink-0 items-center gap-1.5 rounded-full border border-amber-300/90 bg-gradient-to-b from-white to-amber-50/90 px-3.5 py-2 text-[13px] font-bold text-amber-950 shadow-sm transition hover:border-amber-400 hover:from-amber-50 hover:to-amber-100 hover:shadow-md active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/80 dark:border-amber-600/80 dark:from-amber-950/70 dark:to-amber-900/80 dark:text-amber-50 dark:hover:border-amber-500 dark:hover:from-amber-900/90 dark:hover:to-amber-950"
+                      className={`${BTN_SECONDARY_STRONG} group shrink-0 rounded-full px-3.5`}
                       onClick={() => setManualCardsModalOpen(false)}
                     >
                       <span
-                        className="text-[20px] font-light leading-none text-amber-600 transition group-hover:text-amber-800 dark:text-amber-300 dark:group-hover:text-amber-100"
+                        className="text-[20px] font-light leading-none text-stone-500 transition group-hover:text-stone-700 dark:text-stone-300 dark:group-hover:text-stone-100"
                         aria-hidden
                       >
                         ×
@@ -3228,7 +3269,11 @@ export default function Home() {
                                   : `border-r border-b border-black dark:border-stone-200 ${TABLE_TD_PAD} text-center ${TABLE_TEXT} font-bold tabular-nums whitespace-normal break-words text-stone-950 dark:text-stone-50 ${getRegionBgClass(j)} ${TD_CELL_FX}`
                         }
                       >
-                        {isLoadingTable && j !== 0 && j !== 11 && j !== 12 ? (
+                        {isLoadingTable &&
+                        !fullRowsByDate[row.isoDate] &&
+                        j !== 0 &&
+                        j !== 11 &&
+                        j !== 12 ? (
                           <div className="mx-auto h-3.5 w-16 rounded bg-stone-200/70 dark:bg-stone-800/70 animate-pulse" />
                         ) : j === 0 ? (
                           ""
