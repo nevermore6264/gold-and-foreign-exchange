@@ -223,6 +223,13 @@ function shouldShowDailyOhlcForVnTodayRow(isoDate: string): boolean {
 
 type RangeMode = "month" | "quarter" | "year" | "all";
 
+const FILTER_SWITCH_MODE_MESSAGE: Record<RangeMode, string> = {
+  month: "Đang chuyển sang Tháng",
+  quarter: "Đang chuyển sang Quý",
+  year: "Đang chuyển sang Năm",
+  all: "Đang chuyển sang Tất cả",
+};
+
 function getMarketChangeToneClass(value: string): string {
   // Match web: dương xanh, âm đỏ (cho Change% của Oil / Dollar / Bond / S&P)
   const trimmed = value.trim();
@@ -655,8 +662,28 @@ export default function Home() {
     useState<number>(currentQuarter);
 
   const tableScrollRef = useRef<HTMLDivElement>(null);
+  const [filterSwitchMessage, setFilterSwitchMessage] = useState<string | null>(
+    null,
+  );
+  const filterPendingWasTrueRef = useRef(false);
 
-  const commitRangeMode = (m: RangeMode, afterCommit?: () => void) => {
+  useEffect(() => {
+    if (
+      filterPendingWasTrueRef.current &&
+      !isFilterPending &&
+      filterSwitchMessage !== null
+    ) {
+      setFilterSwitchMessage(null);
+    }
+    filterPendingWasTrueRef.current = isFilterPending;
+  }, [isFilterPending, filterSwitchMessage]);
+
+  const commitRangeMode = (
+    m: RangeMode,
+    afterCommit?: () => void,
+    switchHint?: string,
+  ) => {
+    setFilterSwitchMessage(switchHint ?? FILTER_SWITCH_MODE_MESSAGE[m]);
     startFilterTransition(() => {
       setRangeModeOptimistic(m);
       setRangeMode(m);
@@ -1653,6 +1680,27 @@ export default function Home() {
 
   return (
     <div className="flex h-dvh max-h-dvh min-h-0 flex-col overflow-hidden bg-emerald-50/30 text-stone-900 dark:bg-stone-950 dark:text-stone-100">
+      {filterSwitchMessage != null &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[500] flex items-center justify-center bg-black/45 backdrop-blur-[2px] dark:bg-black/55"
+            aria-live="polite"
+            aria-busy="true"
+            role="status"
+          >
+            <div className="mx-4 flex max-w-[min(92vw,22rem)] flex-col items-center gap-4 rounded-xl border border-emerald-500/85 bg-white px-7 py-6 shadow-2xl dark:border-emerald-600 dark:bg-emerald-950">
+              <span
+                className="inline-block h-10 w-10 shrink-0 rounded-full border-[3px] border-emerald-200 border-t-emerald-600 motion-safe:animate-spin dark:border-emerald-800 dark:border-t-emerald-300"
+                aria-hidden
+              />
+              <p className="text-center text-[15px] font-bold leading-snug text-emerald-950 dark:text-emerald-50">
+                {filterSwitchMessage}
+              </p>
+            </div>
+          </div>,
+          document.body,
+        )}
       <header className="shrink-0 z-20 border-b border-emerald-200/70 dark:border-emerald-800/40 bg-white/95 dark:bg-emerald-950/30">
         <div className="w-full px-4 sm:px-6">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-2 py-2">
@@ -1949,6 +1997,7 @@ export default function Home() {
                   value={selectedYear}
                   onChange={(e) => {
                     const v = parseInt(e.target.value, 10);
+                    setFilterSwitchMessage(`Đang chuyển sang năm ${v}`);
                     deferFilterStateUpdate(startFilterTransition, () =>
                       setSelectedYear(v),
                     );
@@ -1987,6 +2036,9 @@ export default function Home() {
                   value={selectedMonth}
                   onChange={(e) => {
                     const v = parseInt(e.target.value, 10);
+                    setFilterSwitchMessage(
+                      `Đang chuyển sang tháng ${v}/${selectedYear}`,
+                    );
                     deferFilterStateUpdate(startFilterTransition, () =>
                       setSelectedMonth(v),
                     );
@@ -2017,11 +2069,14 @@ export default function Home() {
                         key={q}
                         type="button"
                         disabled={disabled}
-                        onClick={() =>
+                        onClick={() => {
+                          setFilterSwitchMessage(
+                            `Đang chuyển sang quý ${q} · ${selectedYear}`,
+                          );
                           deferFilterStateUpdate(startFilterTransition, () =>
                             setSelectedQuarter(q),
-                          )
-                        }
+                          );
+                        }}
                         className={`${FILTER_CTRL_CLASS} px-3 py-2 text-sm font-bold ${
                           selectedQuarter === q
                             ? "bg-emerald-700 text-white dark:bg-emerald-600 dark:text-white"
@@ -2429,10 +2484,14 @@ export default function Home() {
                       <button
                         type="button"
                         onClick={() =>
-                          commitRangeMode("month", () => {
-                            setSelectedYear(currentYear);
-                            setSelectedMonth(currentMonth);
-                          })
+                          commitRangeMode(
+                            "month",
+                            () => {
+                              setSelectedYear(currentYear);
+                              setSelectedMonth(currentMonth);
+                            },
+                            "Đang chuyển sang tháng này",
+                          )
                         }
                         className="h-9 px-3 rounded-xl border border-amber-200/60 dark:border-amber-800/40 bg-white dark:bg-stone-900 text-[14px] text-amber-900 dark:text-amber-200 hover:bg-amber-50/70 dark:hover:bg-amber-950/30"
                       >
@@ -2441,10 +2500,14 @@ export default function Home() {
                       <button
                         type="button"
                         onClick={() =>
-                          commitRangeMode("month", () => {
-                            setSelectedYear(prevMonthInfo.y);
-                            setSelectedMonth(prevMonthInfo.m);
-                          })
+                          commitRangeMode(
+                            "month",
+                            () => {
+                              setSelectedYear(prevMonthInfo.y);
+                              setSelectedMonth(prevMonthInfo.m);
+                            },
+                            "Đang chuyển sang tháng trước",
+                          )
                         }
                         className="h-9 px-3 rounded-xl border border-amber-200/60 dark:border-amber-800/40 bg-white dark:bg-stone-900 text-[14px] text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800"
                       >
@@ -2453,10 +2516,14 @@ export default function Home() {
                       <button
                         type="button"
                         onClick={() =>
-                          commitRangeMode("quarter", () => {
-                            setSelectedYear(currentYear);
-                            setSelectedQuarter(currentQuarter);
-                          })
+                          commitRangeMode(
+                            "quarter",
+                            () => {
+                              setSelectedYear(currentYear);
+                              setSelectedQuarter(currentQuarter);
+                            },
+                            "Đang chuyển sang quý này",
+                          )
                         }
                         className="h-9 px-3 rounded-xl border border-amber-200/60 dark:border-amber-800/40 bg-white dark:bg-stone-900 text-[14px] text-amber-900 dark:text-amber-200 hover:bg-amber-50/70 dark:hover:bg-amber-950/30"
                       >
@@ -2465,10 +2532,14 @@ export default function Home() {
                       <button
                         type="button"
                         onClick={() =>
-                          commitRangeMode("quarter", () => {
-                            setSelectedYear(prevQuarterInfo.y);
-                            setSelectedQuarter(prevQuarterInfo.q);
-                          })
+                          commitRangeMode(
+                            "quarter",
+                            () => {
+                              setSelectedYear(prevQuarterInfo.y);
+                              setSelectedQuarter(prevQuarterInfo.q);
+                            },
+                            "Đang chuyển sang quý trước",
+                          )
                         }
                         className="h-9 px-3 rounded-xl border border-amber-200/60 dark:border-amber-800/40 bg-white dark:bg-stone-900 text-[14px] text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800"
                       >
@@ -2477,8 +2548,10 @@ export default function Home() {
                       <button
                         type="button"
                         onClick={() =>
-                          commitRangeMode("year", () =>
-                            setSelectedYear(currentYear),
+                          commitRangeMode(
+                            "year",
+                            () => setSelectedYear(currentYear),
+                            "Đang chuyển sang năm nay",
                           )
                         }
                         className="h-9 px-3 rounded-xl border border-amber-200/60 dark:border-amber-800/40 bg-white dark:bg-stone-900 text-[14px] text-amber-900 dark:text-amber-200 hover:bg-amber-50/70 dark:hover:bg-amber-950/30"
