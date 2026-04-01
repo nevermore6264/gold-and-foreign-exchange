@@ -202,6 +202,23 @@ body {
   scrollbar-width: thin;
   scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
   overscroll-behavior: contain;
+  /* Cuộn mượt hơn trên layer tổng hợp */
+  transform: translateZ(0);
+}
+
+/**
+ * Giảm chi phí paint hàng ngoài viewport (Chrome/Edge).
+ * Cột sticky Thứ/Ngày vẫn hoạt động trong thực tế kiểm thử phổ biến.
+ */
+.scroll-table-premium .gold-tbody-perf tr {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 2.25rem;
+}
+
+/* Hàng đệm ảo hóa — tránh content-visibility làm sai chiều cao tổng */
+.scroll-table-premium .gold-tbody-perf tr.gold-tbody-spacer {
+  content-visibility: visible;
+  contain: none;
 }
 
 .scroll-table-premium::-webkit-scrollbar {

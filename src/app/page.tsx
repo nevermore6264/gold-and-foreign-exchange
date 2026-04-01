@@ -20,12 +20,18 @@ import {
 import Image from "next/image";
 import {
   startTransition,
+  useCallback,
   useEffect,
   useMemo,
   useOptimistic,
+  useRef,
   useState,
   useTransition,
 } from "react";
+import {
+  GoldDateTableBody,
+  type GoldDateTableBodyApi,
+} from "./gold-date-table-body";
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
 
@@ -301,25 +307,40 @@ const LAI_HEAD_GREEN =
   "bg-[#e6f0db] dark:bg-emerald-950/40 text-stone-950 dark:text-emerald-50";
 /** Mật độ ô gần Excel — chữ nhỏ hơn, padding dọc ít */
 const TABLE_TEXT = "text-[13px] leading-tight";
-const TABLE_TD_PAD = "px-1.5 py-1";
 
 const LAI_HEAD_TIME_CLASS = `${TABLE_CELL_BR} px-1.5 py-1 ${TABLE_TEXT} font-bold ${LAI_HEAD_GREEN} whitespace-nowrap`;
 const BTN_BASE =
-  "inline-flex items-center justify-center rounded-lg border px-3 py-2 text-[14px] font-bold tracking-tight transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-500/70 disabled:cursor-not-allowed disabled:opacity-45";
+  "inline-flex items-center justify-center rounded-lg border px-3 py-2 text-[14px] font-bold tracking-tight transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/80 disabled:cursor-not-allowed disabled:opacity-45";
+/** Màu xanh lá kiểu Excel (#217346 ≈ emerald-700) */
 const BTN_PRIMARY_STRONG =
-  `${BTN_BASE} border-stone-900 bg-stone-900 text-white hover:bg-stone-800 dark:border-stone-200 dark:bg-stone-100 dark:text-stone-950 dark:hover:bg-stone-200`;
+  `${BTN_BASE} border-emerald-700 bg-emerald-700 text-white hover:bg-emerald-800 dark:border-emerald-500 dark:bg-emerald-600 dark:hover:bg-emerald-500`;
 const BTN_SECONDARY_STRONG =
-  `${BTN_BASE} border-stone-400 bg-white text-stone-900 hover:bg-stone-100 dark:border-stone-500 dark:bg-stone-900 dark:text-stone-100 dark:hover:bg-stone-800`;
+  `${BTN_BASE} border-emerald-600 bg-white text-emerald-800 hover:bg-emerald-50 dark:border-emerald-500 dark:bg-emerald-950 dark:text-emerald-100 dark:hover:bg-emerald-900`;
 
 function segmentedButtonClass(active: boolean): string {
   return active
-    ? "border-r border-stone-400 bg-stone-900 text-white dark:border-stone-600 dark:bg-stone-100 dark:text-stone-950"
-    : "border-r border-stone-300 bg-white text-stone-700 hover:bg-stone-100 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-200 dark:hover:bg-stone-800";
+    ? "border-r border-emerald-700 bg-emerald-700 text-white dark:border-emerald-500 dark:bg-emerald-600 dark:text-white"
+    : "border-r border-stone-300 bg-white text-stone-700 hover:bg-emerald-50/90 dark:border-stone-600 dark:bg-stone-900 dark:text-stone-200 dark:hover:bg-emerald-950/40";
 }
 
-/** Hiệu ứng ô: highlight nhẹ khi hover cả hàng (giống glass / macOS) */
-const TD_CELL_FX =
-  "transition-[box-shadow,filter] duration-200 ease-out motion-reduce:transition-none group-hover/row:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.4)] dark:group-hover/row:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.09)] group-hover/row:brightness-[1.015] dark:group-hover/row:brightness-110";
+/** Nút lọc: phản hồi :active ngay; đẩy setState nặng sang transition sau paint. */
+const FILTER_CTRL_CLASS =
+  "touch-manipulation transition-[color,background-color,border-color,transform] duration-100 ease-out motion-reduce:transition-none motion-reduce:active:scale-100 active:scale-[0.98]";
+
+/**
+ * Hoãn cập nhật state sau 2 khung hình để trình duyệt kịp vẽ :active/hover,
+ * rồi gói trong startTransition để render bảng lớn không chặn UI.
+ */
+function deferFilterStateUpdate(
+  scheduleTransition: (fn: () => void) => void,
+  run: () => void,
+): void {
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      scheduleTransition(run);
+    });
+  });
+}
 
 function manhHaiHeaderGroupClass(): string {
   return `${MH_HEAD_BORDER} px-1.5 py-1.5 ${TABLE_TEXT} font-bold whitespace-nowrap ${MH_HEAD_BLUE}`;
@@ -386,23 +407,23 @@ const MANUAL_MODAL_FORM_GRID = "grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6";
 const MANUAL_MODAL_FIELD = "flex min-w-0 flex-col gap-1.5";
 
 const MANUAL_MODAL_FIELD_TITLE_MONEY =
-  "text-[13px] font-bold tracking-tight text-amber-950 dark:text-amber-100";
+  "text-[12px] font-extrabold uppercase tracking-wide text-emerald-900 dark:text-emerald-100";
 
 const MANUAL_MODAL_FIELD_TITLE_CHI =
-  "text-[13px] font-bold tracking-tight text-sky-900 dark:text-sky-100";
+  "text-[12px] font-extrabold uppercase tracking-wide text-sky-900 dark:text-sky-100";
 
 const MANUAL_MODAL_FIELD_LABEL =
-  "text-[11px] font-medium leading-snug text-stone-500 dark:text-stone-400";
+  "text-[11px] font-medium leading-snug text-stone-600 dark:text-stone-400";
 
 const MANUAL_MODAL_INPUT_CLASS =
-  "mt-1 h-10 w-full rounded-lg border-0 bg-white/95 px-3 py-2 text-right text-sm font-semibold tabular-nums text-stone-900 shadow-inner ring-1 ring-stone-200/90 outline-none transition placeholder:text-stone-400 focus:bg-white focus:ring-2 focus:ring-amber-400/75 dark:bg-stone-950/90 dark:text-stone-100 dark:ring-stone-600 dark:placeholder:text-stone-500 dark:focus:ring-amber-500/55";
+  "mt-1 h-10 w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-right text-sm font-bold tabular-nums text-stone-900 shadow-none outline-none transition placeholder:text-stone-400 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-500 dark:border-stone-600 dark:bg-stone-900 dark:text-stone-50 dark:placeholder:text-stone-500 dark:focus:border-emerald-500 dark:focus:ring-emerald-400";
 
 const MANUAL_MODAL_INPUT_CLASS_CHI =
-  "mt-1 h-10 w-full rounded-lg border-0 bg-white/95 px-3 py-2 text-right text-sm font-semibold tabular-nums text-stone-900 shadow-inner ring-1 ring-stone-200/90 outline-none transition placeholder:text-stone-400 focus:bg-white focus:ring-2 focus:ring-sky-400/75 dark:bg-stone-950/90 dark:text-stone-100 dark:ring-stone-600 dark:placeholder:text-stone-500 dark:focus:ring-sky-500/55";
+  "mt-1 h-10 w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-right text-sm font-bold tabular-nums text-stone-900 shadow-none outline-none transition placeholder:text-stone-400 focus:border-sky-600 focus:ring-1 focus:ring-sky-500 dark:border-stone-600 dark:bg-stone-900 dark:text-stone-50 dark:placeholder:text-stone-500 dark:focus:border-sky-500 dark:focus:ring-sky-400";
 
-const MANUAL_MODAL_FIELD_BOX_MONEY = `${MANUAL_MODAL_FIELD} rounded-xl border border-amber-200/75 bg-gradient-to-br from-amber-50/95 via-white to-amber-50/45 p-3.5 shadow-md ring-1 ring-amber-100/45 dark:border-amber-800/55 dark:from-amber-950/50 dark:via-stone-900/98 dark:to-amber-950/35 dark:ring-amber-900/30`;
+const MANUAL_MODAL_FIELD_BOX_MONEY = `${MANUAL_MODAL_FIELD} rounded-md border border-emerald-200 bg-emerald-50/70 p-3.5 shadow-sm dark:border-emerald-800 dark:bg-emerald-950/50 border-l-[3px] border-l-emerald-600 dark:border-l-emerald-400`;
 
-const MANUAL_MODAL_FIELD_BOX_CHI = `${MANUAL_MODAL_FIELD} rounded-xl border border-sky-200/75 bg-gradient-to-br from-sky-50/90 via-white to-sky-50/40 p-3.5 shadow-md ring-1 ring-sky-100/45 dark:border-sky-800/50 dark:from-sky-950/40 dark:via-stone-900/98 dark:to-sky-950/30 dark:ring-sky-900/28`;
+const MANUAL_MODAL_FIELD_BOX_CHI = `${MANUAL_MODAL_FIELD} rounded-md border border-sky-200 bg-sky-50/70 p-3.5 shadow-sm dark:border-sky-800 dark:bg-sky-950/40 border-l-[3px] border-l-sky-600 dark:border-l-sky-400`;
 
 function parseManualCardVisibilityFromStorage(
   raw: string | null,
@@ -626,34 +647,46 @@ export default function Home() {
   })();
 
   const [rangeMode, setRangeMode] = useState<RangeMode>("month");
+  const [rangeModeUI, setRangeModeOptimistic] = useOptimistic(rangeMode);
+  const [isFilterPending, startFilterTransition] = useTransition();
   const [selectedYear, setSelectedYear] = useState<number>(currentYear);
   const [selectedMonth, setSelectedMonth] = useState<number>(currentMonth);
   const [selectedQuarter, setSelectedQuarter] =
     useState<number>(currentQuarter);
+
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+
+  const commitRangeMode = (m: RangeMode, afterCommit?: () => void) => {
+    startFilterTransition(() => {
+      setRangeModeOptimistic(m);
+      setRangeMode(m);
+      afterCommit?.();
+    });
+  };
 
   const maxMonth = selectedYear === currentYear ? currentMonth : 12;
   const maxQuarter = selectedYear === currentYear ? currentQuarter : 4;
 
   useEffect(() => {
     // Prevent selecting future months/quarters in the current year.
-    if (rangeMode === "month" && selectedMonth > maxMonth) {
+    if (rangeModeUI === "month" && selectedMonth > maxMonth) {
       setSelectedMonth(maxMonth);
     }
-    if (rangeMode === "quarter" && selectedQuarter > maxQuarter) {
+    if (rangeModeUI === "quarter" && selectedQuarter > maxQuarter) {
       setSelectedQuarter(maxQuarter);
     }
-  }, [rangeMode, selectedMonth, maxMonth, selectedQuarter, maxQuarter]);
+  }, [rangeModeUI, selectedMonth, maxMonth, selectedQuarter, maxQuarter]);
 
-  const isAllRange = rangeMode === "all";
+  const isAllRange = rangeModeUI === "all";
 
   const { from, to } = useMemo(() => {
     return computeRange(
-      rangeMode,
+      rangeModeUI,
       selectedYear,
       selectedMonth,
       selectedQuarter,
     );
-  }, [rangeMode, selectedYear, selectedMonth, selectedQuarter]);
+  }, [rangeModeUI, selectedYear, selectedMonth, selectedQuarter]);
 
   const dateRows = useMemo(() => {
     const startDate = parseIso(from);
@@ -684,6 +717,11 @@ export default function Home() {
     return rows;
   }, [from, to]);
 
+  useEffect(() => {
+    const el = tableScrollRef.current;
+    if (el) el.scrollTop = 0;
+  }, [from, to]);
+
   const [fullRowsByDate, setFullRowsByDate] = useState<
     Record<string, FullTableRow>
   >({});
@@ -692,6 +730,10 @@ export default function Home() {
     slots: ManhHaiSlotMap;
   } | null>(null);
   const [isLoadingTable, setIsLoadingTable] = useState<boolean>(false);
+  /** Năm / tất cả: nhiều dòng — nhấn mạnh phản hồi khi đang tải */
+  const isHeavyRangeLoading =
+    isLoadingTable &&
+    (rangeModeUI === "year" || rangeModeUI === "all");
   /** Tiến trình tải bảng: số dòng đã có dữ liệu / tổng dòng (theo gói năm) */
   const [tableLoadProgress, setTableLoadProgress] = useState<{
     loaded: number;
@@ -868,68 +910,70 @@ export default function Home() {
       }
 
       try {
-        setFullRowsByDate({});
         const chunks = splitRangeIntoYearChunks(from, to);
         const chunkTotal = Math.max(1, chunks.length);
         setTableLoadProgress({
           loaded: 0,
           total: expectedTotal,
-          chunkCurrent: 1,
+          chunkCurrent: 0,
           chunkTotal,
         });
         setIsLoadingTable(true);
 
-        // Cập nhật snapshot Mạnh Hải (hôm nay VN) trước khi merge vào bảng
-        try {
-          const vnToday = getVietnamNowParts().isoDate;
-          await fetch(`/api/manh-hai?date=${encodeURIComponent(vnToday)}`, {
-            signal: controller.signal,
-          });
-        } catch {
-          /* ignore */
-        }
+        // Không chặn tải bảng — live overlay có useEffect riêng
+        const vnToday = getVietnamNowParts().isoDate;
+        void fetch(`/api/manh-hai?date=${encodeURIComponent(vnToday)}`, {
+          signal: controller.signal,
+        }).catch(() => {});
 
-        let loaded = 0;
-        for (let i = 0; i < chunks.length; i++) {
-          if (cancelled) break;
-          const { from: cf, to: ct } = chunks[i];
-          setTableLoadProgress((p) =>
-            p
-              ? {
-                  ...p,
-                  chunkCurrent: i + 1,
+        let loadedAccum = 0;
+        let doneChunks = 0;
+
+        await Promise.all(
+          chunks.map(async ({ from: cf, to: ct }) => {
+            if (cancelled) return;
+            try {
+              const res = await fetch(
+                `/api/full-table?from=${encodeURIComponent(cf)}&to=${encodeURIComponent(ct)}`,
+                { signal: controller.signal },
+              );
+              if (!res.ok) return;
+              const data = (await res.json()) as { rows?: FullTableRow[] };
+              const rows = data.rows ?? [];
+              if (cancelled) return;
+              loadedAccum += rows.length;
+              doneChunks += 1;
+              setFullRowsByDate((prev) => {
+                const next = { ...prev };
+                for (const r of rows) {
+                  const date = r.col_12;
+                  if (typeof date === "string") next[date] = r;
                 }
-              : null,
-          );
-          try {
-            const res = await fetch(
-              `/api/full-table?from=${encodeURIComponent(cf)}&to=${encodeURIComponent(ct)}`,
-              { signal: controller.signal },
-            );
-            if (!res.ok) break;
-            const data = (await res.json()) as { rows?: FullTableRow[] };
-            const rows = data.rows ?? [];
-            if (cancelled) break;
-            loaded += rows.length;
-            setFullRowsByDate((prev) => {
-              const next = { ...prev };
-              for (const r of rows) {
-                const date = r.col_12;
-                if (typeof date === "string") next[date] = r;
-              }
-              return next;
-            });
-            setTableLoadProgress((p) =>
-              p
-                ? {
-                    ...p,
-                    loaded,
-                  }
-                : null,
-            );
-          } catch {
-            break;
-          }
+                return next;
+              });
+              setTableLoadProgress((p) =>
+                p
+                  ? {
+                      ...p,
+                      loaded: loadedAccum,
+                      chunkCurrent: doneChunks,
+                    }
+                  : null,
+              );
+            } catch {
+              /* chunk lỗi — các gói khác vẫn chạy */
+            }
+          }),
+        );
+
+        if (!cancelled) {
+          setFullRowsByDate((prev) => {
+            const next: Record<string, FullTableRow> = {};
+            for (const k of Object.keys(prev)) {
+              if (k >= from && k <= to) next[k] = prev[k]!;
+            }
+            return next;
+          });
         }
       } catch {
         // ignore
@@ -1548,13 +1592,72 @@ export default function Home() {
     XLSX.writeFile(wb, `gia-vang-${from}_${to}.xlsx`);
   }
 
+  const openCellColorPicker = useCallback(
+    (isoDate: string, colJ: number, el: HTMLElement) => {
+      const key = `${isoDate}:${colJ}`;
+      const rect = el.getBoundingClientRect();
+      const pad = 8;
+      let left = rect.left;
+      let top = rect.bottom + 6;
+      if (left + CELL_COLOR_POPOVER_W > window.innerWidth - pad) {
+        left = Math.max(pad, window.innerWidth - pad - CELL_COLOR_POPOVER_W);
+      }
+      if (left < pad) left = pad;
+      if (top + CELL_COLOR_POPOVER_H > window.innerHeight - pad) {
+        top = Math.max(pad, rect.top - CELL_COLOR_POPOVER_H - 6);
+      }
+      if (top < pad) top = pad;
+      const pos = { key, top, left };
+      requestAnimationFrame(() => {
+        startTransition(() => setCellColorPicker(pos));
+      });
+    },
+    [],
+  );
+
+  const tableBodyApi = useMemo(
+    (): GoldDateTableBodyApi => ({
+      neutralPriceClass,
+      formatTableToneCellDisplay,
+      formatVnd,
+      getRegionBgClass,
+      manhHaiCellValue,
+      manhHaiDongIntradayToneClass,
+      laiNeuBanRa,
+      kitcoCellValue,
+      getMarketChangeToneClass,
+      formatChangeWithPlus,
+      marketTimedCellValue,
+      vcbCellValue,
+      toneClassIntradayVsPrev,
+      chiVangIndexTaiSanOverDong17h30,
+      chiVangIndexNumber,
+      toneClassCompareToRowAbove,
+      chenhLechTrongNuocTheGioiNumber,
+      chiVangThemMinusChiCu,
+      chiVangThemNumber,
+    }),
+    // Các hàm ô được tạo lại mỗi render; chỉ làm mới api khi dữ liệu nguồn đổi (tránh mất memo tbody).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      neutralPriceClass,
+      fullRowsByDate,
+      manhHaiLive,
+      marketLive,
+      totalTaiSan,
+      totalChiVangCu,
+      chiVangDangCo,
+      totalDauTu,
+    ],
+  );
+
   return (
-    <div className="flex h-dvh max-h-dvh min-h-0 flex-col overflow-hidden bg-white text-stone-900 dark:bg-stone-950 dark:text-stone-100">
-      <header className="shrink-0 z-20 border-b border-amber-200/50 dark:border-amber-900/30 bg-white/90 dark:bg-stone-900/90">
+    <div className="flex h-dvh max-h-dvh min-h-0 flex-col overflow-hidden bg-emerald-50/30 text-stone-900 dark:bg-stone-950 dark:text-stone-100">
+      <header className="shrink-0 z-20 border-b border-emerald-200/70 dark:border-emerald-800/40 bg-white/95 dark:bg-emerald-950/30">
         <div className="w-full px-4 sm:px-6">
-          <div className="flex h-12 shrink-0 items-center justify-between">
-            <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl overflow-hidden">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-2 py-2">
+            <div className="flex min-w-0 shrink-0 items-center gap-2 sm:gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg sm:h-10 sm:w-10">
                 <Image
                   src="/favicon.svg"
                   alt="Logo"
@@ -1563,39 +1666,21 @@ export default function Home() {
                   priority
                 />
               </span>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="text-[15px] sm:text-lg font-extrabold tracking-tight">
-                    <span className="bg-gradient-to-r from-amber-700 via-amber-600 to-orange-600 dark:from-amber-300 dark:via-amber-200 dark:to-orange-200 bg-clip-text text-transparent">
-                      Giá vàng
-                    </span>{" "}
-                    <span className="text-stone-800 dark:text-stone-100">
-                      &
-                    </span>{" "}
-                    <span className="text-stone-800 dark:text-stone-100">
-                      Tỷ giá
-                    </span>
-                  </h1>
-                  <span className="hidden sm:inline-flex items-center gap-1 rounded-full border border-amber-200/70 dark:border-amber-800/40 bg-amber-50/70 dark:bg-amber-950/30 px-2 py-0.5 text-[14px] font-semibold text-amber-800 dark:text-amber-200">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                    Live
-                  </span>
-                </div>
-              </div>
+              <h1 className="text-[14px] font-extrabold tracking-tight text-emerald-900 dark:text-emerald-50 sm:text-[15px] md:text-lg">
+                <span>Giá vàng</span> <span>&</span> <span>Tỷ giá</span>
+              </h1>
             </div>
-          </div>
-          <div className="flex flex-col gap-2 border-t border-amber-200/40 py-2 dark:border-amber-900/25 sm:flex-row sm:items-end sm:flex-wrap">
-            {/* Trái: xuất CSV/XLSX + cột (cùng khu với bộ lọc) */}
+
             <div className="flex flex-wrap items-center gap-2">
               {isLoadingTable ? (
                 tableLoadProgress ? (
-                  <span className="inline-flex items-center gap-2 rounded-lg border border-amber-200/70 bg-amber-50/80 px-2.5 py-1 text-[13px] text-amber-900 dark:border-amber-800/50 dark:bg-amber-950/40 dark:text-amber-200">
-                    <span className="inline-block h-3 w-3 shrink-0 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
+                  <span className="inline-flex items-center gap-2 rounded-lg border border-emerald-300/80 bg-emerald-50 px-2.5 py-1 text-[13px] text-emerald-900 dark:border-emerald-700/60 dark:bg-emerald-950/50 dark:text-emerald-100">
+                    <span className="inline-block h-3 w-3 shrink-0 rounded-full border-2 border-emerald-600 border-t-transparent animate-spin dark:border-emerald-400" />
                     <span className="font-semibold tabular-nums">
                       {tableLoadProgress.loaded.toLocaleString("vi-VN")} /{" "}
                       {tableLoadProgress.total.toLocaleString("vi-VN")} dòng
                       {tableLoadProgress.total > 0 ? (
-                        <span className="ml-1 font-bold text-amber-800/90 dark:text-amber-100/90">
+                        <span className="ml-1 font-bold text-emerald-800 dark:text-emerald-200">
                           (
                           {Math.min(
                             100,
@@ -1611,8 +1696,8 @@ export default function Home() {
                     </span>
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-2 text-[14px] text-amber-700 dark:text-amber-300">
-                    <span className="inline-block h-3 w-3 shrink-0 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
+                  <span className="inline-flex items-center gap-2 text-[14px] text-emerald-700 dark:text-emerald-300">
+                    <span className="inline-block h-3 w-3 shrink-0 rounded-full border-2 border-emerald-600 border-t-transparent animate-spin dark:border-emerald-400" />
                     <span className="font-medium tabular-nums">
                       {dateRows.length > 0
                         ? `0 / ${dateRows.length.toLocaleString("vi-VN")} dòng`
@@ -1650,10 +1735,10 @@ export default function Home() {
                       return next;
                     })
                   }
-                  className={`inline-flex h-9 shrink-0 items-center gap-2 rounded-lg border px-3 text-[14px] font-bold tracking-tight transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-500/70 ${
+                  className={`inline-flex h-9 shrink-0 items-center gap-2 rounded-lg border px-3 text-[14px] font-bold tracking-tight transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/80 ${
                     columnMenuOpen
-                      ? "border-stone-900 bg-stone-900 text-white dark:border-stone-200 dark:bg-stone-100 dark:text-stone-950"
-                      : "border-stone-400 bg-white text-stone-900 hover:bg-stone-100 dark:border-stone-500 dark:bg-stone-900 dark:text-stone-100 dark:hover:bg-stone-800"
+                      ? "border-emerald-700 bg-emerald-700 text-white dark:border-emerald-500 dark:bg-emerald-600 dark:text-white"
+                      : "border-emerald-500 bg-white text-emerald-800 hover:bg-emerald-50 dark:border-emerald-600 dark:bg-emerald-950 dark:text-emerald-100 dark:hover:bg-emerald-900"
                   }`}
                   aria-expanded={columnMenuOpen}
                   aria-haspopup="dialog"
@@ -1677,7 +1762,7 @@ export default function Home() {
                           }}
                         />
                         <div
-                          className="scroll-table-premium fixed left-1/2 top-1/2 z-[299] w-[min(92vw,560px)] max-h-[min(78vh,560px)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-amber-200/80 bg-white/95 p-3 shadow-2xl backdrop-blur-sm dark:border-stone-600 dark:bg-stone-900/95"
+                          className="scroll-table-premium fixed left-1/2 top-1/2 z-[299] w-[min(92vw,560px)] max-h-[min(78vh,560px)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-emerald-300 bg-white p-3 shadow-xl dark:border-emerald-800 dark:bg-emerald-950"
                           role="dialog"
                           aria-label="Chọn nhóm cột hiển thị"
                           onWheel={(e) => {
@@ -1689,13 +1774,13 @@ export default function Home() {
                         >
                           <div className="mb-3 flex items-start justify-between gap-3 px-1">
                             <div>
-                              <p className="text-[14px] font-extrabold text-stone-900 dark:text-stone-100">
+                              <p className="text-[14px] font-extrabold text-emerald-900 dark:text-emerald-50">
                                 Tùy chỉnh hiển thị
                               </p>
                             </div>
                             <button
                               type="button"
-                              className="rounded-md border border-stone-400 bg-white px-2.5 py-1 text-[12px] font-bold text-stone-800 hover:bg-stone-100 dark:border-stone-500 dark:bg-stone-900 dark:text-stone-100 dark:hover:bg-stone-800"
+                              className="rounded-md border border-emerald-600 bg-emerald-50 px-2.5 py-1 text-[12px] font-bold text-emerald-900 hover:bg-emerald-100 dark:border-emerald-500 dark:bg-emerald-800 dark:text-emerald-50 dark:hover:bg-emerald-700"
                               onClick={() => {
                                 setColumnMenuOpen(false);
                                 setColumnMenuQuery("");
@@ -1705,8 +1790,8 @@ export default function Home() {
                             </button>
                           </div>
 
-                          <div className="rounded-xl border border-amber-200/80 bg-amber-50/60 p-2 dark:border-amber-800/50 dark:bg-amber-950/25">
-                            <p className="mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-300">
+                          <div className="rounded-lg border border-emerald-200 bg-emerald-50/80 p-2 dark:border-emerald-800/70 dark:bg-emerald-900/30">
+                            <p className="mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-200">
                               Nhóm cột
                             </p>
                             <div className="flex flex-col gap-1">
@@ -1740,7 +1825,7 @@ export default function Home() {
                                       }}
                                       className="peer sr-only"
                                     />
-                                    <span className="h-5 w-9 rounded-full bg-stone-300 transition-colors peer-checked:bg-amber-500 dark:bg-stone-600 dark:peer-checked:bg-amber-500" />
+                                    <span className="h-5 w-9 rounded-full bg-stone-300 transition-colors peer-checked:bg-emerald-600 dark:bg-stone-600 dark:peer-checked:bg-emerald-500" />
                                     <span className="pointer-events-none absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform peer-checked:translate-x-4" />
                                   </span>
                                 </label>
@@ -1753,8 +1838,8 @@ export default function Home() {
                             </div>
                           </div>
 
-                          <div className="mt-2 rounded-xl border border-blue-200/80 bg-blue-50/60 p-2 dark:border-blue-800/50 dark:bg-blue-950/20">
-                            <p className="mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-wide text-blue-800 dark:text-blue-300">
+                          <div className="mt-2 rounded-lg border border-sky-200 bg-sky-50/80 p-2 dark:border-sky-800/70 dark:bg-sky-950/35">
+                            <p className="mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-wide text-sky-800 dark:text-sky-200">
                               {MANUAL_INPUTS_UI_LABEL_VI}
                             </p>
                             <div className="flex flex-col gap-1">
@@ -1789,7 +1874,7 @@ export default function Home() {
                                       }}
                                       className="peer sr-only"
                                     />
-                                    <span className="h-5 w-9 rounded-full bg-stone-300 transition-colors peer-checked:bg-blue-500 dark:bg-stone-600 dark:peer-checked:bg-blue-500" />
+                                    <span className="h-5 w-9 rounded-full bg-stone-300 transition-colors peer-checked:bg-sky-600 dark:bg-stone-600 dark:peer-checked:bg-sky-500" />
                                     <span className="pointer-events-none absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform peer-checked:translate-x-4" />
                                   </span>
                                 </label>
@@ -1808,39 +1893,45 @@ export default function Home() {
                   : null}
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[14px] font-semibold text-stone-600 dark:text-stone-400">
+            <div className="flex shrink-0 items-center gap-2">
+              <span className="text-[12px] font-semibold text-stone-600 dark:text-stone-400 sm:text-[13px]">
                 Lọc theo
               </span>
-              <div className="inline-flex overflow-hidden rounded-lg border border-stone-400 dark:border-stone-600 bg-white dark:bg-stone-900">
+              <div
+                className={`inline-flex overflow-hidden rounded-lg border border-emerald-400/80 dark:border-emerald-700 bg-white dark:bg-emerald-950/40 transition-shadow duration-200 ${
+                  isFilterPending
+                    ? "shadow-[0_0_0_2px_rgba(16,185,129,0.45)] dark:shadow-[0_0_0_2px_rgba(52,211,153,0.35)]"
+                    : ""
+                }`}
+              >
                 <button
                   type="button"
-                  onClick={() => setRangeMode("month")}
-                  className={`px-3 py-2 text-sm font-bold transition-colors ${segmentedButtonClass(rangeMode === "month")}`}
+                  onClick={() => commitRangeMode("month")}
+                  className={`${FILTER_CTRL_CLASS} px-3 py-2 text-sm font-bold ${segmentedButtonClass(rangeModeUI === "month")}`}
                 >
                   Tháng
                 </button>
                 <button
                   type="button"
-                  onClick={() => setRangeMode("quarter")}
-                  className={`px-3 py-2 text-sm font-bold transition-colors ${segmentedButtonClass(rangeMode === "quarter")}`}
+                  onClick={() => commitRangeMode("quarter")}
+                  className={`${FILTER_CTRL_CLASS} px-3 py-2 text-sm font-bold ${segmentedButtonClass(rangeModeUI === "quarter")}`}
                 >
                   Quý
                 </button>
                 <button
                   type="button"
-                  onClick={() => setRangeMode("year")}
-                  className={`px-3 py-2 text-sm font-bold transition-colors ${segmentedButtonClass(rangeMode === "year")}`}
+                  onClick={() => commitRangeMode("year")}
+                  className={`${FILTER_CTRL_CLASS} px-3 py-2 text-sm font-bold ${segmentedButtonClass(rangeModeUI === "year")}`}
                 >
                   Năm
                 </button>
                 <button
                   type="button"
-                  onClick={() => setRangeMode("all")}
-                  className={`px-3 py-2 text-sm font-bold transition-colors ${
-                    rangeMode === "all"
-                      ? "bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-950"
-                      : "bg-white text-stone-700 hover:bg-stone-100 dark:bg-stone-900 dark:text-stone-200 dark:hover:bg-stone-800"
+                  onClick={() => commitRangeMode("all")}
+                  className={`${FILTER_CTRL_CLASS} px-3 py-2 text-sm font-bold ${
+                    rangeModeUI === "all"
+                      ? "bg-emerald-700 text-white dark:bg-emerald-600 dark:text-white"
+                      : "bg-white text-stone-700 hover:bg-emerald-50 dark:bg-emerald-950 dark:text-stone-200 dark:hover:bg-emerald-900/50"
                   }`}
                   title="Từ 01/01/2022 đến hôm nay (toàn bộ dữ liệu app)"
                 >
@@ -1856,10 +1947,13 @@ export default function Home() {
                 </span>
                 <select
                   value={selectedYear}
-                  onChange={(e) =>
-                    setSelectedYear(parseInt(e.target.value, 10))
-                  }
-                  className="h-9 rounded-xl border border-amber-200/60 dark:border-amber-800/40 bg-white dark:bg-stone-900 px-3 text-sm"
+                  onChange={(e) => {
+                    const v = parseInt(e.target.value, 10);
+                    deferFilterStateUpdate(startFilterTransition, () =>
+                      setSelectedYear(v),
+                    );
+                  }}
+                  className={`${FILTER_CTRL_CLASS} h-9 rounded-lg border border-emerald-300 dark:border-emerald-700 bg-white dark:bg-emerald-950/50 px-3 text-sm text-stone-800 dark:text-stone-100`}
                 >
                   {Array.from(
                     { length: currentYear - 2022 + 1 },
@@ -1874,8 +1968,8 @@ export default function Home() {
                 </select>
               </div>
             ) : (
-              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-amber-300/50 bg-amber-50/70 px-3 py-2 text-[13px] dark:border-amber-800/50 dark:bg-amber-950/35">
-                <span className="font-bold text-amber-900 dark:text-amber-200">
+              <div className="flex flex-wrap items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-[13px] dark:border-emerald-700 dark:bg-emerald-950/50">
+                <span className="font-bold text-emerald-900 dark:text-emerald-100">
                   Toàn bộ dữ liệu
                 </span>
                 <span className="text-stone-600 dark:text-stone-400">
@@ -1884,17 +1978,20 @@ export default function Home() {
               </div>
             )}
 
-            {rangeMode === "month" && (
+            {rangeModeUI === "month" && (
               <div className="flex items-center gap-2">
                 <span className="text-[14px] font-semibold text-stone-600 dark:text-stone-400">
                   Tháng
                 </span>
                 <select
                   value={selectedMonth}
-                  onChange={(e) =>
-                    setSelectedMonth(parseInt(e.target.value, 10))
-                  }
-                  className="h-9 rounded-xl border border-amber-200/60 dark:border-amber-800/40 bg-white dark:bg-stone-900 px-3 text-sm"
+                  onChange={(e) => {
+                    const v = parseInt(e.target.value, 10);
+                    deferFilterStateUpdate(startFilterTransition, () =>
+                      setSelectedMonth(v),
+                    );
+                  }}
+                  className={`${FILTER_CTRL_CLASS} h-9 rounded-lg border border-emerald-300 dark:border-emerald-700 bg-white dark:bg-emerald-950/50 px-3 text-sm text-stone-800 dark:text-stone-100`}
                 >
                   {Array.from({ length: maxMonth }, (_, i) => i + 1).map(
                     (m) => (
@@ -1907,12 +2004,12 @@ export default function Home() {
               </div>
             )}
 
-            {rangeMode === "quarter" && (
+            {rangeModeUI === "quarter" && (
               <div className="flex items-center gap-2">
                 <span className="text-[14px] font-semibold text-stone-600 dark:text-stone-400">
                   Quý
                 </span>
-                <div className="inline-flex overflow-hidden rounded-lg border border-stone-400 dark:border-stone-600 bg-white dark:bg-stone-900">
+                <div className="inline-flex overflow-hidden rounded-lg border border-emerald-400/80 dark:border-emerald-700 bg-white dark:bg-emerald-950/40">
                   {[1, 2, 3, 4].map((q) => {
                     const disabled = q > maxQuarter;
                     return (
@@ -1920,13 +2017,17 @@ export default function Home() {
                         key={q}
                         type="button"
                         disabled={disabled}
-                        onClick={() => setSelectedQuarter(q)}
-                        className={`px-3 py-2 text-sm font-bold transition-colors ${
+                        onClick={() =>
+                          deferFilterStateUpdate(startFilterTransition, () =>
+                            setSelectedQuarter(q),
+                          )
+                        }
+                        className={`${FILTER_CTRL_CLASS} px-3 py-2 text-sm font-bold ${
                           selectedQuarter === q
-                            ? "bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-950"
+                            ? "bg-emerald-700 text-white dark:bg-emerald-600 dark:text-white"
                             : disabled
                               ? "bg-stone-100 dark:bg-stone-800 text-stone-400 dark:text-stone-500 cursor-not-allowed"
-                              : "bg-white text-stone-700 hover:bg-stone-100 dark:bg-stone-900 dark:text-stone-200 dark:hover:bg-stone-800"
+                              : "bg-white text-stone-700 hover:bg-emerald-50 dark:bg-emerald-950 dark:text-stone-200 dark:hover:bg-emerald-900/50"
                         }`}
                       >
                         Q{q}
@@ -1937,75 +2038,79 @@ export default function Home() {
               </div>
             )}
 
-            <div className="text-[14px] text-stone-500 dark:text-stone-400 sm:ml-auto">
-              <div className="flex items-center gap-2 justify-end">
-                <span>
-                  Đang xem: <span className="font-semibold">{from}</span> →{" "}
-                  <span className="font-semibold">{to}</span>
-                  {isAllRange ? (
-                    <span className="ml-1.5 text-stone-400 dark:text-stone-500">
-                      (tất cả)
-                    </span>
-                  ) : null}
-                </span>
-                {!isLoadingTable && (
-                  <span className="hidden sm:inline">
-                    •{" "}
-                    <span className="font-semibold">
+            <div className="min-w-0 basis-full text-[11px] text-stone-600 dark:text-stone-400 sm:basis-auto sm:ms-auto sm:w-auto sm:text-right sm:text-[13px]">
+              <span className="tabular-nums">
+                Đang xem: <span className="font-semibold text-stone-800 dark:text-stone-200">{from}</span>{" "}
+                →{" "}
+                <span className="font-semibold text-stone-800 dark:text-stone-200">{to}</span>
+                {isAllRange ? (
+                  <span className="ml-1 text-stone-400 dark:text-stone-500">
+                    (tất cả)
+                  </span>
+                ) : null}
+                {!isLoadingTable ? (
+                  <span className="ms-1 sm:ms-2">
+                    ·{" "}
+                    <span className="font-semibold text-stone-800 dark:text-stone-200">
                       {dateRows.length.toLocaleString("vi-VN")}
                     </span>{" "}
                     dòng
                   </span>
-                )}
-              </div>
-              {isLoadingTable && tableLoadProgress ? (
-                <div className="mt-2 w-full max-w-md sm:ml-auto">
-                  <div className="mb-1 flex flex-wrap items-center justify-between gap-2 text-[12px] text-amber-800 dark:text-amber-200">
-                    <span className="font-medium text-amber-900 dark:text-amber-100">
-                      Đang tải dữ liệu (gói {tableLoadProgress.chunkCurrent}/
-                      {tableLoadProgress.chunkTotal})
-                    </span>
-                    <span className="font-bold tabular-nums">
-                      {tableLoadProgress.loaded.toLocaleString("vi-VN")} /{" "}
-                      {tableLoadProgress.total.toLocaleString("vi-VN")} dòng
-                      {tableLoadProgress.total > 0 ? (
-                        <span className="ml-1.5 font-semibold text-amber-700 dark:text-amber-300">
-                          (
-                          {Math.min(
-                            100,
-                            Math.round(
-                              (tableLoadProgress.loaded /
-                                tableLoadProgress.total) *
-                                100,
-                            ),
-                          )}
-                          %)
-                        </span>
-                      ) : null}
-                    </span>
-                  </div>
-                  <div
-                    className="h-2 w-full overflow-hidden rounded-full bg-amber-200/50 dark:bg-amber-900/50"
-                    role="progressbar"
-                    aria-valuenow={tableLoadProgress.loaded}
-                    aria-valuemin={0}
-                    aria-valuemax={tableLoadProgress.total}
-                  >
-                    <div
-                      className="h-full rounded-full bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 transition-[width] duration-300 ease-out dark:from-amber-400 dark:via-orange-400 dark:to-amber-500"
-                      style={{
-                        width: `${tableLoadProgress.total > 0 ? Math.min(100, (tableLoadProgress.loaded / tableLoadProgress.total) * 100) : 0}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-              ) : null}
+                ) : null}
+              </span>
             </div>
+
+            {isLoadingTable && tableLoadProgress ? (
+              <div className="w-full min-w-0 basis-full border-t border-emerald-200/70 pt-2 dark:border-emerald-800/50">
+                <div className="mb-1 flex flex-wrap items-center justify-between gap-2 text-[11px] text-emerald-800 dark:text-emerald-200 sm:text-xs">
+                  <span className="font-medium text-emerald-900 dark:text-emerald-100">
+                    Tải song song · {tableLoadProgress.chunkCurrent}/
+                    {tableLoadProgress.chunkTotal} gói
+                  </span>
+                  <span className="font-bold tabular-nums">
+                    {tableLoadProgress.loaded.toLocaleString("vi-VN")} /{" "}
+                    {tableLoadProgress.total.toLocaleString("vi-VN")} dòng
+                    {tableLoadProgress.total > 0 ? (
+                      <span className="ms-1 font-semibold text-emerald-700 dark:text-emerald-300">
+                        (
+                        {Math.min(
+                          100,
+                          Math.round(
+                            (tableLoadProgress.loaded /
+                              tableLoadProgress.total) *
+                              100,
+                          ),
+                        )}
+                        %)
+                      </span>
+                    ) : null}
+                  </span>
+                </div>
+                <div
+                  className="h-1.5 w-full overflow-hidden rounded-sm border border-emerald-200 bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950 sm:h-2"
+                  role="progressbar"
+                  aria-valuenow={tableLoadProgress.loaded}
+                  aria-valuemin={0}
+                  aria-valuemax={tableLoadProgress.total}
+                >
+                  <div
+                    className={`h-full bg-emerald-600 dark:bg-emerald-500 ${
+                      isHeavyRangeLoading
+                        ? "transition-[width] duration-500 ease-out motion-reduce:transition-none"
+                        : "transition-[width] duration-200 ease-linear motion-reduce:transition-none"
+                    }`}
+                    style={{
+                      width: `${tableLoadProgress.total > 0 ? Math.min(100, (tableLoadProgress.loaded / tableLoadProgress.total) * 100) : 0}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
       </header>
 
-      <main className="flex min-h-0 flex-1 flex-col overflow-hidden px-0 pb-2 pt-3 sm:pt-4">
+      <main className="flex min-h-0 flex-1 flex-col overflow-hidden px-0 pb-2 pt-2 sm:pt-3">
         {cellColorPicker != null &&
           typeof document !== "undefined" &&
           createPortal(
@@ -2019,7 +2124,7 @@ export default function Home() {
               <div
                 role="dialog"
                 aria-label="Màu nền ô"
-                className="fixed z-[200] rounded-xl border border-stone-200/90 bg-white p-2.5 shadow-2xl dark:border-stone-600 dark:bg-stone-900"
+                className="fixed z-[200] rounded-lg border border-emerald-200 bg-white p-2.5 shadow-xl dark:border-emerald-800 dark:bg-emerald-950"
                 style={{
                   top: cellColorPicker.top,
                   left: cellColorPicker.left,
@@ -2027,7 +2132,7 @@ export default function Home() {
                 }}
                 onMouseDown={(e) => e.stopPropagation()}
               >
-                <p className="mb-2 text-center text-[12px] font-semibold text-stone-600 dark:text-stone-300">
+                <p className="mb-2 text-center text-[12px] font-semibold text-emerald-800 dark:text-emerald-200">
                   Màu nền ô
                 </p>
                 <div className="grid grid-cols-4 gap-1.5">
@@ -2036,7 +2141,7 @@ export default function Home() {
                       key={hex}
                       type="button"
                       title={hex}
-                      className="h-8 rounded-md border border-stone-300/80 shadow-inner transition hover:scale-105 hover:ring-2 hover:ring-amber-400/70 focus:outline-none focus:ring-2 focus:ring-amber-500 dark:border-stone-600"
+                      className="h-8 rounded-md border border-stone-300/80 shadow-inner transition hover:scale-105 hover:ring-2 hover:ring-emerald-400/80 focus:outline-none focus:ring-2 focus:ring-emerald-600 dark:border-stone-600"
                       style={{ backgroundColor: hex }}
                       onClick={() => {
                         const key = cellColorPicker.key;
@@ -2050,11 +2155,11 @@ export default function Home() {
                     />
                   ))}
                 </div>
-                <label className="mt-2.5 flex items-center gap-2 text-[12px] text-stone-600 dark:text-stone-400">
+                <label className="mt-2.5 flex items-center gap-2 text-[12px] text-emerald-800 dark:text-emerald-300">
                   <span className="shrink-0">Khác</span>
                   <input
                     type="color"
-                    className="h-9 min-w-0 flex-1 cursor-pointer rounded-md border border-stone-300 bg-stone-50 p-0.5 dark:border-stone-600 dark:bg-stone-800"
+                    className="h-9 min-w-0 flex-1 cursor-pointer rounded-md border border-emerald-300 bg-emerald-50/50 p-0.5 dark:border-emerald-700 dark:bg-emerald-900/50"
                     value={cellBgColors[cellColorPicker.key] ?? "#fff9c4"}
                     onChange={(e) => {
                       const hex = e.target.value;
@@ -2069,7 +2174,7 @@ export default function Home() {
                 </label>
                 <button
                   type="button"
-                  className="mt-2 w-full rounded-lg border border-stone-400 bg-white py-1.5 text-[12px] font-bold text-stone-800 hover:bg-stone-100 dark:border-stone-500 dark:bg-stone-900 dark:text-stone-100 dark:hover:bg-stone-800"
+                  className="mt-2 w-full rounded-lg border border-emerald-600 bg-emerald-50 py-1.5 text-[12px] font-bold text-emerald-900 hover:bg-emerald-100 dark:border-emerald-500 dark:bg-emerald-800 dark:text-emerald-50 dark:hover:bg-emerald-700"
                   onClick={() => {
                     const key = cellColorPicker.key;
                     setCellBgColors((prev) => {
@@ -2095,32 +2200,32 @@ export default function Home() {
               <button
                 type="button"
                 aria-label={`Đóng ${MANUAL_INPUTS_UI_LABEL_VI}`}
-                className="fixed inset-0 z-[330] bg-black/35 backdrop-blur-[2px]"
+                className="fixed inset-0 z-[330] bg-black/55 backdrop-blur-[1px]"
                 onMouseDown={() => setManualCardsModalOpen(false)}
               />
               <div
-                className="scroll-table-premium fixed left-1/2 top-1/2 z-[331] w-[min(92vw,720px)] max-h-[min(80vh,720px)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-amber-200/70 bg-gradient-to-b from-amber-50/55 via-white to-white p-0 shadow-[0_10px_50px_-12px_rgba(180,83,9,0.28)] backdrop-blur-md dark:border-amber-800/45 dark:from-amber-950/45 dark:via-stone-900 dark:to-stone-950"
+                className="scroll-table-premium fixed left-1/2 top-1/2 z-[331] w-[min(92vw,720px)] max-h-[min(80vh,720px)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-emerald-700/90 bg-white p-0 shadow-[0_20px_40px_-12px_rgba(6,95,70,0.35)] dark:border-emerald-800 dark:bg-emerald-950"
                 role="dialog"
                 aria-label={MANUAL_INPUTS_UI_LABEL_VI}
                 onMouseDown={(e) => e.stopPropagation()}
               >
-                <div className="rounded-t-2xl border-b border-amber-200/55 bg-gradient-to-r from-amber-500/[0.12] via-amber-400/[0.06] to-sky-500/[0.08] px-4 py-3.5 dark:border-amber-800/40">
+                <div className="border-b border-emerald-800 bg-emerald-700 px-4 py-3.5 dark:border-emerald-900 dark:bg-[#185c37]">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-[15px] font-extrabold tracking-tight text-stone-900 dark:text-stone-50">
+                      <p className="text-[15px] font-black uppercase tracking-tight text-white">
                         {MANUAL_INPUTS_UI_LABEL_VI}
                       </p>
-                      <p className="mt-1 text-[12px] leading-snug text-stone-600 dark:text-stone-400">
+                      <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-emerald-100">
                         Nhập số để đối chiếu với các cột tính trong bảng.
                       </p>
                     </div>
                     <button
                       type="button"
-                      className={`${BTN_SECONDARY_STRONG} group shrink-0 rounded-full px-3.5`}
+                      className="group inline-flex shrink-0 items-center gap-1.5 rounded border border-emerald-500/80 bg-emerald-800 px-3 py-1.5 text-[12px] font-bold uppercase tracking-wide text-white transition hover:border-emerald-300 hover:bg-emerald-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
                       onClick={() => setManualCardsModalOpen(false)}
                     >
                       <span
-                        className="text-[20px] font-light leading-none text-stone-500 transition group-hover:text-stone-700 dark:text-stone-300 dark:group-hover:text-stone-100"
+                        className="text-[18px] font-light leading-none text-emerald-200 transition group-hover:text-white"
                         aria-hidden
                       >
                         ×
@@ -2132,7 +2237,7 @@ export default function Home() {
 
                 {manualCardVisibility.manualLeft ||
                 manualCardVisibility.manualRight ? (
-                  <div className="w-full px-4 pb-4 pt-4">
+                  <div className="w-full bg-emerald-50/40 px-4 pb-4 pt-4 dark:bg-emerald-950/80">
                     {/* Bốn chỉ số nhập tay — lưới 2 cột, hàng cuối full width */}
                     <div className="w-full">
                       <div className={MANUAL_MODAL_FORM_GRID}>
@@ -2323,54 +2428,59 @@ export default function Home() {
                     <div className="mt-3 flex flex-wrap gap-2 hidden">
                       <button
                         type="button"
-                        onClick={() => {
-                          setRangeMode("month");
-                          setSelectedYear(currentYear);
-                          setSelectedMonth(currentMonth);
-                        }}
+                        onClick={() =>
+                          commitRangeMode("month", () => {
+                            setSelectedYear(currentYear);
+                            setSelectedMonth(currentMonth);
+                          })
+                        }
                         className="h-9 px-3 rounded-xl border border-amber-200/60 dark:border-amber-800/40 bg-white dark:bg-stone-900 text-[14px] text-amber-900 dark:text-amber-200 hover:bg-amber-50/70 dark:hover:bg-amber-950/30"
                       >
                         Tháng này
                       </button>
                       <button
                         type="button"
-                        onClick={() => {
-                          setRangeMode("month");
-                          setSelectedYear(prevMonthInfo.y);
-                          setSelectedMonth(prevMonthInfo.m);
-                        }}
+                        onClick={() =>
+                          commitRangeMode("month", () => {
+                            setSelectedYear(prevMonthInfo.y);
+                            setSelectedMonth(prevMonthInfo.m);
+                          })
+                        }
                         className="h-9 px-3 rounded-xl border border-amber-200/60 dark:border-amber-800/40 bg-white dark:bg-stone-900 text-[14px] text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800"
                       >
                         Tháng trước
                       </button>
                       <button
                         type="button"
-                        onClick={() => {
-                          setRangeMode("quarter");
-                          setSelectedYear(currentYear);
-                          setSelectedQuarter(currentQuarter);
-                        }}
+                        onClick={() =>
+                          commitRangeMode("quarter", () => {
+                            setSelectedYear(currentYear);
+                            setSelectedQuarter(currentQuarter);
+                          })
+                        }
                         className="h-9 px-3 rounded-xl border border-amber-200/60 dark:border-amber-800/40 bg-white dark:bg-stone-900 text-[14px] text-amber-900 dark:text-amber-200 hover:bg-amber-50/70 dark:hover:bg-amber-950/30"
                       >
                         Quý này
                       </button>
                       <button
                         type="button"
-                        onClick={() => {
-                          setRangeMode("quarter");
-                          setSelectedYear(prevQuarterInfo.y);
-                          setSelectedQuarter(prevQuarterInfo.q);
-                        }}
+                        onClick={() =>
+                          commitRangeMode("quarter", () => {
+                            setSelectedYear(prevQuarterInfo.y);
+                            setSelectedQuarter(prevQuarterInfo.q);
+                          })
+                        }
                         className="h-9 px-3 rounded-xl border border-amber-200/60 dark:border-amber-800/40 bg-white dark:bg-stone-900 text-[14px] text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800"
                       >
                         Quý trước
                       </button>
                       <button
                         type="button"
-                        onClick={() => {
-                          setRangeMode("year");
-                          setSelectedYear(currentYear);
-                        }}
+                        onClick={() =>
+                          commitRangeMode("year", () =>
+                            setSelectedYear(currentYear),
+                          )
+                        }
                         className="h-9 px-3 rounded-xl border border-amber-200/60 dark:border-amber-800/40 bg-white dark:bg-stone-900 text-[14px] text-amber-900 dark:text-amber-200 hover:bg-amber-50/70 dark:hover:bg-amber-950/30"
                       >
                         Năm nay
@@ -2378,7 +2488,7 @@ export default function Home() {
                     </div>
                   </div>
                 ) : (
-                  <div className="mx-4 mb-4 rounded-xl border border-amber-200/65 bg-gradient-to-r from-amber-50/80 to-stone-50/60 p-4 text-[13px] leading-relaxed text-stone-600 shadow-sm dark:border-amber-800/45 dark:from-amber-950/35 dark:to-stone-900/60 dark:text-stone-300">
+                  <div className="mx-4 mb-4 rounded-md border border-emerald-200 bg-emerald-50 p-4 text-[12px] font-medium leading-relaxed text-emerald-900 dark:border-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-100">
                     {`Chưa bật “${MANUAL_INPUTS_UI_LABEL_VI}” trong Tùy chỉnh hiển thị.`}
                   </div>
                 )}
@@ -2387,7 +2497,14 @@ export default function Home() {
             document.body,
           )}
 
-        <div className="scroll-table-premium min-h-0 w-full flex-1 overflow-auto border-2 border-solid border-black bg-white dark:border-stone-200 dark:bg-stone-900">
+        <div
+          ref={tableScrollRef}
+          className={`scroll-table-premium min-h-0 w-full flex-1 overflow-auto border-2 border-solid bg-white dark:bg-stone-900 motion-reduce:transition-none ${
+            isHeavyRangeLoading
+              ? "border-emerald-500/70 shadow-[inset_0_0_0_1px_rgba(16,185,129,0.25)] transition-[border-color,box-shadow] duration-300 dark:border-emerald-500/50"
+              : "border-black dark:border-stone-200"
+          }`}
+        >
           <table
             className={`table-fixed w-full border-separate border-spacing-0 text-center ${TABLE_TEXT}`}
             style={{ minWidth: `${tableMinWidthPx}px` }}
@@ -3199,410 +3316,21 @@ export default function Home() {
                 ) : null}
               </tr>
             </thead>
-            <tbody className="[&_td]:align-middle [&_span]:inline-block [&_span]:max-w-full [&_span]:text-center">
-              {dateRows.map((row, rowIdx) => (
-                <tr
-                  key={row.isoDate}
-                  className="group/row transition-colors duration-200 hover:bg-stone-100/50 dark:hover:bg-stone-800/30"
-                >
-                  {visibleJ.map((j) =>
-                    j === 0 || j === 58 || j === 59 ? null : (
-                      <td
-                        key={j}
-                        align="center"
-                        title="Nhấp đúp để chọn màu nền ô"
-                        style={{
-                          ...(cellBgColors[`${row.isoDate}:${j}`]
-                            ? {
-                                backgroundColor:
-                                  cellBgColors[`${row.isoDate}:${j}`],
-                              }
-                            : {}),
-                          ...(j === 12
-                            ? {
-                                left: `${WEEKDAY_COL_WIDTH_PX}px`,
-                              }
-                            : {}),
-                        }}
-                        onMouseDown={(e) => {
-                          if (e.detail > 1) e.preventDefault();
-                        }}
-                        onDoubleClick={(e) => {
-                          if (j === 0) return;
-                          e.preventDefault();
-                          const key = `${row.isoDate}:${j}`;
-                          const rect = e.currentTarget.getBoundingClientRect();
-                          const pad = 8;
-                          let left = rect.left;
-                          let top = rect.bottom + 6;
-                          if (
-                            left + CELL_COLOR_POPOVER_W >
-                            window.innerWidth - pad
-                          ) {
-                            left = Math.max(
-                              pad,
-                              window.innerWidth - pad - CELL_COLOR_POPOVER_W,
-                            );
-                          }
-                          if (left < pad) left = pad;
-                          if (
-                            top + CELL_COLOR_POPOVER_H >
-                            window.innerHeight - pad
-                          ) {
-                            top = Math.max(
-                              pad,
-                              rect.top - CELL_COLOR_POPOVER_H - 6,
-                            );
-                          }
-                          if (top < pad) top = pad;
-                          setCellColorPicker({ key, top, left });
-                        }}
-                        className={
-                          j === 0
-                            ? "border-0 px-0 py-0 w-0 max-w-0 overflow-hidden"
-                            : j === 11
-                              ? `sticky left-0 z-20 min-w-0 max-w-[48px] border-r border-b border-black dark:border-stone-200 px-0.5 py-1 text-center text-[12px] font-bold tabular-nums leading-tight text-balance text-stone-950 dark:text-stone-100 bg-orange-50 dark:bg-orange-950 group-hover/row:bg-orange-100 dark:group-hover/row:bg-orange-900 shadow-[4px_0_10px_-6px_rgba(0,0,0,0.15)] dark:shadow-[4px_0_10px_-6px_rgba(0,0,0,0.5)] ${TD_CELL_FX}`
-                              : j === 12
-                                ? `sticky z-[19] min-w-0 border-r border-b border-black dark:border-stone-200 ${TABLE_TD_PAD} text-center ${TABLE_TEXT} font-bold tabular-nums text-balance text-stone-950 dark:text-stone-100 bg-sky-100 dark:bg-sky-950 group-hover/row:bg-sky-200 dark:group-hover/row:bg-sky-900 shadow-[4px_0_10px_-6px_rgba(0,0,0,0.12)] dark:shadow-[4px_0_10px_-6px_rgba(0,0,0,0.45)] ${TD_CELL_FX}`
-                                : j >= 61 && j <= 66
-                                  ? `border-r border-b border-black dark:border-stone-200 ${TABLE_TD_PAD} text-center ${TABLE_TEXT} font-bold tabular-nums whitespace-normal break-words text-stone-950 dark:text-stone-50 ${getRegionBgClass(j)} ${TD_CELL_FX}`
-                                  : `border-r border-b border-black dark:border-stone-200 ${TABLE_TD_PAD} text-center ${TABLE_TEXT} font-bold tabular-nums whitespace-normal break-words text-stone-950 dark:text-stone-50 ${getRegionBgClass(j)} ${TD_CELL_FX}`
-                        }
-                      >
-                        {isLoadingTable &&
-                        !fullRowsByDate[row.isoDate] &&
-                        j !== 0 &&
-                        j !== 11 &&
-                        j !== 12 ? (
-                          <div className="mx-auto h-3.5 w-16 rounded bg-stone-200/70 dark:bg-stone-800/70 animate-pulse" />
-                        ) : j === 0 ? (
-                          ""
-                        ) : j === 11 ? (
-                          row.weekdayLabel
-                        ) : j === 12 ? (
-                          row.dateLabel
-                        ) : j >= 1 && j <= 10 ? (
-                          (() => {
-                            const v = manhHaiCellValue(row.isoDate, j);
-                            const toneClass =
-                              j === 1 || j === 2 || j === 6 || j === 7
-                                ? neutralPriceClass
-                                : j === 3 || j === 4 || j === 8 || j === 9
-                                  ? manhHaiDongIntradayToneClass(
-                                      row.isoDate,
-                                      j,
-                                    )
-                                  : (v.toneClass ?? neutralPriceClass);
-                            const text = formatTableToneCellDisplay(
-                              v.text,
-                              toneClass,
-                            );
-                            return <span className={toneClass}>{text}</span>;
-                          })()
-                        ) : j >= 67 && j <= 70 ? (
-                          (() => {
-                            const colJ = j as 67 | 68 | 69 | 70;
-                            const v = laiNeuBanRa(row.isoDate, colJ);
-                            const tone = v.toneClass ?? neutralPriceClass;
-                            const text = formatTableToneCellDisplay(v.text, tone);
-                            return <span className={tone}>{text}</span>;
-                          })()
-                        ) : j === 21 ? (
-                          (() => {
-                            const v = kitcoCellValue(row.isoDate, j);
-                            const tone = getMarketChangeToneClass(v);
-                            const text = formatTableToneCellDisplay(
-                              formatChangeWithPlus(v),
-                              tone,
-                            );
-                            return <span className={tone}>{text}</span>;
-                          })()
-                        ) : j === 30 ? (
-                          (() => {
-                            const v = marketTimedCellValue(
-                              row.isoDate,
-                              j,
-                              "oil",
-                            );
-                            const tone = getMarketChangeToneClass(v);
-                            const text = formatTableToneCellDisplay(
-                              formatChangeWithPlus(v),
-                              tone,
-                            );
-                            return <span className={tone}>{text}</span>;
-                          })()
-                        ) : j === 39 ? (
-                          (() => {
-                            const v = marketTimedCellValue(
-                              row.isoDate,
-                              j,
-                              "dollarIndex",
-                            );
-                            const tone = getMarketChangeToneClass(v);
-                            const text = formatTableToneCellDisplay(
-                              formatChangeWithPlus(v),
-                              tone,
-                            );
-                            return <span className={tone}>{text}</span>;
-                          })()
-                        ) : j === 48 ? (
-                          (() => {
-                            const v = marketTimedCellValue(
-                              row.isoDate,
-                              j,
-                              "bond10y",
-                            );
-                            const tone = getMarketChangeToneClass(v);
-                            const text = formatTableToneCellDisplay(
-                              formatChangeWithPlus(v),
-                              tone,
-                            );
-                            return <span className={tone}>{text}</span>;
-                          })()
-                        ) : j === 57 ? (
-                          (() => {
-                            const v = marketTimedCellValue(
-                              row.isoDate,
-                              j,
-                              "sp500",
-                            );
-                            const tone = getMarketChangeToneClass(v);
-                            const text = formatTableToneCellDisplay(
-                              formatChangeWithPlus(v),
-                              tone,
-                            );
-                            return <span className={tone}>{text}</span>;
-                          })()
-                        ) : j === 13 ? (
-                          (() => {
-                            const v = kitcoCellValue(row.isoDate, j);
-                            return v === "–" ? (
-                              v
-                            ) : (
-                              <span className={neutralPriceClass}>{v}</span>
-                            );
-                          })()
-                        ) : j >= 14 && j <= 20 ? (
-                          (() => {
-                            const v = kitcoCellValue(row.isoDate, j);
-                            if (v === "–") return v;
-                            const openV = kitcoCellValue(row.isoDate, 13);
-                            const cls = toneClassIntradayVsPrev(v, openV);
-                            return (
-                              <span className={cls}>
-                                {formatTableToneCellDisplay(v, cls)}
-                              </span>
-                            );
-                          })()
-                        ) : j === 22 ? (
-                          (() => {
-                            const v = marketTimedCellValue(
-                              row.isoDate,
-                              j,
-                              "oil",
-                            );
-                            return v === "–" ? (
-                              v
-                            ) : (
-                              <span className={neutralPriceClass}>{v}</span>
-                            );
-                          })()
-                        ) : j >= 23 && j <= 29 ? (
-                          (() => {
-                            const v = marketTimedCellValue(
-                              row.isoDate,
-                              j,
-                              "oil",
-                            );
-                            if (v === "–") return v;
-                            const openV = marketTimedCellValue(
-                              row.isoDate,
-                              22,
-                              "oil",
-                            );
-                            const cls = toneClassIntradayVsPrev(v, openV);
-                            return (
-                              <span className={cls}>
-                                {formatTableToneCellDisplay(v, cls)}
-                              </span>
-                            );
-                          })()
-                        ) : j === 31 ? (
-                          (() => {
-                            const v = marketTimedCellValue(
-                              row.isoDate,
-                              j,
-                              "dollarIndex",
-                            );
-                            return v === "–" ? (
-                              v
-                            ) : (
-                              <span className={neutralPriceClass}>{v}</span>
-                            );
-                          })()
-                        ) : j >= 32 && j <= 38 ? (
-                          (() => {
-                            const v = marketTimedCellValue(
-                              row.isoDate,
-                              j,
-                              "dollarIndex",
-                            );
-                            if (v === "–") return v;
-                            const openV = marketTimedCellValue(
-                              row.isoDate,
-                              31,
-                              "dollarIndex",
-                            );
-                            const cls = toneClassIntradayVsPrev(v, openV);
-                            return (
-                              <span className={cls}>
-                                {formatTableToneCellDisplay(v, cls)}
-                              </span>
-                            );
-                          })()
-                        ) : j === 40 ? (
-                          (() => {
-                            const v = marketTimedCellValue(
-                              row.isoDate,
-                              j,
-                              "bond10y",
-                            );
-                            return v === "–" ? (
-                              v
-                            ) : (
-                              <span className={neutralPriceClass}>{v}</span>
-                            );
-                          })()
-                        ) : j >= 41 && j <= 47 ? (
-                          (() => {
-                            const v = marketTimedCellValue(
-                              row.isoDate,
-                              j,
-                              "bond10y",
-                            );
-                            if (v === "–") return v;
-                            const openV = marketTimedCellValue(
-                              row.isoDate,
-                              40,
-                              "bond10y",
-                            );
-                            const cls = toneClassIntradayVsPrev(v, openV);
-                            return (
-                              <span className={cls}>
-                                {formatTableToneCellDisplay(v, cls)}
-                              </span>
-                            );
-                          })()
-                        ) : j === 49 ? (
-                          (() => {
-                            const v = marketTimedCellValue(
-                              row.isoDate,
-                              j,
-                              "sp500",
-                            );
-                            return v === "–" ? (
-                              v
-                            ) : (
-                              <span className={neutralPriceClass}>{v}</span>
-                            );
-                          })()
-                        ) : j >= 50 && j <= 56 ? (
-                          (() => {
-                            const v = marketTimedCellValue(
-                              row.isoDate,
-                              j,
-                              "sp500",
-                            );
-                            if (v === "–") return v;
-                            const openV = marketTimedCellValue(
-                              row.isoDate,
-                              49,
-                              "sp500",
-                            );
-                            const cls = toneClassIntradayVsPrev(v, openV);
-                            return (
-                              <span className={cls}>
-                                {formatTableToneCellDisplay(v, cls)}
-                              </span>
-                            );
-                          })()
-                        ) : j === 61 ? (
-                          (() => {
-                            const text = chiVangIndexTaiSanOverDong17h30(
-                              row.isoDate,
-                            );
-                            if (text === "–") return text;
-                            const n = chiVangIndexNumber(row.isoDate);
-                            const prevIso =
-                              rowIdx > 0 ? dateRows[rowIdx - 1]!.isoDate : null;
-                            const prevN =
-                              prevIso != null
-                                ? chiVangIndexNumber(prevIso)
-                                : null;
-                            const cls = toneClassCompareToRowAbove(n, prevN);
-                            return (
-                              <span className={cls}>
-                                {formatTableToneCellDisplay(text, cls)}
-                              </span>
-                            );
-                          })()
-                        ) : j >= 62 && j <= 65 ? (
-                          (() => {
-                            const slot = (j - 62) as 0 | 1 | 2 | 3;
-                            const n = chenhLechTrongNuocTheGioiNumber(
-                              row.isoDate,
-                              slot,
-                            );
-                            const text = n == null ? "–" : formatVnd(n);
-                            if (text === "–") return text;
-                            const prevN =
-                              slot > 0
-                                ? chenhLechTrongNuocTheGioiNumber(
-                                    row.isoDate,
-                                    (slot - 1) as 0 | 1 | 2 | 3,
-                                  )
-                                : null;
-                            const cls = toneClassCompareToRowAbove(n, prevN);
-                            return (
-                              <span className={cls}>
-                                {formatTableToneCellDisplay(text, cls)}
-                              </span>
-                            );
-                          })()
-                        ) : j === 66 ? (
-                          (() => {
-                            const text = chiVangThemMinusChiCu(row.isoDate);
-                            if (text === "–") return text;
-                            const n = chiVangThemNumber(row.isoDate);
-                            const prevIso =
-                              rowIdx > 0 ? dateRows[rowIdx - 1]!.isoDate : null;
-                            const prevN =
-                              prevIso != null
-                                ? chiVangThemNumber(prevIso)
-                                : null;
-                            const cls = toneClassCompareToRowAbove(n, prevN);
-                            return (
-                              <span className={cls}>
-                                {formatTableToneCellDisplay(text, cls)}
-                              </span>
-                            );
-                          })()
-                        ) : j >= 58 && j <= 60 ? (
-                          vcbCellValue(row.isoDate, j)
-                        ) : (
-                          "–"
-                        )}
-                      </td>
-                    ),
-                  )}
-                </tr>
-              ))}
-            </tbody>
+            <GoldDateTableBody
+              scrollParentRef={tableScrollRef}
+              dateRows={dateRows}
+              visibleJ={visibleJ}
+              cellBgColors={cellBgColors}
+              fullRowsByDate={fullRowsByDate}
+              isLoadingTable={isLoadingTable}
+              api={tableBodyApi}
+              onOpenCellColorPicker={openCellColorPicker}
+            />
           </table>
         </div>
       </main>
 
-      <footer className="shrink-0 border-t border-amber-200/40 dark:border-amber-900/30 bg-white/70 dark:bg-stone-900/70 mt-auto">
+      <footer className="shrink-0 border-t border-emerald-200/70 dark:border-emerald-900/40 bg-white/80 dark:bg-emerald-950/40 mt-auto">
         <div className="w-full px-4 sm:px-6 py-5">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 text-[14px] text-stone-500 dark:text-stone-400">
             <div className="flex items-center gap-2">
