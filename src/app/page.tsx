@@ -319,10 +319,8 @@ const LAI_HEAD_TIME_CLASS = `${TABLE_CELL_BR} px-1.5 py-1 ${TABLE_TEXT} font-bol
 const BTN_BASE =
   "inline-flex items-center justify-center rounded-lg border px-3 py-2 text-[14px] font-bold tracking-tight transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/80 disabled:cursor-not-allowed disabled:opacity-45";
 /** Màu xanh lá kiểu Excel (#217346 ≈ emerald-700) */
-const BTN_PRIMARY_STRONG =
-  `${BTN_BASE} border-emerald-700 bg-emerald-700 text-white hover:bg-emerald-800 dark:border-emerald-500 dark:bg-emerald-600 dark:hover:bg-emerald-500`;
-const BTN_SECONDARY_STRONG =
-  `${BTN_BASE} border-emerald-600 bg-white text-emerald-800 hover:bg-emerald-50 dark:border-emerald-500 dark:bg-emerald-950 dark:text-emerald-100 dark:hover:bg-emerald-900`;
+const BTN_PRIMARY_STRONG = `${BTN_BASE} border-emerald-700 bg-emerald-700 text-white hover:bg-emerald-800 dark:border-emerald-500 dark:bg-emerald-600 dark:hover:bg-emerald-500`;
+const BTN_SECONDARY_STRONG = `${BTN_BASE} border-emerald-600 bg-white text-emerald-800 hover:bg-emerald-50 dark:border-emerald-500 dark:bg-emerald-950 dark:text-emerald-100 dark:hover:bg-emerald-900`;
 
 function segmentedButtonClass(active: boolean): string {
   return active
@@ -759,8 +757,7 @@ export default function Home() {
   const [isLoadingTable, setIsLoadingTable] = useState<boolean>(false);
   /** Năm / tất cả: nhiều dòng — nhấn mạnh phản hồi khi đang tải */
   const isHeavyRangeLoading =
-    isLoadingTable &&
-    (rangeModeUI === "year" || rangeModeUI === "all");
+    isLoadingTable && (rangeModeUI === "year" || rangeModeUI === "all");
   /** Tiến trình tải bảng: số dòng đã có dữ liệu / tổng dòng (theo gói năm) */
   const [tableLoadProgress, setTableLoadProgress] = useState<{
     loaded: number;
@@ -1393,7 +1390,10 @@ export default function Home() {
    * Đóng (14h30, 17h30): xanh/đỏ so với mốc giá liền trước trong cùng ngày
    * (MUA: 14h30↔11h, 17h30↔14h30; BÁN: tương tự col 8↔7, 9↔8).
    */
-  function manhHaiDongIntradayToneClass(isoDate: string, colIndex: number): string {
+  function manhHaiDongIntradayToneClass(
+    isoDate: string,
+    colIndex: number,
+  ): string {
     if (colIndex === MANH_HAI_COL.MUA_14H30) {
       return toneClassCompareToRowAbove(
         manhHaiRawNumber(isoDate, MANH_HAI_COL.MUA_14H30),
@@ -2095,9 +2095,14 @@ export default function Home() {
 
             <div className="min-w-0 basis-full text-[11px] text-stone-600 dark:text-stone-400 sm:basis-auto sm:ms-auto sm:w-auto sm:text-right sm:text-[13px]">
               <span className="tabular-nums">
-                Đang xem: <span className="font-semibold text-stone-800 dark:text-stone-200">{from}</span>{" "}
+                Đang xem:{" "}
+                <span className="font-semibold text-stone-800 dark:text-stone-200">
+                  {from}
+                </span>{" "}
                 →{" "}
-                <span className="font-semibold text-stone-800 dark:text-stone-200">{to}</span>
+                <span className="font-semibold text-stone-800 dark:text-stone-200">
+                  {to}
+                </span>
                 {isAllRange ? (
                   <span className="ml-1 text-stone-400 dark:text-stone-500">
                     (tất cả)
@@ -2259,19 +2264,16 @@ export default function Home() {
                 onMouseDown={() => setManualCardsModalOpen(false)}
               />
               <div
-                className="scroll-table-premium fixed left-1/2 top-1/2 z-[331] w-[min(92vw,720px)] max-h-[min(80vh,720px)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-emerald-700/90 bg-white p-0 shadow-[0_20px_40px_-12px_rgba(6,95,70,0.35)] dark:border-emerald-800 dark:bg-emerald-950"
+                className="fixed left-1/2 top-1/2 z-[331] flex w-[min(92vw,720px)] max-h-[min(80vh,720px)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg border border-emerald-700/90 bg-white p-0 shadow-[0_20px_40px_-12px_rgba(6,95,70,0.35)] dark:border-emerald-800 dark:bg-emerald-950"
                 role="dialog"
                 aria-label={MANUAL_INPUTS_UI_LABEL_VI}
                 onMouseDown={(e) => e.stopPropagation()}
               >
-                <div className="border-b border-emerald-800 bg-emerald-700 px-4 py-3.5 dark:border-emerald-900 dark:bg-[#185c37]">
+                <div className="shrink-0 border-b border-emerald-800 bg-emerald-700 px-4 py-3.5 dark:border-emerald-900 dark:bg-[#185c37]">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="text-[15px] font-black uppercase tracking-tight text-white">
                         {MANUAL_INPUTS_UI_LABEL_VI}
-                      </p>
-                      <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-emerald-100">
-                        Nhập số để đối chiếu với các cột tính trong bảng.
                       </p>
                     </div>
                     <button
@@ -2290,6 +2292,7 @@ export default function Home() {
                   </div>
                 </div>
 
+                <div className="scroll-table-premium min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain">
                 {manualCardVisibility.manualLeft ||
                 manualCardVisibility.manualRight ? (
                   <div className="w-full bg-emerald-50/40 px-4 pb-4 pt-4 dark:bg-emerald-950/80">
@@ -2302,12 +2305,6 @@ export default function Home() {
                             <p className={MANUAL_MODAL_FIELD_TITLE_MONEY}>
                               ∑ Đầu tư
                             </p>
-                            <label
-                              htmlFor="manual-modal-dau-tu"
-                              className={MANUAL_MODAL_FIELD_LABEL}
-                            >
-                              Vốn / giá trị đầu tư — đơn vị VNĐ
-                            </label>
                             <input
                               id="manual-modal-dau-tu"
                               type="text"
@@ -2346,12 +2343,6 @@ export default function Home() {
                             <p className={MANUAL_MODAL_FIELD_TITLE_MONEY}>
                               ∑ Tài sản
                             </p>
-                            <label
-                              htmlFor="manual-modal-tai-san"
-                              className={MANUAL_MODAL_FIELD_LABEL}
-                            >
-                              Dùng tính cột ∑ chỉ vàng trong bảng — đơn vị VNĐ
-                            </label>
                             <input
                               id="manual-modal-tai-san"
                               type="text"
@@ -2390,12 +2381,6 @@ export default function Home() {
                             <p className={MANUAL_MODAL_FIELD_TITLE_CHI}>
                               ∑ Chỉ vàng cũ
                             </p>
-                            <label
-                              htmlFor="manual-modal-chi-vang-cu"
-                              className={MANUAL_MODAL_FIELD_LABEL}
-                            >
-                              Trừ khi tính “∑ chỉ vàng thêm” — đơn vị chỉ
-                            </label>
                             <input
                               id="manual-modal-chi-vang-cu"
                               type="text"
@@ -2434,12 +2419,6 @@ export default function Home() {
                             <p className={MANUAL_MODAL_FIELD_TITLE_CHI}>
                               ∑ Chỉ vàng đang có
                             </p>
-                            <label
-                              htmlFor="manual-modal-chi-vang-dang-co"
-                              className={MANUAL_MODAL_FIELD_LABEL}
-                            >
-                              Số chỉ hiện đang nắm giữ — đơn vị chỉ
-                            </label>
                             <input
                               id="manual-modal-chi-vang-dang-co"
                               type="text"
@@ -2561,10 +2540,11 @@ export default function Home() {
                     </div>
                   </div>
                 ) : (
-                  <div className="mx-4 mb-4 rounded-md border border-emerald-200 bg-emerald-50 p-4 text-[12px] font-medium leading-relaxed text-emerald-900 dark:border-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-100">
+                  <div className="mx-4 mb-4 mt-4 rounded-md border border-emerald-200 bg-emerald-50 p-4 text-[12px] font-medium leading-relaxed text-emerald-900 dark:border-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-100">
                     {`Chưa bật “${MANUAL_INPUTS_UI_LABEL_VI}” trong Tùy chỉnh hiển thị.`}
                   </div>
                 )}
+                </div>
               </div>
             </>,
             document.body,
