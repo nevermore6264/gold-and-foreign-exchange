@@ -4,10 +4,10 @@
  * - col_12: DATE
  * - col_13-21: KITCO (GC=F / XAU): MỞ·ĐÓNG·Cao·Thấp·% từ OHLC ngày;
  *   4 cột 9h/11h/14h30/17h30 (giờ VN) → mẫu nến 1h Yahoo tại các mốc đó
- * - col_22-30: Giá dầu → Investing.com crude-oil-historical-data (fallback Yahoo CL=F)
- * - col_31-39: Dollar index → Investing.com usdollar-historical-data (fallback Yahoo DX-Y.NYB)
- * - col_40-48: Trái phiếu US 10Y → investing.com
- * - col_49-57: S&P 500 → investing.com
+ * - col_22-30: Giá dầu → OHLC ngày (Investing + Yahoo CL=F); 4 cột 9h/11h/14h30/17h30 VN → Yahoo 1h
+ * - col_31-39: Dollar → OHLC ngày; 4 slot VN → Yahoo 1h DX-Y.NYB
+ * - col_40-48: US 10Y → OHLC ngày; 4 slot VN → Yahoo 1h ^TNX (scale ÷10)
+ * - col_49-57: S&P → OHLC ngày; 4 slot VN → Yahoo 1h ^GSPC
  * - col_58..col_60: Tỷ giá VCB (Mua tiền mặt / Mua chuyển khoản / Bán)
  */
 
@@ -25,6 +25,7 @@ import { fetchOilHistoricalYahoo } from "./oil";
 import { fetchDollarIndexHistoricalYahoo } from "./dollar";
 import { fetchXauUsdHistoricalYahoo } from "./xau";
 import { fetchGoldGcVnSlotsByDateRange } from "./gold-gc-vn-slots";
+import { fetchYahoo1hVnSlotsByDateRange } from "./yahoo-1h-vn-slots";
 import { fetchBond10yHistoricalYahoo } from "./bond-10y";
 import { fetchSp500HistoricalYahoo } from "./sp500";
 import { fetchCafeFDomesticSjcByVnDateCached } from "./gold-cafef";
@@ -213,10 +214,30 @@ export async function getFullTableRange(
 
   const vnRangeStart = dates[0] ?? from;
   const vnRangeEnd = dates[dates.length - 1] ?? to;
-  const goldGcVnSlots =
+  const [
+    goldGcVnSlots,
+    oilVnSlots,
+    dollarVnSlots,
+    bondVnSlots,
+    spVnSlots,
+  ] =
     dates.length > 0
-      ? await fetchGoldGcVnSlotsByDateRange(vnRangeStart, vnRangeEnd)
-      : new Map();
+      ? await Promise.all([
+          fetchGoldGcVnSlotsByDateRange(vnRangeStart, vnRangeEnd),
+          fetchYahoo1hVnSlotsByDateRange("CL=F", vnRangeStart, vnRangeEnd),
+          fetchYahoo1hVnSlotsByDateRange("DX-Y.NYB", vnRangeStart, vnRangeEnd),
+          fetchYahoo1hVnSlotsByDateRange("^TNX", vnRangeStart, vnRangeEnd, {
+            priceScale: 10,
+          }),
+          fetchYahoo1hVnSlotsByDateRange("^GSPC", vnRangeStart, vnRangeEnd),
+        ])
+      : [
+          new Map(),
+          new Map(),
+          new Map(),
+          new Map(),
+          new Map(),
+        ];
 
   // Gộp Investing + Yahoo theo ngày (Investing có giới hạn pointscount → tháng gần nhất có thể thiếu).
   const oil = recomputeChangePercent(mergeOhlcByDate(oilInvesting, oilYahoo));
@@ -309,6 +330,34 @@ export async function getFullTableRange(
     const k16 = vnSl?.col16 ?? fb;
     const k17 = vnSl?.col17 ?? fb;
 
+    const oilSl = oilVnSlots.get(date);
+    const oilFb = oilOpen;
+    const o23 = oilSl?.col14 ?? oilFb;
+    const o24 = oilSl?.col15 ?? oilFb;
+    const o25 = oilSl?.col16 ?? oilFb;
+    const o26 = oilSl?.col17 ?? oilFb;
+
+    const dollarSl = dollarVnSlots.get(date);
+    const dollarFb = dollarOpen;
+    const d32 = dollarSl?.col14 ?? dollarFb;
+    const d33 = dollarSl?.col15 ?? dollarFb;
+    const d34 = dollarSl?.col16 ?? dollarFb;
+    const d35 = dollarSl?.col17 ?? dollarFb;
+
+    const bondSl = bondVnSlots.get(date);
+    const bondFb = bondOpen;
+    const b41 = bondSl?.col14 ?? bondFb;
+    const b42 = bondSl?.col15 ?? bondFb;
+    const b43 = bondSl?.col16 ?? bondFb;
+    const b44 = bondSl?.col17 ?? bondFb;
+
+    const spSl = spVnSlots.get(date);
+    const spFb = spOpen;
+    const s50 = spSl?.col14 ?? spFb;
+    const s51 = spSl?.col15 ?? spFb;
+    const s52 = spSl?.col16 ?? spFb;
+    const s53 = spSl?.col17 ?? spFb;
+
     const row: FullTableRow = {};
     for (let j = 0; j < 61; j++) row[`col_${j}`] = null;
     applyManhHaiSnapshotToRow(row, manhHaiSnap);
@@ -325,40 +374,40 @@ export async function getFullTableRange(
     row.col_21 = kitcoChange;
 
     row.col_22 = oilOpen;
-    row.col_23 = oilOpen;
-    row.col_24 = oilOpen;
-    row.col_25 = oilOpen;
-    row.col_26 = oilOpen;
+    row.col_23 = o23;
+    row.col_24 = o24;
+    row.col_25 = o25;
+    row.col_26 = o26;
     row.col_27 = oilClose;
     row.col_28 = oilHigh;
     row.col_29 = oilLow;
     row.col_30 = oilChange;
 
     row.col_31 = dollarOpen;
-    row.col_32 = dollarOpen;
-    row.col_33 = dollarOpen;
-    row.col_34 = dollarOpen;
-    row.col_35 = dollarOpen;
+    row.col_32 = d32;
+    row.col_33 = d33;
+    row.col_34 = d34;
+    row.col_35 = d35;
     row.col_36 = dollarClose;
     row.col_37 = dollarHigh;
     row.col_38 = dollarLow;
     row.col_39 = dollarChange;
 
     row.col_40 = bondOpen;
-    row.col_41 = bondOpen;
-    row.col_42 = bondOpen;
-    row.col_43 = bondOpen;
-    row.col_44 = bondOpen;
+    row.col_41 = b41;
+    row.col_42 = b42;
+    row.col_43 = b43;
+    row.col_44 = b44;
     row.col_45 = bondClose;
     row.col_46 = bondHigh;
     row.col_47 = bondLow;
     row.col_48 = bondChange;
 
     row.col_49 = spOpen;
-    row.col_50 = spOpen;
-    row.col_51 = spOpen;
-    row.col_52 = spOpen;
-    row.col_53 = spOpen;
+    row.col_50 = s50;
+    row.col_51 = s51;
+    row.col_52 = s52;
+    row.col_53 = s53;
     row.col_54 = spClose;
     row.col_55 = spHigh;
     row.col_56 = spLow;
