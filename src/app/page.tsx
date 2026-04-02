@@ -50,6 +50,15 @@ if (process.env.NODE_ENV === "development") {
 const WEEKDAY_COL_WIDTH_PX = 48;
 const DATE_COL_WIDTH_PX = 128;
 const DATA_COL_MIN_PX = 108;
+/** LÃI (67–70): VND dạng +x.xxx.xxx… — vừa đủ một dòng, hẹp hơn 216px */
+const LAI_COL_MIN_PX = 150;
+
+function colWidthPxForVisibleJ(j: number): number {
+  if (j === 11) return WEEKDAY_COL_WIDTH_PX;
+  if (j === 12) return DATE_COL_WIDTH_PX;
+  if (j >= 67 && j <= 70) return LAI_COL_MIN_PX;
+  return DATA_COL_MIN_PX;
+}
 
 type FullTableRow = Record<string, string | number | null>;
 
@@ -820,11 +829,8 @@ export default function Home() {
   );
 
   const tableMinWidthPx = useMemo(
-    () =>
-      WEEKDAY_COL_WIDTH_PX +
-      DATE_COL_WIDTH_PX +
-      Math.max(0, visibleJ.length - 2) * DATA_COL_MIN_PX,
-    [visibleJ.length],
+    () => visibleJ.reduce((sum, j) => sum + colWidthPxForVisibleJ(j), 0),
+    [visibleJ],
   );
 
   const filteredToggleableGroups = useMemo(() => {
@@ -2171,154 +2177,154 @@ export default function Home() {
                     <div className="w-full">
                       <div className={MANUAL_MODAL_FORM_GRID}>
                         {/* 1 — Σ Đầu tư */}
-                          <div className={MANUAL_MODAL_FIELD_BOX_MONEY}>
-                            <p className={MANUAL_MODAL_FIELD_TITLE_MONEY}>
-                              ∑ Đầu tư
-                            </p>
-                            <input
-                              id="manual-modal-dau-tu"
-                              type="text"
-                              inputMode="numeric"
-                              autoComplete="off"
-                              placeholder="vd. 30.000.000.000"
-                              value={totalDauTu}
-                              onChange={(e) => {
-                                const v = e.target.value;
-                                setTotalDauTu(v);
-                                try {
-                                  localStorage.setItem(LS_INPUT_DAU_TU, v);
-                                } catch {
-                                  /* ignore */
-                                }
-                              }}
-                              onBlur={(e) => {
-                                const v = formatTaiSanInputDisplay(
-                                  e.target.value,
-                                );
-                                setTotalDauTu(v);
-                                try {
-                                  localStorage.setItem(LS_INPUT_DAU_TU, v);
-                                } catch {
-                                  /* ignore */
-                                }
-                              }}
-                              className={MANUAL_MODAL_INPUT_CLASS}
-                            />
-                          </div>
+                        <div className={MANUAL_MODAL_FIELD_BOX_MONEY}>
+                          <p className={MANUAL_MODAL_FIELD_TITLE_MONEY}>
+                            ∑ Đầu tư
+                          </p>
+                          <input
+                            id="manual-modal-dau-tu"
+                            type="text"
+                            inputMode="numeric"
+                            autoComplete="off"
+                            placeholder="vd. 30.000.000.000"
+                            value={totalDauTu}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setTotalDauTu(v);
+                              try {
+                                localStorage.setItem(LS_INPUT_DAU_TU, v);
+                              } catch {
+                                /* ignore */
+                              }
+                            }}
+                            onBlur={(e) => {
+                              const v = formatTaiSanInputDisplay(
+                                e.target.value,
+                              );
+                              setTotalDauTu(v);
+                              try {
+                                localStorage.setItem(LS_INPUT_DAU_TU, v);
+                              } catch {
+                                /* ignore */
+                              }
+                            }}
+                            className={MANUAL_MODAL_INPUT_CLASS}
+                          />
+                        </div>
 
                         {/* 2 — Σ Tài sản */}
-                          <div className={MANUAL_MODAL_FIELD_BOX_MONEY}>
-                            <p className={MANUAL_MODAL_FIELD_TITLE_MONEY}>
-                              ∑ Tài sản
-                            </p>
-                            <input
-                              id="manual-modal-tai-san"
-                              type="text"
-                              inputMode="numeric"
-                              autoComplete="off"
-                              placeholder="vd. 36.500.000.000"
-                              value={totalTaiSan}
-                              onChange={(e) => {
-                                const v = e.target.value;
-                                setTotalTaiSan(v);
-                                try {
-                                  localStorage.setItem(LS_INPUT_TAI_SAN, v);
-                                } catch {
-                                  /* ignore */
-                                }
-                              }}
-                              onBlur={(e) => {
-                                const v = formatTaiSanInputDisplay(
-                                  e.target.value,
-                                );
-                                setTotalTaiSan(v);
-                                try {
-                                  localStorage.setItem(LS_INPUT_TAI_SAN, v);
-                                } catch {
-                                  /* ignore */
-                                }
-                              }}
-                              className={MANUAL_MODAL_INPUT_CLASS}
-                            />
-                          </div>
+                        <div className={MANUAL_MODAL_FIELD_BOX_MONEY}>
+                          <p className={MANUAL_MODAL_FIELD_TITLE_MONEY}>
+                            ∑ Tài sản
+                          </p>
+                          <input
+                            id="manual-modal-tai-san"
+                            type="text"
+                            inputMode="numeric"
+                            autoComplete="off"
+                            placeholder="vd. 36.500.000.000"
+                            value={totalTaiSan}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setTotalTaiSan(v);
+                              try {
+                                localStorage.setItem(LS_INPUT_TAI_SAN, v);
+                              } catch {
+                                /* ignore */
+                              }
+                            }}
+                            onBlur={(e) => {
+                              const v = formatTaiSanInputDisplay(
+                                e.target.value,
+                              );
+                              setTotalTaiSan(v);
+                              try {
+                                localStorage.setItem(LS_INPUT_TAI_SAN, v);
+                              } catch {
+                                /* ignore */
+                              }
+                            }}
+                            className={MANUAL_MODAL_INPUT_CLASS}
+                          />
+                        </div>
 
                         {/* 3 — Σ chỉ vàng cũ */}
-                          <div className={MANUAL_MODAL_FIELD_BOX_CHI}>
-                            <p className={MANUAL_MODAL_FIELD_TITLE_CHI}>
-                              ∑ Chỉ vàng cũ
-                            </p>
-                            <input
-                              id="manual-modal-chi-vang-cu"
-                              type="text"
-                              inputMode="numeric"
-                              autoComplete="off"
-                              placeholder="vd. 1.148"
-                              value={totalChiVangCu}
-                              onChange={(e) => {
-                                const v = e.target.value;
-                                setTotalChiVangCu(v);
-                                try {
-                                  localStorage.setItem(LS_INPUT_CHI_VANG_CU, v);
-                                } catch {
-                                  /* ignore */
-                                }
-                              }}
-                              onBlur={(e) => {
-                                const v = formatChiVangCuInputDisplay(
-                                  e.target.value,
-                                );
-                                setTotalChiVangCu(v);
-                                try {
-                                  localStorage.setItem(LS_INPUT_CHI_VANG_CU, v);
-                                } catch {
-                                  /* ignore */
-                                }
-                              }}
-                              className={MANUAL_MODAL_INPUT_CLASS_CHI}
-                            />
-                          </div>
+                        <div className={MANUAL_MODAL_FIELD_BOX_CHI}>
+                          <p className={MANUAL_MODAL_FIELD_TITLE_CHI}>
+                            ∑ Chỉ vàng cũ
+                          </p>
+                          <input
+                            id="manual-modal-chi-vang-cu"
+                            type="text"
+                            inputMode="numeric"
+                            autoComplete="off"
+                            placeholder="vd. 1.148"
+                            value={totalChiVangCu}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setTotalChiVangCu(v);
+                              try {
+                                localStorage.setItem(LS_INPUT_CHI_VANG_CU, v);
+                              } catch {
+                                /* ignore */
+                              }
+                            }}
+                            onBlur={(e) => {
+                              const v = formatChiVangCuInputDisplay(
+                                e.target.value,
+                              );
+                              setTotalChiVangCu(v);
+                              try {
+                                localStorage.setItem(LS_INPUT_CHI_VANG_CU, v);
+                              } catch {
+                                /* ignore */
+                              }
+                            }}
+                            className={MANUAL_MODAL_INPUT_CLASS_CHI}
+                          />
+                        </div>
 
                         {/* 4 — Σ chỉ vàng đang có */}
-                          <div className={MANUAL_MODAL_FIELD_BOX_CHI}>
-                            <p className={MANUAL_MODAL_FIELD_TITLE_CHI}>
-                              ∑ Chỉ vàng đang có
-                            </p>
-                            <input
-                              id="manual-modal-chi-vang-dang-co"
-                              type="text"
-                              inputMode="numeric"
-                              autoComplete="off"
-                              placeholder="vd. 1.920"
-                              value={chiVangDangCo}
-                              onChange={(e) => {
-                                const v = e.target.value;
-                                setChiVangDangCo(v);
-                                try {
-                                  localStorage.setItem(
-                                    LS_INPUT_CHI_VANG_DANG_CO,
-                                    v,
-                                  );
-                                } catch {
-                                  /* ignore */
-                                }
-                              }}
-                              onBlur={(e) => {
-                                const v = formatChiVangCuInputDisplay(
-                                  e.target.value,
+                        <div className={MANUAL_MODAL_FIELD_BOX_CHI}>
+                          <p className={MANUAL_MODAL_FIELD_TITLE_CHI}>
+                            ∑ Chỉ vàng đang có
+                          </p>
+                          <input
+                            id="manual-modal-chi-vang-dang-co"
+                            type="text"
+                            inputMode="numeric"
+                            autoComplete="off"
+                            placeholder="vd. 1.920"
+                            value={chiVangDangCo}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setChiVangDangCo(v);
+                              try {
+                                localStorage.setItem(
+                                  LS_INPUT_CHI_VANG_DANG_CO,
+                                  v,
                                 );
-                                setChiVangDangCo(v);
-                                try {
-                                  localStorage.setItem(
-                                    LS_INPUT_CHI_VANG_DANG_CO,
-                                    v,
-                                  );
-                                } catch {
-                                  /* ignore */
-                                }
-                              }}
-                              className={MANUAL_MODAL_INPUT_CLASS_CHI}
-                            />
-                          </div>
+                              } catch {
+                                /* ignore */
+                              }
+                            }}
+                            onBlur={(e) => {
+                              const v = formatChiVangCuInputDisplay(
+                                e.target.value,
+                              );
+                              setChiVangDangCo(v);
+                              try {
+                                localStorage.setItem(
+                                  LS_INPUT_CHI_VANG_DANG_CO,
+                                  v,
+                                );
+                              } catch {
+                                /* ignore */
+                              }
+                            }}
+                            className={MANUAL_MODAL_INPUT_CLASS_CHI}
+                          />
+                        </div>
                       </div>
                     </div>
 
@@ -2421,25 +2427,18 @@ export default function Home() {
             style={{ minWidth: `${tableMinWidthPx}px` }}
           >
             <colgroup>
-              {visibleJ.map((j) => (
-                <col
-                  key={j}
-                  style={{
-                    width:
-                      j === 11
-                        ? `${WEEKDAY_COL_WIDTH_PX}px`
-                        : j === 12
-                          ? `${DATE_COL_WIDTH_PX}px`
-                          : `${DATA_COL_MIN_PX}px`,
-                    minWidth:
-                      j === 11
-                        ? WEEKDAY_COL_WIDTH_PX
-                        : j === 12
-                          ? DATE_COL_WIDTH_PX
-                          : DATA_COL_MIN_PX,
-                  }}
-                />
-              ))}
+              {visibleJ.map((j) => {
+                const w = colWidthPxForVisibleJ(j);
+                return (
+                  <col
+                    key={j}
+                    style={{
+                      width: `${w}px`,
+                      minWidth: w,
+                    }}
+                  />
+                );
+              })}
             </colgroup>
             {/* z-50: luôn nằm trên ô sticky Thứ/Ngày ở tbody (z-20/19) khi cuộn dọc — tránh bị hàng dữ liệu đè header */}
             <thead className="sticky top-0 z-50 bg-amber-100/90 dark:bg-amber-900/30 backdrop-blur-sm text-center [&_th]:!text-[13px] [&_th]:!leading-tight [&_th]:font-bold [&_th]:!border-black [&_th]:dark:!border-stone-200 [&_th]:transition-[filter,box-shadow] [&_th]:duration-200 [&_th]:hover:brightness-[1.04] dark:[&_th]:hover:brightness-110">

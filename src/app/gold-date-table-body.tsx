@@ -251,6 +251,8 @@ function GoldDateTableDataRow({
                       ? `sticky left-0 z-20 min-w-0 max-w-[48px] border-r border-b border-black dark:border-stone-200 px-0.5 py-1 text-center text-[12px] font-bold tabular-nums leading-tight text-balance text-stone-950 dark:text-stone-100 bg-orange-50 dark:bg-orange-950 group-hover/row:bg-orange-100 dark:group-hover/row:bg-orange-900 shadow-[4px_0_10px_-6px_rgba(0,0,0,0.15)] dark:shadow-[4px_0_10px_-6px_rgba(0,0,0,0.5)] ${TD_CELL_FX}`
                       : j === 12
                         ? `sticky z-[19] min-w-0 border-r border-b border-black dark:border-stone-200 ${TABLE_TD_PAD} text-center ${TABLE_TEXT} font-bold tabular-nums text-balance text-stone-950 dark:text-stone-100 bg-sky-100 dark:bg-sky-950 group-hover/row:bg-sky-200 dark:group-hover/row:bg-sky-900 shadow-[4px_0_10px_-6px_rgba(0,0,0,0.12)] dark:shadow-[4px_0_10px_-6px_rgba(0,0,0,0.45)] ${TD_CELL_FX}`
+                        : j >= 67 && j <= 70
+                          ? `border-r border-b border-black dark:border-stone-200 ${TABLE_TD_PAD} text-center ${TABLE_TEXT} font-bold tabular-nums whitespace-nowrap text-stone-950 dark:text-stone-50 ${api.getRegionBgClass(j)} ${TD_CELL_FX}`
                         : j >= 61 && j <= 66
                           ? `border-r border-b border-black dark:border-stone-200 ${TABLE_TD_PAD} text-center ${TABLE_TEXT} font-bold tabular-nums whitespace-normal break-words text-stone-950 dark:text-stone-50 ${api.getRegionBgClass(j)} ${TD_CELL_FX}`
                           : `border-r border-b border-black dark:border-stone-200 ${TABLE_TD_PAD} text-center ${TABLE_TEXT} font-bold tabular-nums whitespace-normal break-words text-stone-950 dark:text-stone-50 ${api.getRegionBgClass(j)} ${TD_CELL_FX}`
