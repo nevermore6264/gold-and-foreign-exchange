@@ -16,6 +16,7 @@ import {
 } from "@/lib/full-table-cache";
 import {
   hasAllDatesInMaster,
+  isMasterMarketDataStale,
   mergeRowsIntoFullTableMaster,
   readFullTableMaster,
 } from "@/lib/full-table-master-json";
@@ -24,6 +25,11 @@ import { NextRequest, NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 export const maxDuration = 120;
+
+/**
+ * Query: `refresh=1` — bỏ qua master JSON + file cache, gọi lại Investing (dùng khi cần khớp tức thì trang historical).
+ * CSV trên client lấy cùng JSON từ route này — không có pipeline CSV riêng.
+ */
 
 /** Luôn merge snapshot Mạnh Hải mới nhất (master/cache có thể cũ ở col_1..10). */
 async function patchRowsWithManhHaiSnapshots(
@@ -59,10 +65,13 @@ export async function GET(request: NextRequest) {
     }
 
     if (!refresh) {
-      // Fast path: nếu master JSON đã có đủ tất cả ngày trong khoảng
+      // Fast path: master đủ ngày + chưa quá cũ (OHLC thị trường phải khớp Investing gần đây)
       const dates = generateAllDates(from, to);
       const master = await readFullTableMaster();
-      if (hasAllDatesInMaster(master, dates)) {
+      if (
+        hasAllDatesInMaster(master, dates) &&
+        !isMasterMarketDataStale(master)
+      ) {
         const rows = await patchRowsWithManhHaiSnapshots(
           dates.map((d) => ({ ...master.byDate[d]! })),
         );

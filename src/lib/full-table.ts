@@ -2,12 +2,8 @@
  * Bảng 61 trường index (col_0 .. col_60). Nguồn:
  * - col_1-10: Mua/Bán Mạnh Hải (file cache/manh-hai; nếu thiếu → backfill từ lịch sử CafeF từ ~2025-02-08, 1 giá/ngày × 4 khung giờ)
  * - col_12: DATE
- * - col_13-21: KITCO (GC=F / XAU): MỞ·ĐÓNG·Cao·Thấp·% từ OHLC ngày;
- *   4 cột 9h/11h/14h30/17h30 (giờ VN) → mẫu nến 1h Yahoo tại các mốc đó
- * - col_22-30: Giá dầu → OHLC ngày (Investing + Yahoo CL=F); 4 cột 9h/11h/14h30/17h30 VN → Yahoo 1h
- * - col_31-39: Dollar → OHLC ngày; 4 slot VN → Yahoo 1h DX-Y.NYB
- * - col_40-48: US 10Y → OHLC ngày; 4 slot VN → Yahoo 1h ^TNX (scale ÷10)
- * - col_49-57: S&P → OHLC ngày; 4 slot VN → Yahoo 1h ^GSPC
+ * - col_13-57: Dầu, DXY, US10Y, S&P, XAU/USD — chỉ Investing.com (chart API + bảng historical vàng id 68);
+ *   các cột 9h/11h/14h30/17h30 (VN) cho từng nhóm: không intraday — lấp bằng MỞ ngày (daily)
  * - col_58..col_60: Tỷ giá VCB (Mua tiền mặt / Mua chuyển khoản / Bán)
  */
 
@@ -18,16 +14,10 @@ import {
 } from "./vietcombank";
 import {
   fetchInvestingHistorical,
+  fetchInvestingXauUsd,
   PAIR_IDS,
   type OHLCRow,
 } from "./investing";
-import { fetchOilHistoricalYahoo } from "./oil";
-import { fetchDollarIndexHistoricalYahoo } from "./dollar";
-import { fetchXauUsdHistoricalYahoo } from "./xau";
-import { fetchGoldGcVnSlotsByDateRange } from "./gold-gc-vn-slots";
-import { fetchYahoo1hVnSlotsByDateRange } from "./yahoo-1h-vn-slots";
-import { fetchBond10yHistoricalYahoo } from "./bond-10y";
-import { fetchSp500HistoricalYahoo } from "./sp500";
 import { fetchCafeFDomesticSjcByVnDateCached } from "./gold-cafef";
 import { MANH_HAI_COL } from "./manh-hai-columns";
 import {
@@ -40,6 +30,18 @@ import {
 const CONCURRENCY = 8;
 export const START_DATE = "2022-01-01";
 const LOOKBACK_DAYS_FOR_CHANGE = 10;
+
+/** Map ngày → 4 mốc VN; để rỗng thì col_14–17 / 23–26 / … lấy từ MỞ daily. */
+type VnIntradaySlots = {
+  col14: number | null;
+  col15: number | null;
+  col16: number | null;
+  col17: number | null;
+};
+
+function emptyVnSlotsMap(): Map<string, VnIntradaySlots> {
+  return new Map();
+}
 
 function addDaysIso(iso: string, deltaDays: number): string {
   const [y, m, d] = iso.split("-").map((x) => parseInt(x, 10));
@@ -56,9 +58,7 @@ function addDaysIso(iso: string, deltaDays: number): string {
  * Không dùng `new Date("YYYY-MM-DD")` (UTC) để tránh lệch tháng/ngày theo múi giờ server.
  */
 export function generateAllDates(start: string, end?: string): string[] {
-  const endIso =
-    end ??
-    new Date().toISOString().slice(0, 10);
+  const endIso = end ?? new Date().toISOString().slice(0, 10);
   const dates: string[] = [];
   const [sy, sm, sd] = start.split("-").map((x) => parseInt(x, 10));
   const [ey, em, ed] = endIso.split("-").map((x) => parseInt(x, 10));
@@ -94,17 +94,6 @@ function ohlcToCols(row: OHLCRow | null): (string | number | null)[] {
   return [row.open, row.high, row.low, row.close, row.changePercent ?? null];
 }
 
-/**
- * Gộp hai nguồn OHLC: cùng ngày thì ưu tiên primary (Investing).
- * Cần vì Investing chỉ trả tối đa N điểm — các ngày gần nhất có thể chỉ có ở Yahoo.
- */
-function mergeOhlcByDate(primary: OHLCRow[], fallback: OHLCRow[]): OHLCRow[] {
-  const map = new Map<string, OHLCRow>();
-  for (const r of fallback) map.set(r.date, { ...r });
-  for (const r of primary) map.set(r.date, { ...r });
-  return [...map.values()].sort((a, b) => a.date.localeCompare(b.date));
-}
-
 function recomputeChangePercent(rows: OHLCRow[]): OHLCRow[] {
   const sorted = [...rows].sort((a, b) => a.date.localeCompare(b.date));
   return sorted.map((r, i) => {
@@ -136,8 +125,7 @@ export function applyManhHaiSnapshotToRow(
   const sell11 = slot("11:00")?.sell ?? null;
   const sell1430 = slot("14:30")?.sell ?? null;
   const sell1730 = slot("17:30")?.sell ?? null;
-  const buyDiff =
-    buy09 != null && buy1730 != null ? buy1730 - buy09 : null;
+  const buyDiff = buy09 != null && buy1730 != null ? buy1730 - buy09 : null;
   const sellDiff =
     sell09 != null && sell1730 != null ? sell1730 - sell09 : null;
 
@@ -179,79 +167,44 @@ export async function getFullTableRange(
     vcbRates,
     fileManhHaiSnaps,
     cafeDomesticByDate,
-    oilYahoo,
     oilInvesting,
-    dollarYahoo,
     dollarInvesting,
-    bond,
-    bondYahoo,
+    bondInvesting,
     xauUsd,
-    xauUsdYahoo,
-    sp500,
-    sp500Yahoo,
+    sp500Investing,
   ] = await Promise.all([
     fetchGoldFromFreeGoldAPI(),
     // VCB theo ngày trong range (đủ cho 3 cột cuối)
     runInBatches(dates, (d) => fetchVietcombankUsdRatesByDate(d)),
     Promise.all(dates.map((d) => readManhHaiSnapshot(d))),
     fetchCafeFDomesticSjcByVnDateCached(),
-    // Market series: fetch theo window mở rộng để có prevClose cho ngày đầu kỳ
-    fetchOilHistoricalYahoo(fetchFrom, to),
+    // Chỉ Investing — cùng window để prevClose cho ngày đầu kỳ
     fetchInvestingHistorical(PAIR_IDS.crudeOil, fetchFrom, to),
-    fetchDollarIndexHistoricalYahoo(fetchFrom, to),
     fetchInvestingHistorical(PAIR_IDS.dollarIndex, fetchFrom, to),
     fetchInvestingHistorical(PAIR_IDS.us10yBond, fetchFrom, to),
-    fetchBond10yHistoricalYahoo(fetchFrom, to),
-    fetchInvestingHistorical(PAIR_IDS.xauUsd, fetchFrom, to),
-    fetchXauUsdHistoricalYahoo(fetchFrom, to),
+    fetchInvestingXauUsd(fetchFrom, to),
     fetchInvestingHistorical(PAIR_IDS.sp500, fetchFrom, to),
-    fetchSp500HistoricalYahoo(fetchFrom, to),
   ]);
 
   const manhHaiSnapshots = dates.map((d, i) =>
-    mergeManhHaiSnapshotWithCafeFBackfill(d, fileManhHaiSnaps[i], cafeDomesticByDate),
+    mergeManhHaiSnapshotWithCafeFBackfill(
+      d,
+      fileManhHaiSnaps[i],
+      cafeDomesticByDate,
+    ),
   );
 
-  const vnRangeStart = dates[0] ?? from;
-  const vnRangeEnd = dates[dates.length - 1] ?? to;
-  const [
-    goldGcVnSlots,
-    oilVnSlots,
-    dollarVnSlots,
-    bondVnSlots,
-    spVnSlots,
-  ] =
-    dates.length > 0
-      ? await Promise.all([
-          fetchGoldGcVnSlotsByDateRange(vnRangeStart, vnRangeEnd),
-          fetchYahoo1hVnSlotsByDateRange("CL=F", vnRangeStart, vnRangeEnd),
-          fetchYahoo1hVnSlotsByDateRange("DX-Y.NYB", vnRangeStart, vnRangeEnd),
-          fetchYahoo1hVnSlotsByDateRange("^TNX", vnRangeStart, vnRangeEnd, {
-            priceScale: 10,
-          }),
-          fetchYahoo1hVnSlotsByDateRange("^GSPC", vnRangeStart, vnRangeEnd),
-        ])
-      : [
-          new Map(),
-          new Map(),
-          new Map(),
-          new Map(),
-          new Map(),
-        ];
+  const goldVnSlots = emptyVnSlotsMap();
+  const oilVnSlots = emptyVnSlotsMap();
+  const dollarVnSlots = emptyVnSlotsMap();
+  const bondVnSlots = emptyVnSlotsMap();
+  const spVnSlots = emptyVnSlotsMap();
 
-  // Gộp Investing + Yahoo theo ngày (Investing có giới hạn pointscount → tháng gần nhất có thể thiếu).
-  const oil = recomputeChangePercent(mergeOhlcByDate(oilInvesting, oilYahoo));
-  // Dollar: ưu tiên Yahoo trùng ngày — API Investing hay bị Cloudflare / trả rỗng trên serverless,
-  // trong khi DX-Y.NYB (Yahoo) thường ổn định hơn.
-  const dollar = recomputeChangePercent(
-    mergeOhlcByDate(dollarYahoo, dollarInvesting),
-  );
-  const bondData = recomputeChangePercent(mergeOhlcByDate(bond, bondYahoo));
-  // Vàng: ưu tiên Yahoo GC=F (COMEX, mở/đóng theo phiên Mỹ) — Investing XAU spot có thể lệch mốc MỞ.
-  const xauCombined = recomputeChangePercent(
-    mergeOhlcByDate(xauUsdYahoo as OHLCRow[], xauUsd),
-  );
-  const spData = recomputeChangePercent(mergeOhlcByDate(sp500, sp500Yahoo));
+  const oil = recomputeChangePercent(oilInvesting);
+  const dollar = recomputeChangePercent(dollarInvesting);
+  const bondData = recomputeChangePercent(bondInvesting);
+  const xauCombined = recomputeChangePercent(xauUsd);
+  const spData = recomputeChangePercent(sp500Investing);
 
   const goldByMonth = new Map<string, number>();
   for (const { date, price } of goldList) {
@@ -278,7 +231,10 @@ export async function getFullTableRange(
   const vcbByDate = new Map<string, VietcombankUsdRates>();
   for (let i = 0; i < dates.length; i++) vcbByDate.set(dates[i], vcbRates[i]);
 
-  const manhHaiByDate = new Map<string, ReturnType<typeof readManhHaiSnapshot> extends Promise<infer T> ? T : never>();
+  const manhHaiByDate = new Map<
+    string,
+    ReturnType<typeof readManhHaiSnapshot> extends Promise<infer T> ? T : never
+  >();
   for (let i = 0; i < dates.length; i++) {
     const snap = manhHaiSnapshots[i] ?? null;
     if (snap?.date) manhHaiByDate.set(snap.date, snap);
@@ -323,7 +279,7 @@ export async function getFullTableRange(
       kitcoChange = null;
     }
 
-    const vnSl = goldGcVnSlots.get(date);
+    const vnSl = goldVnSlots.get(date);
     const fb = kitcoOpen;
     const k14 = vnSl?.col14 ?? fb;
     const k15 = vnSl?.col15 ?? fb;

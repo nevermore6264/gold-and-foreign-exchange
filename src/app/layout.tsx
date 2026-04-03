@@ -39,9 +39,7 @@ export default function RootLayout({
   return (
     <html lang="vi" className="h-full" suppressHydrationWarning>
       <head>
-        <script
-          dangerouslySetInnerHTML={{ __html: themeBootstrapScript }}
-        />
+        <script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} h-full min-h-0 antialiased`}

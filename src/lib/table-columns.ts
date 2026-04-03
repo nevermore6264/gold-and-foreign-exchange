@@ -4,7 +4,7 @@
  * **Mapping nguồn dữ liệu `col_j` (JSON full-table / master):**
  * - 0: STT (ẩn)
  * - 1–5: MUA Mạnh Hải — 9h, 11h, 14h30, 17h30, chênh
- * - 67–70: Lãi (nếu bán ra) — cùng 4 mốc VN: ∑ chỉ đang có × Giá BÁN − ∑ Đầu tư
+ * - 67–70: Lãi (nếu bán ra) — cùng 4 mốc giờ VN (tính từ ô nhập + MUA/BÁN)
  * - 6–10: BÁN Mạnh Hải — 4 mốc + chênh (cùng nhóm bật/tắt với 61–66)
  * - 61: ∑ chỉ vàng; 66: ∑ chỉ vàng thêm; 62–65: chênh lệch trong nước / TG (4 mốc)
  * - 13–21: KITCO (0h MỞ, 4 mốc VN, ĐÓNG, cao, thấp, %)

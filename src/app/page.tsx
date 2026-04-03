@@ -62,20 +62,6 @@ function colWidthPxForVisibleJ(j: number): number {
 
 type FullTableRow = Record<string, string | number | null>;
 
-type MarketLiveResponse = {
-  oil?: { price?: number; changePercent?: number; updatedAt: string };
-  dollarIndex?: { price?: number; changePercent?: number; updatedAt: string };
-  bond10y?: { price?: number; changePercent?: number; updatedAt: string };
-  sp500?: { price?: number; changePercent?: number; updatedAt: string };
-  /** COMEX GC=F — MỞ/PRICE theo phiên Mỹ */
-  goldGc?: {
-    price?: number;
-    changePercent?: number;
-    regularMarketOpen?: number;
-    updatedAt: string;
-  };
-};
-
 function toIsoDateLocal(d: Date): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -736,8 +722,11 @@ export default function Home() {
     chunkCurrent: number;
     chunkTotal: number;
   } | null>(null);
-  const [marketLive, setMarketLive] = useState<MarketLiveResponse>();
-
+  /** Mẫu JSON phản hồi /api/full-table (chunk đầu hoàn thành) — để đối chiếu dữ liệu */
+  const [fullTableApiDebugJson, setFullTableApiDebugJson] = useState<
+    string | null
+  >(null);
+  const fullTableApiDebugCaptureRef = useRef<string | null>(null);
   /** ∑ TÀI SẢN / ∑ CHỈ VÀNG CŨ — nhập tay, lưu trên trình duyệt */
   const [totalTaiSan, setTotalTaiSan] = useState("");
   const [totalChiVangCu, setTotalChiVangCu] = useState("");
@@ -746,18 +735,12 @@ export default function Home() {
   /** Σ chỉ vàng đang có — tham chiếu */
   const [chiVangDangCo, setChiVangDangCo] = useState("");
 
+  /** Luôn DEFAULT lúc SSR + paint đầu — tránh hydration mismatch (client trước đây đọc localStorage ngay). */
   const [columnVisibility, setColumnVisibility] = useState<
     Record<ToggleableColGroup, boolean>
-  >(() => {
-    if (typeof window === "undefined") return { ...DEFAULT_COLUMN_VISIBILITY };
-    try {
-      return parseColumnVisibilityFromStorage(
-        localStorage.getItem(LS_COLUMN_VISIBILITY),
-      );
-    } catch {
-      return { ...DEFAULT_COLUMN_VISIBILITY };
-    }
-  });
+  >(() => ({ ...DEFAULT_COLUMN_VISIBILITY }));
+  /** Lần đầu [columnVisibility] chạy là giá trị DEFAULT trước hydrate — không ghi đè localStorage. */
+  const columnVisibilityPersistSkipOnce = useRef(false);
   const [columnMenuOpen, setColumnMenuOpen] = useState(false);
   const [columnMenuQuery, setColumnMenuQuery] = useState("");
 
@@ -814,6 +797,22 @@ export default function Home() {
 
   useEffect(() => {
     try {
+      setColumnVisibility(
+        parseColumnVisibilityFromStorage(
+          localStorage.getItem(LS_COLUMN_VISIBILITY),
+        ),
+      );
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!columnVisibilityPersistSkipOnce.current) {
+      columnVisibilityPersistSkipOnce.current = true;
+      return;
+    }
+    try {
       localStorage.setItem(
         LS_COLUMN_VISIBILITY,
         JSON.stringify(columnVisibility),
@@ -866,10 +865,14 @@ export default function Home() {
         setFullRowsByDate({});
         setTableLoadProgress(null);
         setIsLoadingTable(false);
+        setFullTableApiDebugJson(null);
+        fullTableApiDebugCaptureRef.current = null;
         return;
       }
 
       try {
+        fullTableApiDebugCaptureRef.current = null;
+        setFullTableApiDebugJson(null);
         const chunks = splitRangeIntoYearChunks(from, to);
         const chunkTotal = Math.max(1, chunks.length);
         setTableLoadProgress({
@@ -894,12 +897,35 @@ export default function Home() {
             if (cancelled) return;
             try {
               const res = await fetch(
-                `/api/full-table?from=${encodeURIComponent(cf)}&to=${encodeURIComponent(ct)}`,
-                { signal: controller.signal },
+                `/api/full-table?from=${encodeURIComponent(cf)}&to=${encodeURIComponent(ct)}&refresh=1`,
+                { signal: controller.signal, cache: "no-store" },
               );
               if (!res.ok) return;
-              const data = (await res.json()) as { rows?: FullTableRow[] };
+              const data = (await res.json()) as {
+                rows?: FullTableRow[];
+                fromDate?: string;
+                toDate?: string;
+              };
               const rows = data.rows ?? [];
+              if (fullTableApiDebugCaptureRef.current === null) {
+                const preview = rows.slice(0, 6);
+                fullTableApiDebugCaptureRef.current = JSON.stringify(
+                  {
+                    endpoint: "/api/full-table",
+                    query: { from: cf, to: ct, refresh: "1" },
+                    fromDate: data.fromDate ?? cf,
+                    toDate: data.toDate ?? ct,
+                    rowCountInChunk: rows.length,
+                    rowsPreview: preview,
+                    rowsPreviewNote:
+                      rows.length > preview.length
+                        ? `… còn ${rows.length - preview.length} dòng trong chunk này`
+                        : null,
+                  },
+                  null,
+                  2,
+                );
+              }
               if (cancelled) return;
               loadedAccum += rows.length;
               doneChunks += 1;
@@ -934,6 +960,7 @@ export default function Home() {
             }
             return next;
           });
+          setFullTableApiDebugJson(fullTableApiDebugCaptureRef.current);
         }
       } catch {
         // ignore
@@ -976,28 +1003,6 @@ export default function Home() {
     };
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadMarketLive() {
-      try {
-        const res = await fetch("/api/market-live", { cache: "no-store" });
-        if (!res.ok) return;
-        const data = (await res.json()) as MarketLiveResponse;
-        if (!cancelled) setMarketLive(data);
-      } catch {
-        // ignore
-      }
-    }
-
-    loadMarketLive();
-    const t = setInterval(loadMarketLive, 60_000);
-    return () => {
-      cancelled = true;
-      clearInterval(t);
-    };
-  }, []);
-
   function kitcoCellValue(isoDate: string, colIndex: number): string {
     const base = fullRowsByDate[isoDate];
     const baseVal = base ? base[`col_${colIndex}`] : null;
@@ -1011,13 +1016,6 @@ export default function Home() {
 
     if (isoDate !== vnNow.isoDate)
       return formatMarketNumberByColumn(baseVal, colIndex);
-
-    // MỞ (US): Yahoo GC=F regularMarketOpen — khớp phiên COMEX, không dùng spot Investing/Kitco
-    if (colIndex === 13) {
-      const o = marketLive?.goldGc?.regularMarketOpen;
-      if (typeof o === "number" && Number.isFinite(o))
-        return formatMarketNumberByColumn(o, colIndex);
-    }
 
     return formatMarketNumberByColumn(baseVal, colIndex);
   }
@@ -1041,61 +1039,6 @@ export default function Home() {
         sp500: [54, 55, 56, 57],
       };
       if (closeHighLowCh[kind].includes(colIndex)) return "–";
-    }
-
-    const vnNow = getVietnamNowParts();
-    if (isoDate !== vnNow.isoDate)
-      return formatMarketNumberByColumn(baseVal, colIndex);
-
-    const live =
-      kind === "oil"
-        ? marketLive?.oil
-        : kind === "dollarIndex"
-          ? marketLive?.dollarIndex
-          : kind === "bond10y"
-            ? marketLive?.bond10y
-            : marketLive?.sp500;
-    const livePrice = live?.price;
-    const liveChangePercent = live?.changePercent;
-
-    const start =
-      kind === "oil"
-        ? 22
-        : kind === "dollarIndex"
-          ? 31
-          : kind === "bond10y"
-            ? 40
-            : 49; // open slots start
-    const changeCol =
-      kind === "oil"
-        ? 30
-        : kind === "dollarIndex"
-          ? 39
-          : kind === "bond10y"
-            ? 48
-            : 57;
-
-    // Khung cột theo mốc giờ VN (cùng lưới với Mạnh Hải); với hàng hôm nay,
-    // các ô “mở cửa” 22–26 / 31–35 / … có thể hiện cùng giá realtime phiên Mỹ (xem /api/market-live).
-    if (colIndex >= start && colIndex <= start + 4) {
-      if (typeof livePrice !== "number")
-        return formatMarketNumberByColumn(baseVal, colIndex);
-      return formatMarketNumberByColumn(livePrice, colIndex);
-    }
-
-    // change%: hôm nay sau khi hiển thị OHLC ngày thì dùng % từ bảng (OHLC), không dùng % realtime (chưa phải đóng phiên).
-    if (colIndex === changeCol) {
-      if (
-        isoDate === vnNow.isoDate &&
-        shouldShowDailyOhlcForVnTodayRow(isoDate)
-      )
-        return formatCellValue(baseVal);
-      if (
-        typeof liveChangePercent === "number" &&
-        Number.isFinite(liveChangePercent)
-      )
-        return `${liveChangePercent.toFixed(2)}%`;
-      return formatCellValue(baseVal);
     }
 
     return formatMarketNumberByColumn(baseVal, colIndex);
@@ -1599,7 +1542,6 @@ export default function Home() {
       neutralPriceClass,
       fullRowsByDate,
       manhHaiLive,
-      marketLive,
       totalTaiSan,
       totalChiVangCu,
       chiVangDangCo,
@@ -2051,6 +1993,19 @@ export default function Home() {
       </header>
 
       <main className="flex min-h-0 flex-1 flex-col overflow-hidden px-0 pb-2 pt-2 sm:pt-3">
+        {fullTableApiDebugJson != null && fullTableApiDebugJson.length > 0 ? (
+          <details className="mx-3 sm:mx-4 mb-2 rounded-lg border border-amber-300/90 bg-amber-50/95 px-3 py-2 dark:border-amber-800 dark:bg-amber-950/50">
+            <summary className="cursor-pointer select-none text-[13px] font-bold text-amber-950 dark:text-amber-100">
+              JSON phản hồi API (chunk đầu — mẫu vài dòng)
+            </summary>
+            <pre
+              className="mt-2 max-h-[min(50vh,24rem)] overflow-auto rounded-md border border-amber-200 bg-white p-2 text-left text-[11px] leading-snug text-stone-800 dark:border-amber-900 dark:bg-stone-950 dark:text-stone-200"
+              tabIndex={0}
+            >
+              {fullTableApiDebugJson}
+            </pre>
+          </details>
+        ) : null}
         {cellColorPicker != null &&
           typeof document !== "undefined" &&
           createPortal(
@@ -3247,7 +3202,9 @@ export default function Home() {
               <span className="flex h-8 w-8 items-center justify-center rounded-lg overflow-hidden">
                 <Image src="/favicon.svg" alt="Logo" width={20} height={20} />
               </span>
-              <p>© {new Date().getFullYear()} · Giá vàng & Tỷ giá</p>
+              <p suppressHydrationWarning>
+                © {new Date().getFullYear()} · Giá vàng & Tỷ giá
+              </p>
             </div>
             <p className="text-[14px]">Make by Trần Trung Hiếu - 0862478150</p>
           </div>
