@@ -52,7 +52,8 @@ export interface OHLCRow {
   changePercent: string | null;
 }
 
-interface InvestingChartPoint {
+/** Điểm trong `data[]` của `.../historical/chart` (Investing). */
+export interface InvestingChartPoint {
   date?: number;
   price_open?: number;
   price_high?: number;
@@ -60,23 +61,178 @@ interface InvestingChartPoint {
   price_close?: number;
 }
 
-/** Một dòng từ `GET .../historical/{instrumentId}?...&time-frame=Daily` */
-interface InvestingHistoricalTableRow {
-  rowDateTimestamp?: string;
-  last_openRaw?: string | number;
-  last_maxRaw?: string | number;
-  last_minRaw?: string | number;
-  last_closeRaw?: string | number;
-  change_precentRaw?: number;
-}
+/** Một dòng từ `GET .../historical/{instrumentId}?...&time-frame=Daily` (tên trường có thể đổi theo bản API). */
+type InvestingHistoricalTableRow = Record<string, unknown>;
 
 function parseInvestingNum(raw: unknown): number {
   if (typeof raw === "number" && Number.isFinite(raw)) return raw;
   if (typeof raw === "string") {
-    const n = parseFloat(raw);
+    const n = parseFloat(raw.replace(/,/g, ""));
     return Number.isFinite(n) ? n : NaN;
   }
   return NaN;
+}
+
+function pickNum(row: InvestingHistoricalTableRow, keys: string[]): number {
+  for (const k of keys) {
+    if (!(k in row)) continue;
+    const n = parseInvestingNum(row[k]);
+    if (Number.isFinite(n)) return n;
+  }
+  return NaN;
+}
+
+function pickDateIso(row: InvestingHistoricalTableRow): string | null {
+  const keys = [
+    "rowDateTimestamp",
+    "RowDateTimestamp",
+    "row_date_timestamp",
+    "date",
+    "Date",
+  ];
+  for (const k of keys) {
+    const v = row[k];
+    if (typeof v === "string" && v.length >= 10) return v.slice(0, 10);
+    if (typeof v === "number" && Number.isFinite(v)) {
+      const d = new Date(v);
+      if (!Number.isNaN(d.getTime())) {
+        const y = d.getUTCFullYear();
+        const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+        const day = String(d.getUTCDate()).padStart(2, "0");
+        return `${y}-${m}-${day}`;
+      }
+    }
+  }
+  return null;
+}
+
+/** Cột “Price” trên web = đóng phiên → close. */
+function parseHistoricalTableOhlc(row: InvestingHistoricalTableRow): {
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  changePercent: string | null;
+} | null {
+  const open = pickNum(row, [
+    "last_openRaw",
+    "lastOpenRaw",
+    "last_open",
+    "open",
+    "Open",
+  ]);
+  const high = pickNum(row, [
+    "last_maxRaw",
+    "lastMaxRaw",
+    "high",
+    "High",
+    "last_high",
+    "max",
+  ]);
+  const low = pickNum(row, [
+    "last_minRaw",
+    "lastMinRaw",
+    "low",
+    "Low",
+    "last_low",
+    "min",
+  ]);
+  const close = pickNum(row, [
+    "last_closeRaw",
+    "lastCloseRaw",
+    "last_close",
+    "close",
+    "Close",
+    "last_priceRaw",
+    "lastPriceRaw",
+    "price",
+    "Price",
+  ]);
+  if (![open, high, low, close].every((n) => Number.isFinite(n))) return null;
+
+  let changePercent: string | null = null;
+  const ch = pickNum(row, [
+    "change_precentRaw",
+    "changePercentRaw",
+    "change_percent",
+    "ChangePercent",
+    "pct_change",
+    "percent_change",
+  ]);
+  if (Number.isFinite(ch)) changePercent = `${ch.toFixed(2)}%`;
+  else {
+    const s = row.change_precentRaw ?? row.changePercentRaw ?? row.change_percent;
+    if (typeof s === "string" && s.trim()) {
+      const t = s.trim();
+      changePercent = t.includes("%") ? t : `${t}%`;
+    }
+  }
+
+  return { open, high, low, close, changePercent };
+}
+
+/**
+ * Parse body JSON từ `GET .../historical/{id}?...` (sao chép từ DevTools / pipeline local).
+ */
+export function parseOhlcFromHistoricalTableJson(
+  json: unknown,
+  fromDate: string,
+  toDate: string,
+): OHLCRow[] {
+  const j = json as { data?: InvestingHistoricalTableRow[] };
+  const list = j?.data ?? [];
+  const rows: OHLCRow[] = [];
+  for (const raw of list) {
+    const dateStr = pickDateIso(raw);
+    if (!dateStr || dateStr < fromDate || dateStr > toDate) continue;
+    const ohlc = parseHistoricalTableOhlc(raw);
+    if (!ohlc) continue;
+    rows.push({ date: dateStr, ...ohlc });
+  }
+  rows.sort((a, b) => a.date.localeCompare(b.date));
+  return rows;
+}
+
+/**
+ * Parse body JSON từ `GET .../{pairId}/historical/chart?...` (sao chép từ DevTools).
+ */
+export function parseOhlcFromChartJson(
+  json: unknown,
+  fromDate: string,
+  toDate: string,
+): OHLCRow[] {
+  const j = json as { data?: InvestingChartPoint[] };
+  const points = [...(j?.data ?? [])].sort(
+    (a, b) => (a.date ?? 0) - (b.date ?? 0),
+  );
+  const byDay = new Map<string, Omit<OHLCRow, "changePercent">>();
+  for (const p of points) {
+    const ts = p.date;
+    if (ts == null) continue;
+    const d = new Date(ts * 1000);
+    const yyyy = d.getUTCFullYear();
+    const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+    const dd = String(d.getUTCDate()).padStart(2, "0");
+    const dateStr = `${yyyy}-${mm}-${dd}`;
+    if (dateStr < fromDate || dateStr > toDate) continue;
+    const open = p.price_open ?? p.price_close ?? 0;
+    const high = p.price_high ?? p.price_close ?? open;
+    const low = p.price_low ?? p.price_close ?? open;
+    const close = p.price_close ?? open;
+    byDay.set(dateStr, { date: dateStr, open, high, low, close });
+  }
+  const sortedDates = [...byDay.keys()].sort((a, b) => a.localeCompare(b));
+  const rows: OHLCRow[] = [];
+  for (const dateStr of sortedDates) {
+    const row = byDay.get(dateStr)!;
+    const prevClose = rows.length > 0 ? rows[rows.length - 1].close : row.close;
+    const changePercent =
+      prevClose && prevClose !== 0
+        ? (((row.close - prevClose) / prevClose) * 100).toFixed(2) + "%"
+        : null;
+    rows.push({ ...row, changePercent });
+  }
+  return rows;
 }
 
 /**
@@ -103,28 +259,8 @@ export async function fetchInvestingHistoricalDailyTable(
     if (!res.ok) return [];
     const ct = res.headers.get("content-type") ?? "";
     if (!ct.includes("application/json")) return [];
-    const json = (await res.json()) as { data?: InvestingHistoricalTableRow[] };
-    const list = json?.data ?? [];
-    const rows: OHLCRow[] = [];
-    for (const r of list) {
-      const ts = r.rowDateTimestamp;
-      const dateStr =
-        typeof ts === "string" && ts.length >= 10 ? ts.slice(0, 10) : null;
-      if (!dateStr || dateStr < fromDate || dateStr > toDate) continue;
-      const open = parseInvestingNum(r.last_openRaw);
-      const high = parseInvestingNum(r.last_maxRaw);
-      const low = parseInvestingNum(r.last_minRaw);
-      const close = parseInvestingNum(r.last_closeRaw);
-      if (![open, high, low, close].every((n) => Number.isFinite(n))) continue;
-      const ch = r.change_precentRaw;
-      const changePercent =
-        typeof ch === "number" && Number.isFinite(ch)
-          ? `${ch.toFixed(2)}%`
-          : null;
-      rows.push({ date: dateStr, open, high, low, close, changePercent });
-    }
-    rows.sort((a, b) => a.date.localeCompare(b.date));
-    return rows;
+    const json = await res.json();
+    return parseOhlcFromHistoricalTableJson(json, fromDate, toDate);
   } catch {
     return [];
   }
@@ -163,44 +299,350 @@ export async function fetchInvestingHistorical(
       headers: DEFAULT_HEADERS,
     });
     if (!res.ok) return [];
-    const data = (await res.json()) as { data?: InvestingChartPoint[] };
-    const points = [...(data?.data ?? [])].sort(
-      (a, b) => (a.date ?? 0) - (b.date ?? 0),
-    );
+    const data = await res.json();
+    return parseOhlcFromChartJson(data, fromDate, toDate);
+  } catch {
+    return [];
+  }
+}
 
-    const byDay = new Map<string, Omit<OHLCRow, "changePercent">>();
+/** Gọi thử `historical/68` — dùng cho `_debug` trên API (Cloudflare / sai field JSON). */
+export type InvestingXau68ProbeResult = {
+  historicalRequestUrl: string;
+  httpOk: boolean;
+  httpStatus: number;
+  contentType: string | null;
+  bodyIsProbablyHtml: boolean;
+  bodySnippet: string;
+  jsonTopLevelKeys: string[] | null;
+  dataArrayLength: number | null;
+  firstDataRowKeys: string[] | null;
+  /** JSON đã parse từ body (cùng cấu trúc Investing trả về). */
+  rawResponseJson?: unknown;
+  /** Số dòng parse được OHLC (cùng logic với `fetchInvestingHistoricalDailyTable`). */
+  parsedOhlcRowCount: number;
+  parseNote?: string;
+};
+
+export async function probeInvestingXauHistorical68(
+  fromDate: string,
+  toDate: string,
+): Promise<InvestingXau68ProbeResult> {
+  const qs = new URLSearchParams({
+    "start-date": fromDate,
+    "end-date": toDate,
+    "time-frame": "Daily",
+    "add-missing-rows": "false",
+  });
+  const historicalRequestUrl = `${INVESTING_API}/historical/${XAU_USD_HISTORICAL_INSTRUMENT_ID}?${qs}`;
+  const base: Omit<InvestingXau68ProbeResult, "parsedOhlcRowCount" | "parseNote"> = {
+    historicalRequestUrl,
+    httpOk: false,
+    httpStatus: 0,
+    contentType: null,
+    bodyIsProbablyHtml: true,
+    bodySnippet: "",
+    jsonTopLevelKeys: null,
+    dataArrayLength: null,
+    firstDataRowKeys: null,
+  };
+  try {
+    const res = await fetch(historicalRequestUrl, {
+      ...INVESTING_FETCH_INIT,
+      headers: HISTORICAL_TABLE_HEADERS,
+    });
+    const text = await res.text();
+    const snippet = text.slice(0, 1800);
+    const probablyHtml =
+      snippet.trimStart().startsWith("<") || /<!DOCTYPE/i.test(snippet);
+    base.httpOk = res.ok;
+    base.httpStatus = res.status;
+    base.contentType = res.headers.get("content-type");
+    base.bodyIsProbablyHtml = probablyHtml;
+    base.bodySnippet = snippet;
+
+    const ct = base.contentType ?? "";
+    if (!ct.includes("application/json") || probablyHtml) {
+      return {
+        ...base,
+        parsedOhlcRowCount: 0,
+        parseNote: "Không phải JSON (thường là Cloudflare / challenge HTML).",
+      };
+    }
+
+    const json = JSON.parse(text) as { data?: InvestingHistoricalTableRow[] };
+    base.jsonTopLevelKeys =
+      json && typeof json === "object" ? Object.keys(json) : [];
+    const list = json.data ?? [];
+    base.dataArrayLength = list.length;
+    const first = list[0];
+    base.firstDataRowKeys =
+      first && typeof first === "object"
+        ? Object.keys(first as object)
+        : null;
+
+    let parsedOhlcRowCount = 0;
+    for (const raw of list) {
+      const dateStr = pickDateIso(raw);
+      if (!dateStr || dateStr < fromDate || dateStr > toDate) continue;
+      if (parseHistoricalTableOhlc(raw)) parsedOhlcRowCount += 1;
+    }
+    const parseNote =
+      list.length > 0 && parsedOhlcRowCount === 0
+        ? "Có `data[]` nhưng không parse được OHLC — kiểm tra tên field trong firstDataRowKeys."
+        : undefined;
+
+    return {
+      ...base,
+      bodySnippet: "",
+      rawResponseJson: json,
+      parsedOhlcRowCount,
+      parseNote,
+    };
+  } catch (e) {
+    return {
+      ...base,
+      bodySnippet: base.bodySnippet || String(e),
+      parsedOhlcRowCount: 0,
+      parseNote: `Lỗi fetch/parse: ${String(e)}`,
+    };
+  }
+}
+
+/** Probe chart daily (cùng endpoint với `fetchInvestingHistorical`). */
+export type InvestingChartDailyProbe = {
+  pairId: number;
+  chartUrl: string;
+  httpOk: boolean;
+  httpStatus: number;
+  contentType: string | null;
+  bodyIsProbablyHtml: boolean;
+  bodySnippet: string;
+  pointsTotalInResponse: number | null;
+  /** Số nến có `date` nằm trong [filterFrom, filterTo] (UTC). */
+  pointsInFilterRange: number;
+  filterRange: { from: string; to: string };
+  sampleInRange: {
+    date: string;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+  } | null;
+  /**
+   * Điểm `data[]` của Investing nằm trong [filterFrom, filterTo] (UTC) — tránh nhét cả ~12k nến.
+   */
+  rawDataInFilterRange?: InvestingChartPoint[];
+  parseNote?: string;
+};
+
+export async function probeInvestingChartDaily(
+  pairId: number,
+  filterFrom: string,
+  filterTo: string,
+): Promise<InvestingChartDailyProbe> {
+  const chartUrl = `${INVESTING_API}/${pairId}/historical/chart?period=P10Y&interval=P1D&pointscount=12000`;
+  const empty: InvestingChartDailyProbe = {
+    pairId,
+    chartUrl,
+    httpOk: false,
+    httpStatus: 0,
+    contentType: null,
+    bodyIsProbablyHtml: true,
+    bodySnippet: "",
+    pointsTotalInResponse: null,
+    pointsInFilterRange: 0,
+    filterRange: { from: filterFrom, to: filterTo },
+    sampleInRange: null,
+  };
+  try {
+    const res = await fetch(chartUrl, {
+      ...INVESTING_FETCH_INIT,
+      headers: DEFAULT_HEADERS,
+    });
+    const text = await res.text();
+    const snippet = text.slice(0, 1200);
+    const probablyHtml =
+      snippet.trimStart().startsWith("<") || /<!DOCTYPE/i.test(snippet);
+    empty.httpOk = res.ok;
+    empty.httpStatus = res.status;
+    empty.contentType = res.headers.get("content-type");
+    empty.bodyIsProbablyHtml = probablyHtml;
+    empty.bodySnippet = snippet;
+
+    const ct = empty.contentType ?? "";
+    if (!ct.includes("application/json") || probablyHtml) {
+      return {
+        ...empty,
+        parseNote: "Không phải JSON (Cloudflare / challenge).",
+      };
+    }
+
+    const json = JSON.parse(text) as { data?: InvestingChartPoint[] };
+    const points = json.data ?? [];
+    empty.bodySnippet = "";
+    empty.pointsTotalInResponse = points.length;
+
+    let sample: InvestingChartDailyProbe["sampleInRange"] = null;
+    let inRange = 0;
+    const rawInFilter: InvestingChartPoint[] = [];
     for (const p of points) {
       const ts = p.date;
       if (ts == null) continue;
       const d = new Date(ts * 1000);
-      const yyyy = d.getFullYear();
-      const mm = String(d.getMonth() + 1).padStart(2, "0");
-      const dd = String(d.getDate()).padStart(2, "0");
+      const yyyy = d.getUTCFullYear();
+      const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+      const dd = String(d.getUTCDate()).padStart(2, "0");
       const dateStr = `${yyyy}-${mm}-${dd}`;
-      if (dateStr < fromDate || dateStr > toDate) continue;
-      const open = p.price_open ?? p.price_close ?? 0;
-      const high = p.price_high ?? p.price_close ?? open;
-      const low = p.price_low ?? p.price_close ?? open;
-      const close = p.price_close ?? open;
-      byDay.set(dateStr, { date: dateStr, open, high, low, close });
+      if (dateStr < filterFrom || dateStr > filterTo) continue;
+      inRange += 1;
+      rawInFilter.push(p);
+      if (!sample) {
+        const open = p.price_open ?? p.price_close ?? 0;
+        const high = p.price_high ?? p.price_close ?? open;
+        const low = p.price_low ?? p.price_close ?? open;
+        const close = p.price_close ?? open;
+        sample = { date: dateStr, open, high, low, close };
+      }
     }
-
-    const sortedDates = [...byDay.keys()].sort((a, b) => a.localeCompare(b));
-    const rows: OHLCRow[] = [];
-    for (const dateStr of sortedDates) {
-      const row = byDay.get(dateStr)!;
-      const prevClose = rows.length > 0 ? rows[rows.length - 1].close : row.close;
-      const changePercent =
-        prevClose && prevClose !== 0
-          ? (((row.close - prevClose) / prevClose) * 100).toFixed(2) + "%"
-          : null;
-      rows.push({
-        ...row,
-        changePercent,
-      });
+    empty.pointsInFilterRange = inRange;
+    empty.sampleInRange = sample;
+    empty.rawDataInFilterRange =
+      rawInFilter.length > 0 ? rawInFilter : undefined;
+    if (points.length > 0 && inRange === 0) {
+      empty.parseNote =
+        "Có điểm chart nhưng không có nến trong filterRange (kiểm tra UTC vs ngày lọc).";
     }
-    return rows;
-  } catch {
-    return [];
+    return empty;
+  } catch (e) {
+    return {
+      ...empty,
+      parseNote: `Lỗi: ${String(e)}`,
+    };
   }
+}
+
+function inferYearFromToIso(toIso: string): number {
+  const y = parseInt(toIso.slice(0, 4), 10);
+  if (Number.isFinite(y) && y >= 2000 && y <= 2100) return y;
+  return new Date().getUTCFullYear();
+}
+
+/** HTML challenge Cloudflare (server-side `fetch` thường không vượt qua). */
+function bodyLooksLikeCloudflareChallenge(snippet: string): boolean {
+  const t = snippet.slice(0, 3000);
+  return (
+    /just a moment/i.test(t) ||
+    /cf-browser-verification/i.test(t) ||
+    /__cf_chl/i.test(t) ||
+    /challenge-platform/i.test(t)
+  );
+}
+
+function probeLooksCloudflare403(p: {
+  httpStatus: number;
+  contentType: string | null;
+  bodySnippet: string;
+}): boolean {
+  return (
+    p.httpStatus === 403 &&
+    (p.contentType ?? "").toLowerCase().includes("text/html") &&
+    bodyLooksLikeCloudflareChallenge(p.bodySnippet)
+  );
+}
+
+export type InvestingDebugForApiResult = {
+  /** Có khi mọi probe đều giống bị Cloudflare chặn — URL vẫn đúng. */
+  accessBlocked?: {
+    likelyCause: "cloudflare_challenge";
+    messageVi: string;
+  };
+  investingXauHistorical68_forRequestRange: InvestingXau68ProbeResult;
+  april: {
+    year: number;
+    range: { from: string; to: string };
+    note: string;
+    xauHistorical68: InvestingXau68ProbeResult;
+    chartsDaily: {
+      xauUsd8830: InvestingChartDailyProbe;
+      crudeOil1178037: InvestingChartDailyProbe;
+      dollarIndex1224074: InvestingChartDailyProbe;
+      us10yBond23705: InvestingChartDailyProbe;
+      sp500_166: InvestingChartDailyProbe;
+    };
+  };
+};
+
+/**
+ * `_debug` đầy đủ: probe XAU `historical/68` cho đúng khoảng request + **tháng 4**
+ * (`aprilYearOverride` hoặc năm suy ra từ `requestTo`) và chart daily các mã.
+ */
+export async function buildInvestingDebugForApi(
+  requestFrom: string,
+  requestTo: string,
+  aprilYearOverride?: number,
+): Promise<InvestingDebugForApiResult> {
+  const y =
+    aprilYearOverride != null &&
+    Number.isFinite(aprilYearOverride) &&
+    aprilYearOverride >= 2000 &&
+    aprilYearOverride <= 2100
+      ? aprilYearOverride
+      : inferYearFromToIso(requestTo);
+  const af = `${y}-04-01`;
+  const at = `${y}-04-30`;
+
+  const reqXau = await probeInvestingXauHistorical68(requestFrom, requestTo);
+
+  const [aprXau, c8830, cOil, cDxy, cBond, cSp] = await Promise.all([
+    probeInvestingXauHistorical68(af, at),
+    probeInvestingChartDaily(PAIR_IDS.xauUsd, af, at),
+    probeInvestingChartDaily(PAIR_IDS.crudeOil, af, at),
+    probeInvestingChartDaily(PAIR_IDS.dollarIndex, af, at),
+    probeInvestingChartDaily(PAIR_IDS.us10yBond, af, at),
+    probeInvestingChartDaily(PAIR_IDS.sp500, af, at),
+  ]);
+
+  const probes403Cf = [
+    reqXau,
+    aprXau,
+    c8830,
+    cOil,
+    cDxy,
+    cBond,
+    cSp,
+  ].filter((p) => probeLooksCloudflare403(p));
+
+  const accessBlocked: InvestingDebugForApiResult["accessBlocked"] =
+    probes403Cf.length === 7
+      ? {
+          likelyCause: "cloudflare_challenge",
+          messageVi:
+            "Máy chủ Next.js gọi api.investing.com bị Cloudflare trả 403 + trang HTML 'Just a moment...' (Managed Challenge). URL và query giống trình duyệt; khác biệt là không có cookie / TLS / hành vi giống người. Trình duyệt của bạn mở link vẫn thấy JSON vì đã qua challenge. Hướng xử lý thực tế: chạy sync từ môi trường/IP ít bị chặn, proxy, hoặc nguồn dữ liệu thay thế (Yahoo, v.v.); gắn cookie cf_clearance vào server rất khó bảo trì và hay hết hạn.",
+        }
+      : probes403Cf.length >= 1
+        ? {
+            likelyCause: "cloudflare_challenge",
+            messageVi:
+              "Một số request Investing trả 403 + HTML giống Cloudflare — xem từng probe trong JSON bên dưới.",
+          }
+        : undefined;
+
+  return {
+    ...(accessBlocked ? { accessBlocked } : {}),
+    investingXauHistorical68_forRequestRange: reqXau,
+    april: {
+      year: y,
+      range: { from: af, to: at },
+      note: `Tháng 4 năm ${y}: historical/68 (XAU) + chart daily các pair (cùng app đang dùng).`,
+      xauHistorical68: aprXau,
+      chartsDaily: {
+        xauUsd8830: c8830,
+        crudeOil1178037: cOil,
+        dollarIndex1224074: cDxy,
+        us10yBond23705: cBond,
+        sp500_166: cSp,
+      },
+    },
+  };
 }

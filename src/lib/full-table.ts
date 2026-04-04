@@ -2,12 +2,11 @@
  * Bảng 61 trường index (col_0 .. col_60). Nguồn:
  * - col_1-10: Mua/Bán Mạnh Hải (file cache/manh-hai; nếu thiếu → backfill từ lịch sử CafeF từ ~2025-02-08, 1 giá/ngày × 4 khung giờ)
  * - col_12: DATE
- * - col_13-57: Dầu, DXY, US10Y, S&P, XAU/USD — chỉ Investing.com (chart API + bảng historical vàng id 68);
- *   các cột 9h/11h/14h30/17h30 (VN) cho từng nhóm: không intraday — lấp bằng MỞ ngày (daily)
+ * - col_13-21: XAU/USD — Open/High/Low/%/Đóng (US) từ Investing daily; 9h–17h30 VN từ nến 1h (Yahoo, khớp mốc giờ VN)
+ * - col_22-57: Dầu, DXY, US10Y, S&P — daily Investing; mốc VN giống trên (Yahoo 1h)
  * - col_58..col_60: Tỷ giá VCB (Mua tiền mặt / Mua chuyển khoản / Bán)
  */
 
-import { fetchGoldFromFreeGoldAPI } from "./gold";
 import {
   fetchVietcombankUsdRatesByDate,
   type VietcombankUsdRates,
@@ -26,22 +25,17 @@ import {
   type ManhHaiSlot,
   type ManhHaiSnapshot,
 } from "./manh-hai";
+import {
+  buildVnIntradaySlotMaps,
+  type MarketVnIntradaySlots,
+} from "./intraday-vn-yahoo";
 
 const CONCURRENCY = 8;
 export const START_DATE = "2022-01-01";
 const LOOKBACK_DAYS_FOR_CHANGE = 10;
 
-/** Map ngày → 4 mốc VN; để rỗng thì col_14–17 / 23–26 / … lấy từ MỞ daily. */
-type VnIntradaySlots = {
-  col14: number | null;
-  col15: number | null;
-  col16: number | null;
-  col17: number | null;
-};
-
-function emptyVnSlotsMap(): Map<string, VnIntradaySlots> {
-  return new Map();
-}
+/** Map ngày → 4 mốc VN; thiếu sau forward-fill vẫn null → col lấy fallback MỞ daily. */
+type VnIntradaySlots = MarketVnIntradaySlots;
 
 function addDaysIso(iso: string, deltaDays: number): string {
   const [y, m, d] = iso.split("-").map((x) => parseInt(x, 10));
@@ -94,9 +88,15 @@ function ohlcToCols(row: OHLCRow | null): (string | number | null)[] {
   return [row.open, row.high, row.low, row.close, row.changePercent ?? null];
 }
 
+/**
+ * Chỉ tính lại % khi thiếu — giữ `changePercent` từ Investing (bảng historical/68) để khớp cột Change % trên web.
+ */
 function recomputeChangePercent(rows: OHLCRow[]): OHLCRow[] {
   const sorted = [...rows].sort((a, b) => a.date.localeCompare(b.date));
   return sorted.map((r, i) => {
+    if (r.changePercent != null && r.changePercent !== "") {
+      return r;
+    }
     const prevClose = i > 0 ? sorted[i - 1].close : null;
     const changePercent =
       prevClose != null && prevClose !== 0
@@ -142,11 +142,28 @@ export function applyManhHaiSnapshotToRow(
 }
 
 /**
+ * OHLC Investing đã có sẵn (từ máy local / file JSON) — bỏ qua fetch từng mã tương ứng.
+ * Dùng cho pipeline: trình duyệt lấy JSON → script gọi `getFullTableRange` + merge master.
+ */
+export type GetFullTableInvestingOhlcOverride = {
+  xauUsd?: OHLCRow[];
+  crudeOil?: OHLCRow[];
+  dollarIndex?: OHLCRow[];
+  us10yBond?: OHLCRow[];
+  sp500?: OHLCRow[];
+};
+
+export type GetFullTableRangeOptions = {
+  investingOhlc?: GetFullTableInvestingOhlcOverride;
+};
+
+/**
  * Lấy bảng đầy đủ cột cho khoảng ngày [from, to].
  */
 export async function getFullTableRange(
   from: string,
   to: string,
+  options?: GetFullTableRangeOptions,
 ): Promise<{ rows: FullTableRow[]; fromDate: string; toDate: string }> {
   const dates = generateAllDates(from, to);
   if (dates.length === 0) {
@@ -162,8 +179,9 @@ export async function getFullTableRange(
         : addDaysIso(from, -LOOKBACK_DAYS_FOR_CHANGE);
   const allDates = generateAllDates(fetchFrom, to);
 
+  const inj = options?.investingOhlc;
+
   const [
-    goldList,
     vcbRates,
     fileManhHaiSnaps,
     cafeDomesticByDate,
@@ -172,18 +190,28 @@ export async function getFullTableRange(
     bondInvesting,
     xauUsd,
     sp500Investing,
+    vnSlotMaps,
   ] = await Promise.all([
-    fetchGoldFromFreeGoldAPI(),
     // VCB theo ngày trong range (đủ cho 3 cột cuối)
     runInBatches(dates, (d) => fetchVietcombankUsdRatesByDate(d)),
     Promise.all(dates.map((d) => readManhHaiSnapshot(d))),
     fetchCafeFDomesticSjcByVnDateCached(),
-    // Chỉ Investing — cùng window để prevClose cho ngày đầu kỳ
-    fetchInvestingHistorical(PAIR_IDS.crudeOil, fetchFrom, to),
-    fetchInvestingHistorical(PAIR_IDS.dollarIndex, fetchFrom, to),
-    fetchInvestingHistorical(PAIR_IDS.us10yBond, fetchFrom, to),
-    fetchInvestingXauUsd(fetchFrom, to),
-    fetchInvestingHistorical(PAIR_IDS.sp500, fetchFrom, to),
+    inj?.crudeOil != null
+      ? Promise.resolve(inj.crudeOil)
+      : fetchInvestingHistorical(PAIR_IDS.crudeOil, fetchFrom, to),
+    inj?.dollarIndex != null
+      ? Promise.resolve(inj.dollarIndex)
+      : fetchInvestingHistorical(PAIR_IDS.dollarIndex, fetchFrom, to),
+    inj?.us10yBond != null
+      ? Promise.resolve(inj.us10yBond)
+      : fetchInvestingHistorical(PAIR_IDS.us10yBond, fetchFrom, to),
+    inj?.xauUsd != null
+      ? Promise.resolve(inj.xauUsd)
+      : fetchInvestingXauUsd(fetchFrom, to),
+    inj?.sp500 != null
+      ? Promise.resolve(inj.sp500)
+      : fetchInvestingHistorical(PAIR_IDS.sp500, fetchFrom, to),
+    buildVnIntradaySlotMaps(fetchFrom, to, allDates),
   ]);
 
   const manhHaiSnapshots = dates.map((d, i) =>
@@ -194,23 +222,17 @@ export async function getFullTableRange(
     ),
   );
 
-  const goldVnSlots = emptyVnSlotsMap();
-  const oilVnSlots = emptyVnSlotsMap();
-  const dollarVnSlots = emptyVnSlotsMap();
-  const bondVnSlots = emptyVnSlotsMap();
-  const spVnSlots = emptyVnSlotsMap();
+  const goldVnSlots = vnSlotMaps.xau;
+  const oilVnSlots = vnSlotMaps.oil;
+  const dollarVnSlots = vnSlotMaps.dollar;
+  const bondVnSlots = vnSlotMaps.bond;
+  const spVnSlots = vnSlotMaps.sp;
 
   const oil = recomputeChangePercent(oilInvesting);
   const dollar = recomputeChangePercent(dollarInvesting);
   const bondData = recomputeChangePercent(bondInvesting);
   const xauCombined = recomputeChangePercent(xauUsd);
   const spData = recomputeChangePercent(sp500Investing);
-
-  const goldByMonth = new Map<string, number>();
-  for (const { date, price } of goldList) {
-    const ym = date.slice(0, 7);
-    if (!goldByMonth.has(ym)) goldByMonth.set(ym, price);
-  }
 
   const byDate = (arr: OHLCRow[]): Map<string, OHLCRow> =>
     new Map(arr.map((r) => [r.date, r]));
@@ -258,7 +280,6 @@ export async function getFullTableRange(
 
     if (!requestedSet.has(date)) continue;
 
-    const goldClose = goldByMonth.get(date.slice(0, 7)) ?? null;
     const vcb: VietcombankUsdRates | null = vcbByDate.get(date) ?? null;
     const manhHaiSnap = manhHaiByDate.get(date) ?? null;
 
@@ -269,18 +290,14 @@ export async function getFullTableRange(
       ohlcToCols(bondRow);
     const [spOpen, spHigh, spLow, spClose, spChange] = ohlcToCols(spRow);
 
-    let kitcoOpen: number | null = xauRow?.open ?? null;
-    let kitcoHigh: number | null = xauRow?.high ?? null;
-    let kitcoLow: number | null = xauRow?.low ?? null;
-    let kitcoClose: number | null = xauRow?.close ?? null;
-    let kitcoChange: string | null = xauRow?.changePercent ?? null;
-    if (kitcoClose == null && goldClose != null) {
-      kitcoOpen = kitcoHigh = kitcoLow = kitcoClose = goldClose;
-      kitcoChange = null;
-    }
+    const xauOpen: number | null = xauRow?.open ?? null;
+    const xauHigh: number | null = xauRow?.high ?? null;
+    const xauLow: number | null = xauRow?.low ?? null;
+    const xauClose: number | null = xauRow?.close ?? null;
+    const xauChange: string | null = xauRow?.changePercent ?? null;
 
     const vnSl = goldVnSlots.get(date);
-    const fb = kitcoOpen;
+    const fb = xauOpen;
     const k14 = vnSl?.col14 ?? fb;
     const k15 = vnSl?.col15 ?? fb;
     const k16 = vnSl?.col16 ?? fb;
@@ -319,15 +336,15 @@ export async function getFullTableRange(
     applyManhHaiSnapshotToRow(row, manhHaiSnap);
 
     row.col_12 = date;
-    row.col_13 = kitcoOpen;
+    row.col_13 = xauOpen;
     row.col_14 = k14;
     row.col_15 = k15;
     row.col_16 = k16;
     row.col_17 = k17;
-    row.col_18 = kitcoClose;
-    row.col_19 = kitcoHigh;
-    row.col_20 = kitcoLow;
-    row.col_21 = kitcoChange;
+    row.col_18 = xauClose;
+    row.col_19 = xauHigh;
+    row.col_20 = xauLow;
+    row.col_21 = xauChange;
 
     row.col_22 = oilOpen;
     row.col_23 = o23;

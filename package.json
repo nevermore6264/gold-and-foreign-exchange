@@ -6,7 +6,10 @@
     "dev": "next dev -p 9999",
     "build": "next build",
     "start": "next start -p 9999",
-    "lint": "eslint"
+    "lint": "eslint",
+    "sync:master:local": "tsx scripts/sync-master-local.ts",
+    "sync:master:ingest": "tsx scripts/ingest-investing-json.ts",
+    "push:master:remote": "tsx scripts/push-master-remote.ts"
   },
   "dependencies": {
     "next": "16.1.6",
@@ -23,6 +26,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",
+    "tsx": "^4.19.4",
     "typescript": "^5"
   }
 }

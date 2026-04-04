@@ -32,6 +32,7 @@ export const TABLE_HEADER_ROW0: string[] = [
   "",
   "",
   "",
+  "",
   "DOLLAR INDEX",
   "",
   "",

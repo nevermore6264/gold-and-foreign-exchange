@@ -722,11 +722,13 @@ export default function Home() {
     chunkCurrent: number;
     chunkTotal: number;
   } | null>(null);
-  /** Mẫu JSON phản hồi /api/full-table (chunk đầu hoàn thành) — để đối chiếu dữ liệu */
+  /** JSON probe Investing (`_debug`) từ chunk đầu — không phải toàn bộ full-table */
   const [fullTableApiDebugJson, setFullTableApiDebugJson] = useState<
     string | null
   >(null);
   const fullTableApiDebugCaptureRef = useRef<string | null>(null);
+  /** `?apiDebug=1` — luôn hiện khối JSON + gọi API kèm `debug=1` (probe Investing `historical/68`). */
+  const [showApiDebugPanel, setShowApiDebugPanel] = useState(false);
   /** ∑ TÀI SẢN / ∑ CHỈ VÀNG CŨ — nhập tay, lưu trên trình duyệt */
   const [totalTaiSan, setTotalTaiSan] = useState("");
   const [totalChiVangCu, setTotalChiVangCu] = useState("");
@@ -808,6 +810,16 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    try {
+      setShowApiDebugPanel(
+        new URLSearchParams(window.location.search).get("apiDebug") === "1",
+      );
+    } catch {
+      setShowApiDebugPanel(false);
+    }
+  }, []);
+
+  useEffect(() => {
     if (!columnVisibilityPersistSkipOnce.current) {
       columnVisibilityPersistSkipOnce.current = true;
       return;
@@ -860,6 +872,9 @@ export default function Home() {
     const controller = new AbortController();
 
     async function loadFullTable() {
+      const apiDebug =
+        typeof window !== "undefined" &&
+        new URLSearchParams(window.location.search).get("apiDebug") === "1";
       const expectedTotal = countInclusiveDays(from, to);
       if (expectedTotal === 0) {
         setFullRowsByDate({});
@@ -872,7 +887,18 @@ export default function Home() {
 
       try {
         fullTableApiDebugCaptureRef.current = null;
-        setFullTableApiDebugJson(null);
+        setFullTableApiDebugJson(
+          JSON.stringify(
+            {
+              trạng_thái: "đang_tải",
+              gợi_ý: apiDebug
+                ? "?apiDebug=1 — mọi chunk kèm debug=1 (chỉ JSON Investing)."
+                : "Đang lấy probe Investing (historical/68 + chart daily, tháng 4 theo năm `to`).",
+            },
+            null,
+            2,
+          ),
+        );
         const chunks = splitRangeIntoYearChunks(from, to);
         const chunkTotal = Math.max(1, chunks.length);
         setTableLoadProgress({
@@ -892,35 +918,89 @@ export default function Home() {
         let loadedAccum = 0;
         let doneChunks = 0;
 
+        const aprilY = to.slice(0, 4);
         await Promise.all(
-          chunks.map(async ({ from: cf, to: ct }) => {
+          chunks.map(async ({ from: cf, to: ct }, chunkIndex) => {
             if (cancelled) return;
             try {
+              const withDebug =
+                apiDebug || chunkIndex === 0
+                  ? `&debug=1&debugAprilYear=${encodeURIComponent(aprilY)}`
+                  : "";
               const res = await fetch(
-                `/api/full-table?from=${encodeURIComponent(cf)}&to=${encodeURIComponent(ct)}&refresh=1`,
+                `/api/full-table?from=${encodeURIComponent(cf)}&to=${encodeURIComponent(ct)}&refresh=1${withDebug}`,
                 { signal: controller.signal, cache: "no-store" },
               );
-              if (!res.ok) return;
-              const data = (await res.json()) as {
+              const rawText = await res.text();
+              if (!res.ok) {
+                const captureErr =
+                  chunkIndex === 0 ||
+                  (apiDebug && fullTableApiDebugCaptureRef.current === null);
+                if (captureErr) {
+                  fullTableApiDebugCaptureRef.current = JSON.stringify(
+                    {
+                      nguon: "investing.com (probe)",
+                      lỗi_full_table_api: {
+                        status: res.status,
+                        statusText: res.statusText,
+                        bodyPreview: rawText.slice(0, 2500),
+                      },
+                      query: {
+                        from: cf,
+                        to: ct,
+                        refresh: "1",
+                        ...(chunkIndex === 0 || apiDebug
+                          ? { debug: "1", debugAprilYear: aprilY }
+                          : {}),
+                      },
+                    },
+                    null,
+                    2,
+                  );
+                }
+                return;
+              }
+              let data: {
                 rows?: FullTableRow[];
                 fromDate?: string;
                 toDate?: string;
+                _debug?: unknown;
               };
+              try {
+                data = JSON.parse(rawText) as typeof data;
+              } catch (parseErr) {
+                const captureErr =
+                  chunkIndex === 0 ||
+                  (apiDebug && fullTableApiDebugCaptureRef.current === null);
+                if (captureErr) {
+                  fullTableApiDebugCaptureRef.current = JSON.stringify(
+                    {
+                      nguon: "investing.com (probe)",
+                      lỗi_parse_json_full_table: String(parseErr),
+                      bodyPreview: rawText.slice(0, 2500),
+                    },
+                    null,
+                    2,
+                  );
+                }
+                return;
+              }
               const rows = data.rows ?? [];
-              if (fullTableApiDebugCaptureRef.current === null) {
-                const preview = rows.slice(0, 6);
+              const captureOk =
+                chunkIndex === 0 ||
+                (apiDebug && fullTableApiDebugCaptureRef.current === null);
+              if (captureOk) {
                 fullTableApiDebugCaptureRef.current = JSON.stringify(
                   {
-                    endpoint: "/api/full-table",
-                    query: { from: cf, to: ct, refresh: "1" },
-                    fromDate: data.fromDate ?? cf,
-                    toDate: data.toDate ?? ct,
-                    rowCountInChunk: rows.length,
-                    rowsPreview: preview,
-                    rowsPreviewNote:
-                      rows.length > preview.length
-                        ? `… còn ${rows.length - preview.length} dòng trong chunk này`
-                        : null,
+                    nguon: "investing.com (probe từ server)",
+                    ghi_chu:
+                      "Đây là `_debug` do /api/full-table gọi api.investing.com — không phải JSON merge của bảng.",
+                    full_table_chunk: { from: cf, to: ct },
+                    debug_query:
+                      chunkIndex === 0 || apiDebug
+                        ? { debug: "1", debugAprilYear: aprilY }
+                        : undefined,
+                    investing: data._debug ?? null,
                   },
                   null,
                   2,
@@ -1993,16 +2073,27 @@ export default function Home() {
       </header>
 
       <main className="flex min-h-0 flex-1 flex-col overflow-hidden px-0 pb-2 pt-2 sm:pt-3">
-        {fullTableApiDebugJson != null && fullTableApiDebugJson.length > 0 ? (
-          <details className="mx-3 sm:mx-4 mb-2 rounded-lg border border-amber-300/90 bg-amber-50/95 px-3 py-2 dark:border-amber-800 dark:bg-amber-950/50">
+        {showApiDebugPanel ||
+        (fullTableApiDebugJson != null && fullTableApiDebugJson.length > 0) ? (
+          <details
+            open={showApiDebugPanel}
+            className="mx-3 sm:mx-4 mb-2 rounded-lg border border-amber-300/90 bg-amber-50/95 px-3 py-2 dark:border-amber-800 dark:bg-amber-950/50"
+          >
             <summary className="cursor-pointer select-none text-[13px] font-bold text-amber-950 dark:text-amber-100">
-              JSON phản hồi API (chunk đầu — mẫu vài dòng)
+              JSON Investing (api.investing.com) — probe trong `investing`
+              {showApiDebugPanel ? (
+                <span className="ml-2 font-normal text-amber-800 dark:text-amber-200">
+                  — <code className="rounded bg-amber-200/80 px-1 dark:bg-amber-900/80">?apiDebug=1</code>{" "}
+                  → mọi chunk kèm probe
+                </span>
+              ) : null}
             </summary>
             <pre
               className="mt-2 max-h-[min(50vh,24rem)] overflow-auto rounded-md border border-amber-200 bg-white p-2 text-left text-[11px] leading-snug text-stone-800 dark:border-amber-900 dark:bg-stone-950 dark:text-stone-200"
               tabIndex={0}
             >
-              {fullTableApiDebugJson}
+              {fullTableApiDebugJson ??
+                "(chưa có probe Investing — đợi tải hoặc thêm ?apiDebug=1 vào URL)"}
             </pre>
           </details>
         ) : null}

@@ -16,8 +16,9 @@ const MASTER_PATH = path.join(getAppCacheRoot(), "full-table-dataset.json");
  * v7: Dollar Index — ngày nến theo Asia/Ho_Chi_Minh + gộp historical+chart + tải chunk (lịch sử đủ ngày quá khứ).
  * v8: Xác minh mapping cột — bỏ master cũ nếu version lệch (tránh dữ liệu cột sai sau khi đổi schema).
  * v9: Chỉ Investing cho OHLC thị trường (bỏ Yahoo); intraday VN = MỞ daily.
+ * v10: Parse historical/68 linh hoạt tên trường; giữ % từ API; chart daily theo UTC.
  */
-export const MARKET_SCHEMA_VERSION = 9;
+export const MARKET_SCHEMA_VERSION = 10;
 
 /**
  * Master JSON chỉ dùng fast path nếu `updatedAt` còn mới — không thì vẫn đủ ngày nhưng OHLC (vàng/dầu/…) có thể lệch Investing.

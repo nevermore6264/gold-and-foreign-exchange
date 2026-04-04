@@ -20,6 +20,7 @@ import {
   mergeRowsIntoFullTableMaster,
   readFullTableMaster,
 } from "@/lib/full-table-master-json";
+import { buildInvestingDebugForApi } from "@/lib/investing";
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -28,6 +29,8 @@ export const maxDuration = 120;
 
 /**
  * Query: `refresh=1` — bỏ qua master JSON + file cache, gọi lại Investing (dùng khi cần khớp tức thì trang historical).
+ * Query: `debug=1` — `_debug`: probe XAU `historical/68` cho khoảng request + **tháng 4** và chart daily.
+ * Query: `debugAprilYear=YYYY` (kèm debug=1) — năm của tháng 4 probe (khớp năm đang xem khi chunk khác năm).
  * CSV trên client lấy cùng JSON từ route này — không có pipeline CSV riêng.
  */
 
@@ -58,10 +61,31 @@ export async function GET(request: NextRequest) {
     const from = request.nextUrl.searchParams.get("from");
     const to = request.nextUrl.searchParams.get("to");
     const refresh = request.nextUrl.searchParams.get("refresh") === "1";
+    const debug = request.nextUrl.searchParams.get("debug") === "1";
+    const debugAprilYearRaw =
+      request.nextUrl.searchParams.get("debugAprilYear");
+    const debugAprilYear =
+      debugAprilYearRaw != null
+        ? parseInt(debugAprilYearRaw, 10)
+        : undefined;
+
+    const debugPayload =
+      debug && from && to
+        ? await buildInvestingDebugForApi(
+            from,
+            to,
+            Number.isFinite(debugAprilYear) ? debugAprilYear : undefined,
+          )
+        : undefined;
+
+    const withDebug = <T extends object>(body: T) =>
+      debugPayload !== undefined
+        ? { ...body, _debug: debugPayload }
+        : body;
 
     if (!from || !to) {
       const data = await getFullTable();
-      return NextResponse.json(data);
+      return NextResponse.json(withDebug(data));
     }
 
     if (!refresh) {
@@ -75,22 +99,26 @@ export async function GET(request: NextRequest) {
         const rows = await patchRowsWithManhHaiSnapshots(
           dates.map((d) => ({ ...master.byDate[d]! })),
         );
-        return NextResponse.json({
-          rows,
-          fromDate: from,
-          toDate: to,
-        });
+        return NextResponse.json(
+          withDebug({
+            rows,
+            fromDate: from,
+            toDate: to,
+          }),
+        );
       }
 
       // Fallback: cache theo từng khoảng from-to (cũ)
       const cached = await readFullTableCache(from, to);
       if (cached) {
         const rows = await patchRowsWithManhHaiSnapshots(cached.rows);
-        return NextResponse.json({
-          rows,
-          fromDate: cached.fromDate,
-          toDate: cached.toDate,
-        });
+        return NextResponse.json(
+          withDebug({
+            rows,
+            fromDate: cached.fromDate,
+            toDate: cached.toDate,
+          }),
+        );
       }
     }
 
@@ -102,7 +130,7 @@ export async function GET(request: NextRequest) {
     } catch (mergeErr) {
       console.error("mergeRowsIntoFullTableMaster:", mergeErr);
     }
-    return NextResponse.json(data);
+    return NextResponse.json(withDebug(data));
   } catch (e) {
     console.error("Full table API error:", e);
     return NextResponse.json(
