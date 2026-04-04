@@ -19,6 +19,7 @@ import {
   isMasterMarketDataStale,
   mergeRowsIntoFullTableMaster,
   readFullTableMaster,
+  usesRemoteFullTableMaster,
 } from "@/lib/full-table-master-json";
 import { buildInvestingDebugForApi } from "@/lib/investing";
 import { NextRequest, NextResponse } from "next/server";
@@ -31,6 +32,7 @@ export const maxDuration = 120;
  * Query: `refresh=1` — bỏ qua master JSON + file cache, gọi lại Investing (dùng khi cần khớp tức thì trang historical).
  * Query: `debug=1` — `_debug`: probe XAU `historical/68` cho khoảng request + **tháng 4** và chart daily.
  * Query: `debugAprilYear=YYYY` (kèm debug=1) — năm của tháng 4 probe (khớp năm đang xem khi chunk khác năm).
+ * Env `FULL_TABLE_MASTER_URL` — master JSON tĩnh (Vercel: tránh Investing bị Cloudflare trên server).
  * CSV trên client lấy cùng JSON từ route này — không có pipeline CSV riêng.
  */
 
@@ -92,10 +94,9 @@ export async function GET(request: NextRequest) {
       // Fast path: master đủ ngày + chưa quá cũ (OHLC thị trường phải khớp Investing gần đây)
       const dates = generateAllDates(from, to);
       const master = await readFullTableMaster();
-      if (
-        hasAllDatesInMaster(master, dates) &&
-        !isMasterMarketDataStale(master)
-      ) {
+      const masterFreshEnough =
+        !isMasterMarketDataStale(master) || usesRemoteFullTableMaster();
+      if (hasAllDatesInMaster(master, dates) && masterFreshEnough) {
         const rows = await patchRowsWithManhHaiSnapshots(
           dates.map((d) => ({ ...master.byDate[d]! })),
         );

@@ -1,6 +1,11 @@
 /**
  * Lưu toàn bộ dòng bảng theo ngày vào 1 file JSON (merge theo col_12).
  * Lần sau các ngày đã có chỉ cần đọc từ file, không cần gọi lại API ngoài.
+ *
+ * **Vercel / serverless:** Investing hay bị Cloudflare 403. Đặt env `FULL_TABLE_MASTER_URL`
+ * trỏ tới file JSON tĩnh (GitHub raw, Gist, R2 public, …) build bằng `npm run sync:master:local`
+ * trên máy local — app sẽ đọc master từ URL thay vì gọi Investing trên server.
+ * Tùy chọn `FULL_TABLE_MASTER_AUTH`: Bearer token nếu URL cần auth.
  */
 
 import { mkdir, readFile, writeFile } from "fs/promises";
@@ -9,6 +14,15 @@ import path from "path";
 import { getAppCacheRoot } from "./cache-dir";
 
 const MASTER_PATH = path.join(getAppCacheRoot(), "full-table-dataset.json");
+
+/** Tránh gọi URL master mỗi request (serverless). */
+const REMOTE_MASTER_CACHE_MS = 60_000;
+
+let remoteMasterCache: {
+  url: string;
+  fetchedAt: number;
+  data: FullTableMasterFile;
+} | null = null;
 
 /**
  * Tăng khi đổi cách gộp OHLC / generate ngày — bỏ qua master cũ để build lại dữ liệu thị trường.
@@ -32,6 +46,56 @@ export function isMasterMarketDataStale(master: FullTableMasterFile): boolean {
   return Date.now() - t > MASTER_MARKET_DATA_MAX_AGE_MS;
 }
 
+/** Đang dùng master host tĩnh — không ép `refresh` vì `updatedAt` (server không gọi được Investing). */
+export function usesRemoteFullTableMaster(): boolean {
+  return Boolean(process.env.FULL_TABLE_MASTER_URL?.trim());
+}
+
+function normalizeMasterParsed(raw: unknown): FullTableMasterFile {
+  const data = raw as FullTableMasterFile;
+  if (!data?.byDate || typeof data.byDate !== "object") {
+    return { version: 1, updatedAt: new Date().toISOString(), byDate: {} };
+  }
+  return {
+    version: 1,
+    updatedAt: data.updatedAt ?? new Date().toISOString(),
+    byDate: data.byDate,
+    marketSchemaVersion: data.marketSchemaVersion,
+  };
+}
+
+async function readMasterFromDiskOnly(): Promise<FullTableMasterFile> {
+  try {
+    const raw = await readFile(MASTER_PATH, "utf-8");
+    return normalizeMasterParsed(JSON.parse(raw) as unknown);
+  } catch {
+    return { version: 1, updatedAt: new Date().toISOString(), byDate: {} };
+  }
+}
+
+async function fetchMasterFromRemote(url: string): Promise<FullTableMasterFile | null> {
+  try {
+    const headers: HeadersInit = { Accept: "application/json" };
+    const auth = process.env.FULL_TABLE_MASTER_AUTH?.trim();
+    if (auth) headers["Authorization"] = `Bearer ${auth}`;
+    const res = await fetch(url, { cache: "no-store", headers });
+    if (!res.ok) return null;
+    const text = await res.text();
+    return normalizeMasterParsed(JSON.parse(text) as unknown);
+  } catch {
+    return null;
+  }
+}
+
+function cloneMaster(m: FullTableMasterFile): FullTableMasterFile {
+  return {
+    version: 1,
+    updatedAt: m.updatedAt,
+    byDate: { ...m.byDate },
+    marketSchemaVersion: m.marketSchemaVersion,
+  };
+}
+
 /** Cùng shape với FullTableRow trong full-table.ts */
 export type MasterTableRow = Record<string, string | number | null>;
 
@@ -45,21 +109,26 @@ export interface FullTableMasterFile {
 }
 
 export async function readFullTableMaster(): Promise<FullTableMasterFile> {
-  try {
-    const raw = await readFile(MASTER_PATH, "utf-8");
-    const data = JSON.parse(raw) as FullTableMasterFile;
-    if (!data.byDate || typeof data.byDate !== "object") {
-      return { version: 1, updatedAt: new Date().toISOString(), byDate: {} };
+  const url = process.env.FULL_TABLE_MASTER_URL?.trim();
+  if (url) {
+    const now = Date.now();
+    if (
+      remoteMasterCache &&
+      remoteMasterCache.url === url &&
+      now - remoteMasterCache.fetchedAt < REMOTE_MASTER_CACHE_MS
+    ) {
+      return cloneMaster(remoteMasterCache.data);
     }
-    return {
-      version: 1,
-      updatedAt: data.updatedAt ?? new Date().toISOString(),
-      byDate: data.byDate,
-      marketSchemaVersion: data.marketSchemaVersion,
-    };
-  } catch {
-    return { version: 1, updatedAt: new Date().toISOString(), byDate: {} };
+    const remote = await fetchMasterFromRemote(url);
+    if (remote && Object.keys(remote.byDate).length > 0) {
+      remoteMasterCache = { url, fetchedAt: now, data: remote };
+      return cloneMaster(remote);
+    }
+    const disk = await readMasterFromDiskOnly();
+    if (Object.keys(disk.byDate).length > 0) return disk;
+    return remote ?? disk;
   }
+  return readMasterFromDiskOnly();
 }
 
 /**
@@ -76,6 +145,19 @@ export async function mergeRowsIntoFullTableMaster(
   }
   master.updatedAt = new Date().toISOString();
   master.marketSchemaVersion = MARKET_SCHEMA_VERSION;
+  const url = process.env.FULL_TABLE_MASTER_URL?.trim();
+  if (url) {
+    remoteMasterCache = {
+      url,
+      fetchedAt: Date.now(),
+      data: {
+        version: 1,
+        updatedAt: master.updatedAt,
+        byDate: { ...master.byDate },
+        marketSchemaVersion: master.marketSchemaVersion,
+      },
+    };
+  }
   await mkdir(path.dirname(MASTER_PATH), { recursive: true });
   await writeFile(MASTER_PATH, JSON.stringify(master, null, 0), "utf-8");
 }

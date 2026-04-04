@@ -7,6 +7,7 @@
  *   npm run sync:master:local -- 2026-01-01 2026-04-30
  *
  * Ghi: cache/full-table-dataset.json (xem getAppCacheRoot).
+ * Deploy Vercel: upload file này lên URL tĩnh, đặt env FULL_TABLE_MASTER_URL trỏ tới URL đó.
  */
 
 import { getFullTableRange, START_DATE } from "@/lib/full-table";

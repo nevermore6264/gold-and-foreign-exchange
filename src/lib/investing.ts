@@ -557,6 +557,8 @@ export type InvestingDebugForApiResult = {
     likelyCause: "cloudflare_challenge";
     messageVi: string;
   };
+  /** Gợi ý deploy Vercel + `FULL_TABLE_MASTER_URL`. */
+  vercelMasterUrlHint?: string;
   investingXauHistorical68_forRequestRange: InvestingXau68ProbeResult;
   april: {
     year: number;
@@ -628,8 +630,16 @@ export async function buildInvestingDebugForApi(
           }
         : undefined;
 
+  const vercelMasterUrlHint =
+    process.env.VERCEL === "1"
+      ? process.env.FULL_TABLE_MASTER_URL?.trim()
+        ? "Đã cấu hình FULL_TABLE_MASTER_URL — fast path đọc master từ URL; probe Investing vẫn có thể 403 (bình thường trên Vercel)."
+        : "Vercel: api.investing.com thường 403 (Cloudflare). Đặt env FULL_TABLE_MASTER_URL = URL file full-table-dataset.json (GitHub raw / Gist / R2). Build file: npm run sync:master:local trên máy local rồi upload."
+      : undefined;
+
   return {
     ...(accessBlocked ? { accessBlocked } : {}),
+    ...(vercelMasterUrlHint ? { vercelMasterUrlHint } : {}),
     investingXauHistorical68_forRequestRange: reqXau,
     april: {
       year: y,
