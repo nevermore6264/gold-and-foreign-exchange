@@ -638,7 +638,8 @@ export function buildMarketBlocksShortViFromCalls(
     },
     {
       tenCot: "GIÁ DẦU",
-      apiTomTat: "chart 1178037 (WTI)",
+      apiTomTat:
+        "OHLC ngày: Yahoo BZ=F (Brent); probe chỉ test Investing WTI chart 1178037",
       statusNgan: statusNganTuProbeRow(m.get("chart_oil_1178037")),
     },
     {

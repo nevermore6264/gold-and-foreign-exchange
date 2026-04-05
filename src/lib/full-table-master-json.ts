@@ -31,8 +31,12 @@ let remoteMasterCache: {
  * v8: Xác minh mapping cột — bỏ master cũ nếu version lệch (tránh dữ liệu cột sai sau khi đổi schema).
  * v9: Chỉ Investing cho OHLC thị trường (bỏ Yahoo); intraday VN = MỞ daily.
  * v10: Parse historical/68 linh hoạt tên trường; giữ % từ API; chart daily theo UTC.
+ * v11: Dầu daily + intraday VN = Yahoo BZ=F (Brent); fallback WTI Investing 1178037.
+ * v12: Ngày nến dầu Yahoo daily theo America/New_York (khớp cột Date trên Yahoo History).
+ * v13: Không forward-fill OHLC + mốc VN Yahoo khi không có phiên (T7/CN/nghỉ) — tránh trùng Yahoo History.
+ * v14: Dầu — cột mốc VN (col_23–26) chỉ khi có nến ngày dầu; bỏ giá từ nến 1h ngày không có History.
  */
-export const MARKET_SCHEMA_VERSION = 10;
+export const MARKET_SCHEMA_VERSION = 14;
 
 /**
  * Master JSON chỉ dùng fast path nếu `updatedAt` còn mới — không thì vẫn đủ ngày nhưng OHLC (vàng/dầu/…) có thể lệch Investing.

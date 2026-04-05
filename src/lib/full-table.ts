@@ -3,7 +3,8 @@
  * - col_1-10: Mua/Bán Mạnh Hải (file cache/manh-hai; nếu thiếu → backfill từ lịch sử CafeF từ ~2025-02-08, 1 giá/ngày × 4 khung giờ)
  * - col_12: DATE
  * - col_13-21: XAU/USD — Open/High/Low/%/Đóng (US) từ Investing daily; 9h–17h30 VN từ nến 1h (Yahoo, khớp mốc giờ VN)
- * - col_22-57: Dầu, DXY, US10Y, S&P — daily Investing; mốc VN giống trên (Yahoo 1h)
+ * - col_22-30: Dầu — daily **Yahoo BZ=F** (Brent, …); mốc VN 9h–17h30 = Yahoo 1h **chỉ khi có nến ngày cùng ngày** (tránh T7/CN có 1h nhưng không có dòng History)
+ * - col_31-57: DXY, US10Y, S&P — daily Investing; mốc VN Yahoo 1h
  * - col_58..col_60: Tỷ giá VCB (Mua tiền mặt / Mua chuyển khoản / Bán)
  */
 
@@ -27,6 +28,7 @@ import {
 } from "./manh-hai";
 import {
   buildVnIntradaySlotMaps,
+  fetchYahooOilDailyBrent,
   type MarketVnIntradaySlots,
 } from "./intraday-vn-yahoo";
 
@@ -34,7 +36,7 @@ const CONCURRENCY = 8;
 export const START_DATE = "2022-01-01";
 const LOOKBACK_DAYS_FOR_CHANGE = 10;
 
-/** Map ngày → 4 mốc VN; thiếu sau forward-fill vẫn null → col lấy fallback MỞ daily. */
+/** Map ngày → 4 mốc VN; ngày không có nến → null → col fallback MỞ daily (không lặp giá ngày trước). */
 type VnIntradaySlots = MarketVnIntradaySlots;
 
 function addDaysIso(iso: string, deltaDays: number): string {
@@ -107,6 +109,15 @@ function recomputeChangePercent(rows: OHLCRow[]): OHLCRow[] {
 }
 
 export type FullTableRow = Record<string, string | number | null>;
+
+async function fetchOilDailyBrentYahooThenInvestingWti(
+  fetchFrom: string,
+  to: string,
+): Promise<OHLCRow[]> {
+  const yahoo = await fetchYahooOilDailyBrent(fetchFrom, to);
+  if (yahoo.length > 0) return yahoo;
+  return fetchInvestingHistorical(PAIR_IDS.crudeOil, fetchFrom, to);
+}
 
 /**
  * Điền col_1..col_10 từ snapshot Mạnh Hải (MUA/BÁN × 4 khung giờ + chênh lệch).
@@ -198,7 +209,7 @@ export async function getFullTableRange(
     fetchCafeFDomesticSjcByVnDateCached(),
     inj?.crudeOil != null
       ? Promise.resolve(inj.crudeOil)
-      : fetchInvestingHistorical(PAIR_IDS.crudeOil, fetchFrom, to),
+      : fetchOilDailyBrentYahooThenInvestingWti(fetchFrom, to),
     inj?.dollarIndex != null
       ? Promise.resolve(inj.dollarIndex)
       : fetchInvestingHistorical(PAIR_IDS.dollarIndex, fetchFrom, to),
@@ -243,13 +254,6 @@ export async function getFullTableRange(
   const xauMap = byDate(xauCombined);
   const spMap = byDate(spData);
 
-  // Forward-fill missing market days (weekends/holidays) using last known value.
-  let lastOil: OHLCRow | null = null;
-  let lastDollar: OHLCRow | null = null;
-  let lastBond: OHLCRow | null = null;
-  let lastXau: OHLCRow | null = null;
-  let lastSp: OHLCRow | null = null;
-
   const vcbByDate = new Map<string, VietcombankUsdRates>();
   for (let i = 0; i < dates.length; i++) vcbByDate.set(dates[i], vcbRates[i]);
 
@@ -266,17 +270,11 @@ export async function getFullTableRange(
   const rows: FullTableRow[] = [];
 
   for (const date of allDates) {
-    const oilRow = oilMap.get(date) ?? lastOil;
-    const dollarRow = dollarMap.get(date) ?? lastDollar;
-    const bondRow = bondMap.get(date) ?? lastBond;
-    const xauRow = xauMap.get(date) ?? lastXau;
-    const spRow = spMap.get(date) ?? lastSp;
-
-    if (oilMap.has(date)) lastOil = oilMap.get(date) ?? lastOil;
-    if (dollarMap.has(date)) lastDollar = dollarMap.get(date) ?? lastDollar;
-    if (bondMap.has(date)) lastBond = bondMap.get(date) ?? lastBond;
-    if (xauMap.has(date)) lastXau = xauMap.get(date) ?? lastXau;
-    if (spMap.has(date)) lastSp = spMap.get(date) ?? lastSp;
+    const oilRow = oilMap.get(date) ?? null;
+    const dollarRow = dollarMap.get(date) ?? null;
+    const bondRow = bondMap.get(date) ?? null;
+    const xauRow = xauMap.get(date) ?? null;
+    const spRow = spMap.get(date) ?? null;
 
     if (!requestedSet.has(date)) continue;
 
@@ -305,10 +303,11 @@ export async function getFullTableRange(
 
     const oilSl = oilVnSlots.get(date);
     const oilFb = oilOpen;
-    const o23 = oilSl?.col14 ?? oilFb;
-    const o24 = oilSl?.col15 ?? oilFb;
-    const o25 = oilSl?.col16 ?? oilFb;
-    const o26 = oilSl?.col17 ?? oilFb;
+    const hasOilDaily = oilRow != null;
+    const o23 = hasOilDaily ? (oilSl?.col14 ?? oilFb) : null;
+    const o24 = hasOilDaily ? (oilSl?.col15 ?? oilFb) : null;
+    const o25 = hasOilDaily ? (oilSl?.col16 ?? oilFb) : null;
+    const o26 = hasOilDaily ? (oilSl?.col17 ?? oilFb) : null;
 
     const dollarSl = dollarVnSlots.get(date);
     const dollarFb = dollarOpen;

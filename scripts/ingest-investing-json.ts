@@ -5,7 +5,7 @@
  * Tên file (UTF-8 JSON body thuần, không phải HAR):
  *   historical-68.json     — GET .../historical/68?start-date&end-date&...
  *   chart-8830.json        — XAU chart (nếu không dùng 68)
- *   chart-1178037.json     — dầu WTI
+ *   chart-1178037.json     — dầu WTI (inject override; app ưu tiên Yahoo BZ=F cho OHLC dầu)
  *   chart-1224074.json     — Dollar Index
  *   chart-23705.json       — US 10Y
  *   chart-166.json         — S&P 500

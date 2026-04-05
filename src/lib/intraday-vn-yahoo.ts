@@ -1,7 +1,10 @@
 /**
  * Cột 9h / 11h / 14h30 / 17h30 (giờ VN): lấy giá từ nến 1h (đóng nến vừa xong trước mốc giờ).
- * Nguồn: Yahoo Finance chart v8 (cùng loại công cụ với nhiều dashboard); OHLC ngày vẫn từ Investing.
+ * Dầu: Yahoo **BZ=F** (Brent) — cùng ticker với lịch sử trên finance.yahoo.com/quote/BZ=F/history.
+ * OHLC ngày (cột MỞ/Đóng/…) dầu: ưu tiên Yahoo BZ=F `interval=1d` trong full-table, fallback Investing WTI 1178037.
  */
+
+import type { OHLCRow } from "./investing";
 
 export type MarketVnIntradaySlots = {
   col14: number | null;
@@ -18,10 +21,10 @@ const VN_SLOTS = [
   { h: 17, m: 30 },
 ] as const;
 
-/** Ticker Yahoo ~ tương ứng từng thị trường (1h). */
+/** Ticker Yahoo ~ tương ứng từng thị trường (1h). Dầu = Brent BZ=F (không dùng CL=F WTI). */
 export const YAHOO_INTRADAY_BY_MARKET = {
   xau: "XAUUSD=X",
-  oil: "CL=F",
+  oil: "BZ=F",
   dollar: "DX-Y.NYB",
   bond: "^TNX",
   sp: "^GSPC",
@@ -58,6 +61,20 @@ function isoStartOfRangeUnix(iso: string): number {
 
 function isoEndOfRangeUnix(iso: string): number {
   return vnWallTimeToUnixSec(iso, 23, 59) + 60;
+}
+
+/** Ngày YYYY-MM-DD của `ts` (giây Unix) theo múi giờ phiên (vd. BZ=F dùng ET như Yahoo History). */
+function isoDateInTimeZone(tsSec: number, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date(tsSec * 1000));
+  const y = parts.find((p) => p.type === "year")?.value ?? "1970";
+  const m = parts.find((p) => p.type === "month")?.value ?? "01";
+  const d = parts.find((p) => p.type === "day")?.value ?? "01";
+  return `${y}-${m}-${d}`;
 }
 
 function padIsoParts(iso: string): { y: number; m: number; d: number } {
@@ -173,35 +190,6 @@ function buildRawSlotMapForTicker(
   return map;
 }
 
-/** Cuối tuần / nghỉ: lấp bằng giá đã biết gần nhất theo từng mốc. */
-function forwardFillVnMap(
-  orderedDates: string[],
-  map: Map<string, MarketVnIntradaySlots>,
-): void {
-  let last: MarketVnIntradaySlots = {
-    col14: null,
-    col15: null,
-    col16: null,
-    col17: null,
-  };
-  for (const d of orderedDates) {
-    const row = map.get(d) ?? {
-      col14: null,
-      col15: null,
-      col16: null,
-      col17: null,
-    };
-    const filled: MarketVnIntradaySlots = {
-      col14: row.col14 ?? last.col14,
-      col15: row.col15 ?? last.col15,
-      col16: row.col16 ?? last.col16,
-      col17: row.col17 ?? last.col17,
-    };
-    map.set(d, filled);
-    last = filled;
-  }
-}
-
 function emptyVnSlotMapsForDates(allDatesOrdered: string[]): {
   xau: Map<string, MarketVnIntradaySlots>;
   oil: Map<string, MarketVnIntradaySlots>;
@@ -252,14 +240,138 @@ export async function buildVnIntradaySlotMaps(
     const bond = buildRawSlotMapForTicker(bondB, allDatesOrdered);
     const sp = buildRawSlotMapForTicker(spB, allDatesOrdered);
 
-    forwardFillVnMap(allDatesOrdered, xau);
-    forwardFillVnMap(allDatesOrdered, oil);
-    forwardFillVnMap(allDatesOrdered, dollar);
-    forwardFillVnMap(allDatesOrdered, bond);
-    forwardFillVnMap(allDatesOrdered, sp);
-
     return { xau, oil, dollar, bond, sp };
   } catch {
     return emptyVnSlotMapsForDates(allDatesOrdered);
   }
+}
+
+const DAILY_CHUNK_SEC = 720 * 86400;
+
+async function fetchYahooDailyChunk(
+  symbol: string,
+  period1: number,
+  period2: number,
+  barDateTimeZone: string,
+): Promise<
+  Array<{
+    date: string;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+  }>
+> {
+  const enc = encodeURIComponent(symbol);
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${enc}?period1=${period1}&period2=${period2}&interval=1d`;
+  try {
+    const res = await fetch(url, YAHOO_FETCH);
+    if (!res.ok) return [];
+    const json = (await res.json()) as {
+      chart?: {
+        result?: Array<{
+          timestamp?: number[];
+          indicators?: {
+            quote?: Array<{
+              open?: Array<number | null>;
+              high?: Array<number | null>;
+              low?: Array<number | null>;
+              close?: Array<number | null>;
+            }>;
+          };
+        }>;
+      };
+    };
+    const r0 = json?.chart?.result?.[0];
+    const ts = r0?.timestamp ?? [];
+    const q = r0?.indicators?.quote?.[0];
+    const opens = q?.open ?? [];
+    const highs = q?.high ?? [];
+    const lows = q?.low ?? [];
+    const closes = q?.close ?? [];
+    const out: Array<{
+      date: string;
+      open: number;
+      high: number;
+      low: number;
+      close: number;
+    }> = [];
+    for (let i = 0; i < ts.length; i++) {
+      const t = ts[i];
+      if (t == null) continue;
+      const date = isoDateInTimeZone(t, barDateTimeZone);
+      const o = opens[i];
+      const h = highs[i];
+      const l = lows[i];
+      const c = closes[i];
+      const close = c != null && Number.isFinite(c) ? c : NaN;
+      if (!Number.isFinite(close)) continue;
+      const open = o != null && Number.isFinite(o) ? o : close;
+      const high = h != null && Number.isFinite(h) ? h : Math.max(open, close);
+      const low = l != null && Number.isFinite(l) ? l : Math.min(open, close);
+      out.push({ date, open, high, low, close });
+    }
+    out.sort((a, b) => a.date.localeCompare(b.date));
+    return out;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Nến ngày Yahoo `interval=1d` (API v8).
+ * `barDateTimeZone`: gán `col_12` — với hàng hóa Mỹ (BZ=F) dùng `America/New_York` để khớp cột Date trên Yahoo History; mặc định UTC.
+ */
+export async function fetchYahooDailyOhlc(
+  symbol: string,
+  fromIso: string,
+  toIso: string,
+  barDateTimeZone = "UTC",
+): Promise<OHLCRow[]> {
+  const start = isoStartOfRangeUnix(fromIso);
+  const end = isoEndOfRangeUnix(toIso);
+  const byDate = new Map<
+    string,
+    { date: string; open: number; high: number; low: number; close: number }
+  >();
+  let chunkStart = start;
+  while (chunkStart < end) {
+    const chunkEnd = Math.min(chunkStart + DAILY_CHUNK_SEC, end);
+    const bars = await fetchYahooDailyChunk(
+      symbol,
+      chunkStart,
+      chunkEnd,
+      barDateTimeZone,
+    );
+    for (const b of bars) {
+      if (b.date < fromIso || b.date > toIso) continue;
+      byDate.set(b.date, b);
+    }
+    chunkStart = chunkEnd;
+  }
+  const sorted = [...byDate.keys()].sort((a, b) => a.localeCompare(b));
+  return sorted.map((date) => {
+    const b = byDate.get(date)!;
+    return {
+      date: b.date,
+      open: b.open,
+      high: b.high,
+      low: b.low,
+      close: b.close,
+      changePercent: null,
+    };
+  });
+}
+
+/** Dầu Brent — khớp https://finance.yahoo.com/quote/BZ=F/history (ngày nến = America/New_York). */
+export async function fetchYahooOilDailyBrent(
+  fromIso: string,
+  toIso: string,
+): Promise<OHLCRow[]> {
+  return fetchYahooDailyOhlc(
+    YAHOO_INTRADAY_BY_MARKET.oil,
+    fromIso,
+    toIso,
+    "America/New_York",
+  );
 }
