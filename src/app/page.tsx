@@ -1105,7 +1105,11 @@ export default function Home() {
     const base = fullRowsByDate[isoDate];
     const baseVal = base ? base[`col_${colIndex}`] : null;
 
-    if (!shouldShowDailyOhlcForVnTodayRow(isoDate)) {
+    const vnToday = getVietnamNowParts().isoDate;
+    if (
+      isoDate === vnToday &&
+      !shouldShowDailyOhlcForVnTodayRow(isoDate)
+    ) {
       const closeHighLowCh: Record<
         "oil" | "dollarIndex" | "bond10y" | "sp500",
         number[]

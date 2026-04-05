@@ -35,8 +35,11 @@ let remoteMasterCache: {
  * v12: Ngày nến dầu Yahoo daily theo America/New_York (khớp cột Date trên Yahoo History).
  * v13: Không forward-fill OHLC + mốc VN Yahoo khi không có phiên (T7/CN/nghỉ) — tránh trùng Yahoo History.
  * v14: Dầu — cột mốc VN (col_23–26) chỉ khi có nến ngày dầu; bỏ giá từ nến 1h ngày không có History.
+ * v15: Dollar Index daily + mốc VN = Yahoo DX-Y.NYB (History ET), fallback Investing DXY; mốc VN chỉ khi có nến ngày.
+ * v16: S&P 500 daily + mốc VN = Yahoo ^GSPC (History ET), fallback Investing; mốc VN chỉ khi có nến ngày.
+ * v17: US 10Y daily + mốc VN = Yahoo ^TNX (History ET), fallback Investing; mốc VN chỉ khi có nến ngày.
  */
-export const MARKET_SCHEMA_VERSION = 14;
+export const MARKET_SCHEMA_VERSION = 17;
 
 /**
  * Master JSON chỉ dùng fast path nếu `updatedAt` còn mới — không thì vẫn đủ ngày nhưng OHLC (vàng/dầu/…) có thể lệch Investing.

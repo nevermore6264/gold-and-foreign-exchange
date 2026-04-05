@@ -27,9 +27,11 @@ const HISTORICAL_TABLE_HEADERS: HeadersInit = {
 /**
  * Pair IDs từ trang investing.com (tham số cid trong URL).
  * Crude Oil WTI: https://www.investing.com/commodities/crude-oil-historical-data?cid=1178037 (CLc1 CME)
- * US Dollar Index: https://www.investing.com/indices/usdollar-historical-data (DXY, cid=1224074)
+ * US Dollar Index: https://www.investing.com/indices/usdollar-historical-data (DXY, cid=1224074) — full-table ưu tiên Yahoo DX-Y.NYB daily, fallback cid này
  * XAU/USD chart (fallback): cid 8830 — `/8830/historical/chart?...`
  * XAU/USD bảng historical (ưu tiên): instrument_id **68** — `/historical/68?start-date&end-date&time-frame=Daily`
+ * S&P 500: cid **166** — full-table ưu tiên Yahoo ^GSPC daily, fallback cid này
+ * US 10Y: cid **23705** — full-table ưu tiên Yahoo ^TNX daily, fallback cid này
  */
 export const PAIR_IDS = {
   crudeOil: 1178037,

@@ -4,7 +4,9 @@
  * - col_12: DATE
  * - col_13-21: XAU/USD — Open/High/Low/%/Đóng (US) từ Investing daily; 9h–17h30 VN từ nến 1h (Yahoo, khớp mốc giờ VN)
  * - col_22-30: Dầu — daily **Yahoo BZ=F** (Brent, …); mốc VN 9h–17h30 = Yahoo 1h **chỉ khi có nến ngày cùng ngày** (tránh T7/CN có 1h nhưng không có dòng History)
- * - col_31-57: DXY, US10Y, S&P — daily Investing; mốc VN Yahoo 1h
+ * - col_31-39: Dollar Index — daily **Yahoo DX-Y.NYB**, fallback Investing DXY; mốc VN = Yahoo 1h (chỉ khi có nến ngày)
+ * - col_40-48: US10Y — daily **Yahoo ^TNX**, fallback Investing; mốc VN Yahoo 1h (chỉ khi có nến ngày)
+ * - col_49-57: S&P 500 — daily **Yahoo ^GSPC**, fallback Investing; mốc VN Yahoo 1h (chỉ khi có nến ngày)
  * - col_58..col_60: Tỷ giá VCB (Mua tiền mặt / Mua chuyển khoản / Bán)
  */
 
@@ -28,7 +30,10 @@ import {
 } from "./manh-hai";
 import {
   buildVnIntradaySlotMaps,
+  fetchYahooDollarIndexDailyDxNyse,
   fetchYahooOilDailyBrent,
+  fetchYahooSp500DailyGspc,
+  fetchYahooUs10yDailyTnx,
   type MarketVnIntradaySlots,
 } from "./intraday-vn-yahoo";
 
@@ -117,6 +122,33 @@ async function fetchOilDailyBrentYahooThenInvestingWti(
   const yahoo = await fetchYahooOilDailyBrent(fetchFrom, to);
   if (yahoo.length > 0) return yahoo;
   return fetchInvestingHistorical(PAIR_IDS.crudeOil, fetchFrom, to);
+}
+
+async function fetchDollarIndexYahooDxThenInvesting(
+  fetchFrom: string,
+  to: string,
+): Promise<OHLCRow[]> {
+  const yahoo = await fetchYahooDollarIndexDailyDxNyse(fetchFrom, to);
+  if (yahoo.length > 0) return yahoo;
+  return fetchInvestingHistorical(PAIR_IDS.dollarIndex, fetchFrom, to);
+}
+
+async function fetchSp500YahooGspcThenInvesting(
+  fetchFrom: string,
+  to: string,
+): Promise<OHLCRow[]> {
+  const yahoo = await fetchYahooSp500DailyGspc(fetchFrom, to);
+  if (yahoo.length > 0) return yahoo;
+  return fetchInvestingHistorical(PAIR_IDS.sp500, fetchFrom, to);
+}
+
+async function fetchUs10yYahooTnxThenInvesting(
+  fetchFrom: string,
+  to: string,
+): Promise<OHLCRow[]> {
+  const yahoo = await fetchYahooUs10yDailyTnx(fetchFrom, to);
+  if (yahoo.length > 0) return yahoo;
+  return fetchInvestingHistorical(PAIR_IDS.us10yBond, fetchFrom, to);
 }
 
 /**
@@ -212,16 +244,16 @@ export async function getFullTableRange(
       : fetchOilDailyBrentYahooThenInvestingWti(fetchFrom, to),
     inj?.dollarIndex != null
       ? Promise.resolve(inj.dollarIndex)
-      : fetchInvestingHistorical(PAIR_IDS.dollarIndex, fetchFrom, to),
+      : fetchDollarIndexYahooDxThenInvesting(fetchFrom, to),
     inj?.us10yBond != null
       ? Promise.resolve(inj.us10yBond)
-      : fetchInvestingHistorical(PAIR_IDS.us10yBond, fetchFrom, to),
+      : fetchUs10yYahooTnxThenInvesting(fetchFrom, to),
     inj?.xauUsd != null
       ? Promise.resolve(inj.xauUsd)
       : fetchInvestingXauUsd(fetchFrom, to),
     inj?.sp500 != null
       ? Promise.resolve(inj.sp500)
-      : fetchInvestingHistorical(PAIR_IDS.sp500, fetchFrom, to),
+      : fetchSp500YahooGspcThenInvesting(fetchFrom, to),
     buildVnIntradaySlotMaps(fetchFrom, to, allDates),
   ]);
 
@@ -311,24 +343,27 @@ export async function getFullTableRange(
 
     const dollarSl = dollarVnSlots.get(date);
     const dollarFb = dollarOpen;
-    const d32 = dollarSl?.col14 ?? dollarFb;
-    const d33 = dollarSl?.col15 ?? dollarFb;
-    const d34 = dollarSl?.col16 ?? dollarFb;
-    const d35 = dollarSl?.col17 ?? dollarFb;
+    const hasDollarDaily = dollarRow != null;
+    const d32 = hasDollarDaily ? (dollarSl?.col14 ?? dollarFb) : null;
+    const d33 = hasDollarDaily ? (dollarSl?.col15 ?? dollarFb) : null;
+    const d34 = hasDollarDaily ? (dollarSl?.col16 ?? dollarFb) : null;
+    const d35 = hasDollarDaily ? (dollarSl?.col17 ?? dollarFb) : null;
 
     const bondSl = bondVnSlots.get(date);
     const bondFb = bondOpen;
-    const b41 = bondSl?.col14 ?? bondFb;
-    const b42 = bondSl?.col15 ?? bondFb;
-    const b43 = bondSl?.col16 ?? bondFb;
-    const b44 = bondSl?.col17 ?? bondFb;
+    const hasBondDaily = bondRow != null;
+    const b41 = hasBondDaily ? (bondSl?.col14 ?? bondFb) : null;
+    const b42 = hasBondDaily ? (bondSl?.col15 ?? bondFb) : null;
+    const b43 = hasBondDaily ? (bondSl?.col16 ?? bondFb) : null;
+    const b44 = hasBondDaily ? (bondSl?.col17 ?? bondFb) : null;
 
     const spSl = spVnSlots.get(date);
     const spFb = spOpen;
-    const s50 = spSl?.col14 ?? spFb;
-    const s51 = spSl?.col15 ?? spFb;
-    const s52 = spSl?.col16 ?? spFb;
-    const s53 = spSl?.col17 ?? spFb;
+    const hasSpDaily = spRow != null;
+    const s50 = hasSpDaily ? (spSl?.col14 ?? spFb) : null;
+    const s51 = hasSpDaily ? (spSl?.col15 ?? spFb) : null;
+    const s52 = hasSpDaily ? (spSl?.col16 ?? spFb) : null;
+    const s53 = hasSpDaily ? (spSl?.col17 ?? spFb) : null;
 
     const row: FullTableRow = {};
     for (let j = 0; j < 61; j++) row[`col_${j}`] = null;

@@ -1,7 +1,7 @@
 /**
  * Cột 9h / 11h / 14h30 / 17h30 (giờ VN): lấy giá từ nến 1h (đóng nến vừa xong trước mốc giờ).
  * Dầu: Yahoo **BZ=F** (Brent) — cùng ticker với lịch sử trên finance.yahoo.com/quote/BZ=F/history.
- * OHLC ngày (cột MỞ/Đóng/…) dầu: ưu tiên Yahoo BZ=F `interval=1d` trong full-table, fallback Investing WTI 1178037.
+ * OHLC ngày: dầu BZ=F; DXY DX-Y.NYB; US10Y ^TNX; S&P ^GSPC — mỗi mã + fallback Investing tương ứng trong full-table.
  */
 
 import type { OHLCRow } from "./investing";
@@ -370,6 +370,45 @@ export async function fetchYahooOilDailyBrent(
 ): Promise<OHLCRow[]> {
   return fetchYahooDailyOhlc(
     YAHOO_INTRADAY_BY_MARKET.oil,
+    fromIso,
+    toIso,
+    "America/New_York",
+  );
+}
+
+/** Dollar Index — khớp https://finance.yahoo.com/quote/DX-Y.NYB/history (ngày nến = America/New_York). */
+export async function fetchYahooDollarIndexDailyDxNyse(
+  fromIso: string,
+  toIso: string,
+): Promise<OHLCRow[]> {
+  return fetchYahooDailyOhlc(
+    YAHOO_INTRADAY_BY_MARKET.dollar,
+    fromIso,
+    toIso,
+    "America/New_York",
+  );
+}
+
+/** S&P 500 — khớp https://finance.yahoo.com/quote/%5EGSPC/history (ngày nến = America/New_York). */
+export async function fetchYahooSp500DailyGspc(
+  fromIso: string,
+  toIso: string,
+): Promise<OHLCRow[]> {
+  return fetchYahooDailyOhlc(
+    YAHOO_INTRADAY_BY_MARKET.sp,
+    fromIso,
+    toIso,
+    "America/New_York",
+  );
+}
+
+/** Lợi suất Kho bạc Mỹ 10 năm — khớp https://finance.yahoo.com/quote/%5ETNX/history (ngày nến = America/New_York). */
+export async function fetchYahooUs10yDailyTnx(
+  fromIso: string,
+  toIso: string,
+): Promise<OHLCRow[]> {
+  return fetchYahooDailyOhlc(
+    YAHOO_INTRADAY_BY_MARKET.bond,
     fromIso,
     toIso,
     "America/New_York",
