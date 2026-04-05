@@ -11,7 +11,7 @@ import { getAppCacheRoot } from "./cache-dir";
 
 const CACHE_DIR = path.join(getAppCacheRoot(), "full-table");
 // Bump cache version when date-key logic changes (timezone, formats, etc.)
-const CACHE_VERSION = "v10";
+const CACHE_VERSION = "v11";
 /** Đồng bộ tần làm mới với master — tránh file JSON cũ giữ giá vàng sai so với Investing. */
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 giờ
 

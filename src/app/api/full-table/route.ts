@@ -19,7 +19,6 @@ import {
   isMasterMarketDataStale,
   mergeRowsIntoFullTableMaster,
   readFullTableMaster,
-  usesRemoteFullTableMaster,
 } from "@/lib/full-table-master-json";
 import {
   buildInvestingDebugForApi,
@@ -112,8 +111,9 @@ export async function GET(request: NextRequest) {
       // Fast path: master đủ ngày + chưa quá cũ (OHLC thị trường phải khớp Investing gần đây)
       const dates = generateAllDates(from, to);
       const master = await readFullTableMaster();
-      const masterFreshEnough =
-        !isMasterMarketDataStale(master) || usesRemoteFullTableMaster();
+      // Không bỏ qua `updatedAt` chỉ vì master từ URL — file remote cũ có thể thiếu OHLC ngày
+      // (Investing 403) nhưng vẫn có mốc VN từ nến 1h / forward-fill trước đây.
+      const masterFreshEnough = !isMasterMarketDataStale(master);
       if (hasAllDatesInMaster(master, dates) && masterFreshEnough) {
         const rows = await patchRowsWithManhHaiSnapshots(
           dates.map((d) => ({ ...master.byDate[d]! })),
