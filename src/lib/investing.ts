@@ -551,6 +551,146 @@ function probeLooksCloudflare403(p: {
   );
 }
 
+/** Dùng cho UI / API tóm tắt — cùng điều kiện với `accessBlocked`. */
+export function isInvestingProbeCloudflareHtml(p: {
+  httpStatus: number;
+  contentType: string | null;
+  bodySnippet: string;
+}): boolean {
+  return probeLooksCloudflare403(p);
+}
+
+/** Một dòng trong bảng “đang gọi API Investing nào — status”. */
+export type InvestingApiCallStatusRow = {
+  id: string;
+  labelVi: string;
+  kind: "historical_table" | "chart";
+  url: string;
+  httpStatus: number;
+  httpOk: boolean;
+  contentType: string | null;
+  /** Body có vẻ JSON thật (không phải HTML challenge). */
+  responseLooksLikeJson: boolean;
+  cloudflareChallengeHtml: boolean;
+  parseNote?: string;
+  /** Số liệu nhỏ để đối chiếu nhanh */
+  metrics?: Record<string, string | number | null>;
+};
+
+function statusRowFromXau68Probe(
+  id: string,
+  labelVi: string,
+  dateRangeLabel: string,
+  p: InvestingXau68ProbeResult,
+): InvestingApiCallStatusRow {
+  const ct = (p.contentType ?? "").toLowerCase();
+  return {
+    id,
+    labelVi: `${labelVi} — ${dateRangeLabel}`,
+    kind: "historical_table",
+    url: p.historicalRequestUrl,
+    httpStatus: p.httpStatus,
+    httpOk: p.httpOk,
+    contentType: p.contentType,
+    responseLooksLikeJson:
+      p.httpOk && ct.includes("application/json") && !p.bodyIsProbablyHtml,
+    cloudflareChallengeHtml: probeLooksCloudflare403(p),
+    parseNote: p.parseNote,
+    metrics: {
+      dataArrayLength: p.dataArrayLength ?? null,
+      parsedOhlcRowCount: p.parsedOhlcRowCount,
+    },
+  };
+}
+
+/** Tóm tắt 5 khối cột bảng → nguồn Investing + status ngắn. */
+export type InvestingMarketBlockShortVi = {
+  tenCot: string;
+  /** Path/loại request (ngắn) */
+  apiTomTat: string;
+  /** Ví dụ `403 CF`, `200 OK`, `68:403 | 8830:403` */
+  statusNgan: string;
+};
+
+function statusNganTuProbeRow(
+  c: InvestingApiCallStatusRow | undefined,
+): string {
+  if (!c) return "—";
+  if (c.cloudflareChallengeHtml) return `${c.httpStatus} CF`;
+  if (c.httpOk && c.responseLooksLikeJson) return `${c.httpStatus} OK`;
+  return `${c.httpStatus}${c.httpOk ? "" : " !"}`;
+}
+
+/**
+ * Map `apiCallStatuses` → 5 nhóm giống header bảng (KITCO, dầu, DXY, US10Y, S&P).
+ */
+export function buildMarketBlocksShortViFromCalls(
+  calls: InvestingApiCallStatusRow[],
+): InvestingMarketBlockShortVi[] {
+  const m = new Map(calls.map((c) => [c.id, c]));
+  const x68 = m.get("xau_historical_68_request_range");
+  const c8830 = m.get("chart_xau_8830");
+  return [
+    {
+      tenCot: "KITCO — GIÁ VÀNG THẾ GIỚI",
+      apiTomTat: "historical/68 (XAU) → fallback chart 8830",
+      statusNgan: `68:${statusNganTuProbeRow(x68)} | 8830:${statusNganTuProbeRow(c8830)}`,
+    },
+    {
+      tenCot: "GIÁ DẦU",
+      apiTomTat: "chart 1178037 (WTI)",
+      statusNgan: statusNganTuProbeRow(m.get("chart_oil_1178037")),
+    },
+    {
+      tenCot: "DOLLAR INDEX",
+      apiTomTat: "chart 1224074",
+      statusNgan: statusNganTuProbeRow(m.get("chart_dxy_1224074")),
+    },
+    {
+      tenCot: "TRÁI PHIẾU US — 10 NĂM",
+      apiTomTat: "chart 23705",
+      statusNgan: statusNganTuProbeRow(m.get("chart_us10y_23705")),
+    },
+    {
+      tenCot: "S&P 500",
+      apiTomTat: "chart 166",
+      statusNgan: statusNganTuProbeRow(m.get("chart_sp500_166")),
+    },
+  ];
+}
+
+function statusRowFromChartProbe(
+  id: string,
+  labelVi: string,
+  p: InvestingChartDailyProbe,
+): InvestingApiCallStatusRow {
+  const ct = (p.contentType ?? "").toLowerCase();
+  return {
+    id,
+    labelVi,
+    kind: "chart",
+    url: p.chartUrl,
+    httpStatus: p.httpStatus,
+    httpOk: p.httpOk,
+    contentType: p.contentType,
+    responseLooksLikeJson:
+      p.httpOk && ct.includes("application/json") && !p.bodyIsProbablyHtml,
+    cloudflareChallengeHtml: probeLooksCloudflare403({
+      httpStatus: p.httpStatus,
+      contentType: p.contentType,
+      bodySnippet: p.bodySnippet,
+    }),
+    parseNote: p.parseNote,
+    metrics: {
+      pairId: p.pairId,
+      pointsTotalInResponse: p.pointsTotalInResponse,
+      pointsInFilterRange: p.pointsInFilterRange,
+      filterFrom: p.filterRange.from,
+      filterTo: p.filterRange.to,
+    },
+  };
+}
+
 export type InvestingDebugForApiResult = {
   /** Có khi mọi probe đều giống bị Cloudflare chặn — URL vẫn đúng. */
   accessBlocked?: {
@@ -654,5 +794,79 @@ export async function buildInvestingDebugForApi(
         sp500_166: cSp,
       },
     },
+  };
+}
+
+/** Gom probe `_debug` thành danh sách URL + HTTP status (đọc nhanh). */
+export function flattenInvestingDebugToApiCallStatuses(
+  d: InvestingDebugForApiResult,
+): InvestingApiCallStatusRow[] {
+  const { year, range } = d.april;
+  const aprilLabel = `tháng 4/${year} (${range.from} → ${range.to})`;
+  return [
+    statusRowFromXau68Probe(
+      "xau_historical_68_request_range",
+      "XAU/USD — bảng historical id 68",
+      "khoảng request",
+      d.investingXauHistorical68_forRequestRange,
+    ),
+    statusRowFromXau68Probe(
+      "xau_historical_68_april",
+      "XAU/USD — bảng historical id 68",
+      aprilLabel,
+      d.april.xauHistorical68,
+    ),
+    statusRowFromChartProbe(
+      "chart_xau_8830",
+      "XAU/USD — chart daily (pair 8830)",
+      d.april.chartsDaily.xauUsd8830,
+    ),
+    statusRowFromChartProbe(
+      "chart_oil_1178037",
+      "Dầu WTI — chart daily (1178037)",
+      d.april.chartsDaily.crudeOil1178037,
+    ),
+    statusRowFromChartProbe(
+      "chart_dxy_1224074",
+      "Dollar Index — chart daily (1224074)",
+      d.april.chartsDaily.dollarIndex1224074,
+    ),
+    statusRowFromChartProbe(
+      "chart_us10y_23705",
+      "US 10Y bond — chart daily (23705)",
+      d.april.chartsDaily.us10yBond23705,
+    ),
+    statusRowFromChartProbe(
+      "chart_sp500_166",
+      "S&P 500 — chart daily (166)",
+      d.april.chartsDaily.sp500_166,
+    ),
+  ];
+}
+
+/**
+ * Gọi đủ probe giống `_debug` full-table, trả về danh sách URL + status (không nhét raw JSON).
+ */
+export async function fetchInvestingApiCallStatusReport(
+  requestFrom: string,
+  requestTo: string,
+  aprilYearOverride?: number,
+): Promise<{
+  calls: InvestingApiCallStatusRow[];
+  khoiBangNgan: InvestingMarketBlockShortVi[];
+  accessBlocked: InvestingDebugForApiResult["accessBlocked"];
+  vercelMasterUrlHint: InvestingDebugForApiResult["vercelMasterUrlHint"];
+}> {
+  const debug = await buildInvestingDebugForApi(
+    requestFrom,
+    requestTo,
+    aprilYearOverride,
+  );
+  const calls = flattenInvestingDebugToApiCallStatuses(debug);
+  return {
+    calls,
+    khoiBangNgan: buildMarketBlocksShortViFromCalls(calls),
+    accessBlocked: debug.accessBlocked,
+    vercelMasterUrlHint: debug.vercelMasterUrlHint,
   };
 }

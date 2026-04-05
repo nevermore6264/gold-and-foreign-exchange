@@ -887,18 +887,21 @@ export default function Home() {
 
       try {
         fullTableApiDebugCaptureRef.current = null;
-        setFullTableApiDebugJson(
-          JSON.stringify(
-            {
-              trạng_thái: "đang_tải",
-              gợi_ý: apiDebug
-                ? "?apiDebug=1 — mọi chunk kèm debug=1 (chỉ JSON Investing)."
-                : "Đang lấy probe Investing (historical/68 + chart daily, tháng 4 theo năm `to`).",
-            },
-            null,
-            2,
-          ),
-        );
+        if (apiDebug) {
+          setFullTableApiDebugJson(
+            JSON.stringify(
+              {
+                trạng_thái: "đang_tải",
+                gợi_ý:
+                  "?apiDebug=1 — mọi chunk kèm debug=1 (probe Investing). Không bật apiDebug thì không gọi probe (tránh Cloudflare chậm trên Vercel).",
+              },
+              null,
+              2,
+            ),
+          );
+        } else {
+          setFullTableApiDebugJson(null);
+        }
         const chunks = splitRangeIntoYearChunks(from, to);
         const chunkTotal = Math.max(1, chunks.length);
         setTableLoadProgress({
@@ -923,20 +926,20 @@ export default function Home() {
           chunks.map(async ({ from: cf, to: ct }, chunkIndex) => {
             if (cancelled) return;
             try {
-              const withDebug =
-                apiDebug || chunkIndex === 0
-                  ? `&debug=1&debugAprilYear=${encodeURIComponent(aprilY)}`
-                  : "";
+              const withDebug = apiDebug
+                ? `&debug=1&debugAprilYear=${encodeURIComponent(aprilY)}`
+                : "";
+              /** Không dùng refresh=1 — để fast path đọc master (FULL_TABLE_MASTER_URL / file). refresh=1 bỏ qua master → Investing từ server hay 403 trên Vercel. */
               const res = await fetch(
-                `/api/full-table?from=${encodeURIComponent(cf)}&to=${encodeURIComponent(ct)}&refresh=1${withDebug}`,
+                `/api/full-table?from=${encodeURIComponent(cf)}&to=${encodeURIComponent(ct)}${withDebug}`,
                 { signal: controller.signal, cache: "no-store" },
               );
               const rawText = await res.text();
               if (!res.ok) {
-                const captureErr =
-                  chunkIndex === 0 ||
-                  (apiDebug && fullTableApiDebugCaptureRef.current === null);
-                if (captureErr) {
+                if (
+                  apiDebug &&
+                  fullTableApiDebugCaptureRef.current === null
+                ) {
                   fullTableApiDebugCaptureRef.current = JSON.stringify(
                     {
                       nguon: "investing.com (probe)",
@@ -948,10 +951,8 @@ export default function Home() {
                       query: {
                         from: cf,
                         to: ct,
-                        refresh: "1",
-                        ...(chunkIndex === 0 || apiDebug
-                          ? { debug: "1", debugAprilYear: aprilY }
-                          : {}),
+                        debug: "1",
+                        debugAprilYear: aprilY,
                       },
                     },
                     null,
@@ -969,10 +970,10 @@ export default function Home() {
               try {
                 data = JSON.parse(rawText) as typeof data;
               } catch (parseErr) {
-                const captureErr =
-                  chunkIndex === 0 ||
-                  (apiDebug && fullTableApiDebugCaptureRef.current === null);
-                if (captureErr) {
+                if (
+                  apiDebug &&
+                  fullTableApiDebugCaptureRef.current === null
+                ) {
                   fullTableApiDebugCaptureRef.current = JSON.stringify(
                     {
                       nguon: "investing.com (probe)",
@@ -986,20 +987,14 @@ export default function Home() {
                 return;
               }
               const rows = data.rows ?? [];
-              const captureOk =
-                chunkIndex === 0 ||
-                (apiDebug && fullTableApiDebugCaptureRef.current === null);
-              if (captureOk) {
+              if (apiDebug && fullTableApiDebugCaptureRef.current === null) {
                 fullTableApiDebugCaptureRef.current = JSON.stringify(
                   {
                     nguon: "investing.com (probe từ server)",
                     ghi_chu:
                       "Đây là `_debug` do /api/full-table gọi api.investing.com — không phải JSON merge của bảng.",
                     full_table_chunk: { from: cf, to: ct },
-                    debug_query:
-                      chunkIndex === 0 || apiDebug
-                        ? { debug: "1", debugAprilYear: aprilY }
-                        : undefined,
+                    debug_query: { debug: "1", debugAprilYear: aprilY },
                     investing: data._debug ?? null,
                   },
                   null,
@@ -1040,7 +1035,9 @@ export default function Home() {
             }
             return next;
           });
-          setFullTableApiDebugJson(fullTableApiDebugCaptureRef.current);
+          setFullTableApiDebugJson(
+            apiDebug ? fullTableApiDebugCaptureRef.current : null,
+          );
         }
       } catch {
         // ignore
@@ -2088,6 +2085,30 @@ export default function Home() {
                 </span>
               ) : null}
             </summary>
+            <p className="mt-1 text-[11px] text-amber-900/90 dark:text-amber-200/90">
+              Tóm tắt theo cột KITCO / Dầu / DXY / US10Y / S&P:{" "}
+              <code className="rounded bg-amber-200/70 px-1 dark:bg-amber-900/70">
+                investing.khoiBangNgan
+              </code>
+              . Chi tiết URL:{" "}
+              <code className="rounded bg-amber-200/70 px-1 dark:bg-amber-900/70">
+                apiCallStatuses
+              </code>{" "}
+              (kèm{" "}
+              <code className="rounded bg-amber-200/70 px-1 dark:bg-amber-900/70">
+                debug=1
+              </code>
+              ). Hoặc mở{" "}
+              <a
+                className="font-semibold underline decoration-amber-600/80 underline-offset-2 hover:text-amber-950 dark:hover:text-amber-50"
+                href={`/api/investing-status?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&debugAprilYear=${encodeURIComponent(to.slice(0, 4))}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                /api/investing-status
+              </a>{" "}
+              (chỉ status, gọn).
+            </p>
             <pre
               className="mt-2 max-h-[min(50vh,24rem)] overflow-auto rounded-md border border-amber-200 bg-white p-2 text-left text-[11px] leading-snug text-stone-800 dark:border-amber-900 dark:bg-stone-950 dark:text-stone-200"
               tabIndex={0}

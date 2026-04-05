@@ -21,7 +21,11 @@ import {
   readFullTableMaster,
   usesRemoteFullTableMaster,
 } from "@/lib/full-table-master-json";
-import { buildInvestingDebugForApi } from "@/lib/investing";
+import {
+  buildInvestingDebugForApi,
+  buildMarketBlocksShortViFromCalls,
+  flattenInvestingDebugToApiCallStatuses,
+} from "@/lib/investing";
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -29,8 +33,8 @@ export const revalidate = 0;
 export const maxDuration = 120;
 
 /**
- * Query: `refresh=1` — bỏ qua master JSON + file cache, gọi lại Investing (dùng khi cần khớp tức thì trang historical).
- * Query: `debug=1` — `_debug`: probe XAU `historical/68` cho khoảng request + **tháng 4** và chart daily.
+ * Query: `refresh=1` — bỏ qua master + file cache, luôn `getFullTableRange` (Investing từ server). Client **không** nên gửi luôn `refresh=1` — sẽ bỏ qua `FULL_TABLE_MASTER_URL` và hay 403 trên Vercel.
+ * Query: `debug=1` — `_debug`: probe + **`apiCallStatuses`** (URL + httpStatus từng request Investing).
  * Query: `debugAprilYear=YYYY` (kèm debug=1) — năm của tháng 4 probe (khớp năm đang xem khi chunk khác năm).
  * Env `FULL_TABLE_MASTER_URL` — master JSON tĩnh (Vercel: tránh Investing bị Cloudflare trên server).
  * CSV trên client lấy cùng JSON từ route này — không có pipeline CSV riêng.
@@ -71,7 +75,7 @@ export async function GET(request: NextRequest) {
         ? parseInt(debugAprilYearRaw, 10)
         : undefined;
 
-    const debugPayload =
+    const debugCore =
       debug && from && to
         ? await buildInvestingDebugForApi(
             from,
@@ -79,6 +83,20 @@ export async function GET(request: NextRequest) {
             Number.isFinite(debugAprilYear) ? debugAprilYear : undefined,
           )
         : undefined;
+
+    const debugPayload =
+      debugCore === undefined
+        ? undefined
+        : (() => {
+            const apiCallStatuses =
+              flattenInvestingDebugToApiCallStatuses(debugCore);
+            return {
+              ...debugCore,
+              apiCallStatuses,
+              khoiBangNgan:
+                buildMarketBlocksShortViFromCalls(apiCallStatuses),
+            };
+          })();
 
     const withDebug = <T extends object>(body: T) =>
       debugPayload !== undefined
